@@ -34,5 +34,19 @@ try{
  await page.emulateMedia({reducedMotion:'reduce'});await open();const reduced=await pos();await page.waitForTimeout(100);assert.deepEqual(await pos(),reduced);
  assert.equal(await edge('mobility-1').evaluate(e=>getComputedStyle(e).animationName),'none');assert.equal(await edge('mobility-1').evaluate(e=>getComputedStyle(e).strokeDasharray),'none');
  await page.locator('#fit').click();await page.locator('[data-id="nature"]').hover();assert.equal(await edge('nature').evaluate(e=>e.classList.contains('is-hovered')),true);
+ // Establish final geometry independently via the existing non-animated expand-all action.
+ await page.emulateMedia({reducedMotion:'no-preference'});await page.locator('#expand').click();
+ const expected=await pos(),expectedPath=await edge('mobility-1').getAttribute('d');
+ await page.locator('#collapse').click();await open();
+ await page.clock.runFor(416);assert.notDeepEqual(await pos(),expected);
+ await page.clock.runFor(20);assert.deepEqual(await pos(),expected);assert.equal(await edge('mobility-1').getAttribute('d'),expectedPath);
+ await page.clock.runFor(563);assert.deepEqual(await page.locator('.is-presenting').evaluateAll(els=>els.map(e=>e.dataset.child)),['mobility-1']);
+ await page.clock.runFor(1);assert.equal(await page.locator('.is-presenting').count(),0);
+ await page.locator('#collapse').click();await page.emulateMedia({reducedMotion:'reduce'});await open();
+ assert.deepEqual(await pos(),expected);assert.equal(await edge('mobility-1').getAttribute('d'),expectedPath);
+ assert.deepEqual(await page.locator('.is-presenting').evaluateAll(els=>els.map(e=>e.dataset.child)),['mobility-1']);
+ assert.ok(await edge('mobility-1').evaluate(e=>parseFloat(getComputedStyle(e).strokeWidth))>3);
+ assert.notEqual(await edge('mobility-1').evaluate(e=>getComputedStyle(e).filter),'none');
+ await page.clock.runFor(600);assert.deepEqual(await pos(),expected);assert.equal(await edge('mobility-1').getAttribute('d'),expectedPath);
  assert.deepEqual(errors,[]);console.log('PASS MOT-01..05');
 }finally{await browser.close();}
