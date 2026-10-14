@@ -12,6 +12,8 @@ Clique no título de um card com filhos (ou use Enter/Espaço) para expandir/rec
 
 `node tests/cards.mjs` verifica títulos, raiz, teclado e imagens nos três níveis com a mesma configuração de navegador abaixo.
 
+Abrir um card movimenta os nós e suas linhas por 420 ms. A conexão ao primeiro filho recebe um destaque de apresentação por 1 segundo. Passar o mouse sobre um card destaca apenas sua linha de entrada. A preferência de movimento reduzido desativa movimento e desenho progressivo, mantendo o realce estático. `node tests/motion.mjs` verifica esses efeitos, incluindo alternâncias rápidas.
+
 ## Testes
 
 `npm test` executa os testes de modelo com Node. Para navegador, disponibilize playwright-core, configure PLAYWRIGHT_MODULE com seu caminho absoluto e execute `node tests/browser.mjs` com o servidor ativo. BROWSER_EXECUTABLE permite selecionar Chromium; PREVIEW_URL permite mudar a porta.

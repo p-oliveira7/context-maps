@@ -1,4 +1,5 @@
 import {tree,visibleNodes,allBranches,zoomAt} from './model.js';
+import {cancelMotion,snapshot,animateLayout,hoverEdge,updateEdges} from './motion.js';
 const $=s=>document.querySelector(s), viewport=$('#viewport'), world=$('#world');
 let expanded=new Set(['root']), camera={x:0,y:0,scale:1}, reading=false, bounds={width:1,height:1};
 function updateCamera(){world.style.transform=`translate(${camera.x}px, ${camera.y}px) scale(${camera.scale})`;$('#zoom-level').textContent=`${Math.round(camera.scale*100)}%`;}
@@ -10,10 +11,12 @@ function imageButton(node){
  button.onclick=()=>{const img=$('dialog img');img.src=node.image.src;img.alt=node.image.alt;$('dialog p').textContent=node.image.alt;$('dialog').showModal();};return button;
 }
 function render(){
+ cancelMotion();
  const container=$('#nodes');container.replaceChildren();$('#connections').replaceChildren();
  const visible=visibleNodes(tree,expanded), elements=new Map(), positions=new Map();
  for(const node of visible){
   const el=document.createElement('section');el.className=`node ${node.id==='root'?'root':node.children.length?'branch':'leaf'}`;el.dataset.id=node.id;
+  el.addEventListener('pointerenter',()=>hoverEdge(node.id,true));el.addEventListener('pointerleave',()=>hoverEdge(node.id,false));
   if(node.image){el.classList.add('has-image');el.append(imageButton(node));}
   if(node.id==='root'){
    const label=document.createElement('span');label.className='root-label';label.textContent='CIDADES POSSÍVEIS';el.append(label);
@@ -27,7 +30,7 @@ function render(){
   }
   const text=el.querySelector(node.id==='root'?'h1':'p');
   if(node.children.length){
-   const change=selector=>{const old=positions.get(node.id),oldY=old.y+el.offsetHeight/2;expanded.has(node.id)?expanded.delete(node.id):expanded.add(node.id);render();const next=document.querySelector(`[data-id="${node.id}"]`);camera.y+=(oldY-(parseFloat(next.style.top)+next.offsetHeight/2))*camera.scale;updateCamera();next.querySelector(selector).focus({preventScroll:true});};
+   const change=selector=>{const before=snapshot(camera),oldY=parseFloat(el.style.top)+el.offsetHeight/2,opening=!expanded.has(node.id);opening?expanded.add(node.id):expanded.delete(node.id);render();const next=document.querySelector(`[data-id="${node.id}"]`);camera.y+=(oldY-(parseFloat(next.style.top)+next.offsetHeight/2))*camera.scale;updateCamera();next.querySelector(selector).focus({preventScroll:true});animateLayout(before,camera,node.id,opening?node.children[0]?.id:null);};
    const title=document.createElement('button');title.className='node-title';title.textContent=node.title;title.setAttribute('aria-expanded',String(expanded.has(node.id)));title.onclick=()=>change('.node-title');text.append(title);
    const toggle=document.createElement('button');toggle.className='toggle';toggle.textContent=expanded.has(node.id)?'−':'+';toggle.setAttribute('aria-expanded',String(expanded.has(node.id)));toggle.setAttribute('aria-label',`${expanded.has(node.id)?'Recolher':'Expandir'}: ${node.title}`);toggle.onclick=()=>change('.toggle');el.append(toggle);
   }else{text.textContent=node.title;}
@@ -44,8 +47,9 @@ function render(){
  const total=Math.max(y-42,elements.get('root').offsetHeight);
  positions.set('root',{x:0,y:(total-elements.get('root').offsetHeight)/2});
  for(const [id,p] of positions){const el=elements.get(id);el.style.left=`${p.x}px`;el.style.top=`${p.y}px`;}
- function connect(parent,child,color){const p=positions.get(parent.id),c=positions.get(child.id),pe=elements.get(parent.id),ce=elements.get(child.id);const x1=p.x+pe.offsetWidth+ (parent.id==='root'?15:42),y1=p.y+pe.offsetHeight/2,x2=c.x-12,y2=c.y+ce.offsetHeight/2,mid=(x1+x2)/2;const path=document.createElementNS('http://www.w3.org/2000/svg','path');path.setAttribute('d',`M${x1},${y1} H${mid} V${y2} H${x2}`);path.setAttribute('stroke',color);$('#connections').append(path);}
+ function connect(parent,child,color){const path=document.createElementNS('http://www.w3.org/2000/svg','path');path.dataset.parent=parent.id;path.dataset.child=child.id;path.style.color=color;path.setAttribute('stroke',color);$('#connections').append(path);}
  for(const branch of expanded.has('root')?tree.children:[]){connect(tree,branch,branch.color);if(expanded.has(branch.id))for(const kid of branch.children)connect(branch,kid,branch.color);}
+ updateEdges();
  bounds={width:Math.max(...[...positions].map(([id,p])=>p.x+elements.get(id).offsetWidth+(elements.get(id).querySelector('.toggle')?40:0))),height:total};
  $('#counter').textContent=`${visible.length} de 17 ideias visíveis`;updateCamera();
 }
