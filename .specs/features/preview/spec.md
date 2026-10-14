@@ -47,14 +47,14 @@ WHEN recarregar THEN o sistema SHALL retornar ao estado inicial MAP-01.
 
 | Requirement ID | Story | Phase | Status |
 | --- | --- | --- | --- |
-| MAP-01 | P1 | Execute | Pending |
-| MAP-02 | P1 | Execute | Pending |
-| MAP-03 | P1 | Execute | Pending |
-| MAP-04 | P1 | Execute | Pending |
-| MAP-05 | P1 | Execute | Pending |
-| MAP-06 | P1 | Execute | Pending |
-| MAP-07 | P1 | Execute | Pending |
-| MAP-08 | P1 | Execute | Pending |
+| MAP-01 | P1 | Execute | Verified |
+| MAP-02 | P1 | Execute | Verified |
+| MAP-03 | P1 | Execute | Verified |
+| MAP-04 | P1 | Execute | Verified |
+| MAP-05 | P1 | Execute | Verified |
+| MAP-06 | P1 | Execute | Verified |
+| MAP-07 | P1 | Execute | Verified |
+| MAP-08 | P1 | Execute | Verified |
 
 ## Success Criteria
 
