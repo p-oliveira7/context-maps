@@ -8,6 +8,10 @@ Na pasta do projeto, execute `python -m http.server 4173 --bind 127.0.0.1` e abr
 
 Arraste o fundo para navegar, role para zoom, clique nos botões + dos ramos. Enquadrar recentraliza. O modo texto preserva a câmera e a expansão. O estado reinicia ao recarregar.
 
+Clique no título de um card com filhos (ou use Enter/Espaço) para expandir/recolher. O título da raiz permite deixar apenas o primeiro card; reabrir preserva ramos abertos. Qualquer nó em model.js pode receber `image: {src: 'arquivo.svg', alt: 'Descrição'}`. A imagem é opcional, aparece também no modo texto e abre ampliada no mapa, sem recolher o ramo. Há exemplos na raiz, em Natureza e na primeira folha desse ramo.
+
+`node tests/cards.mjs` verifica títulos, raiz, teclado e imagens nos três níveis com a mesma configuração de navegador abaixo.
+
 ## Testes
 
 `npm test` executa os testes de modelo com Node. Para navegador, disponibilize playwright-core, configure PLAYWRIGHT_MODULE com seu caminho absoluto e execute `node tests/browser.mjs` com o servidor ativo. BROWSER_EXECUTABLE permite selecionar Chromium; PREVIEW_URL permite mudar a porta.
