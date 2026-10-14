@@ -1,0 +1,109 @@
+{
+  "id": "cidades-para-pessoas",
+  "tree": {
+    "id": "root",
+    "title": "E se a cidade fosse feita para as pessoas?",
+    "children": [
+      {
+        "id": "mobility",
+        "title": "Como queremos nos mover?",
+        "color": "#c76a61",
+        "children": [
+          {
+            "id": "mobility-1",
+            "title": "Calçadas que convidam a caminhar",
+            "children": []
+          },
+          {
+            "id": "mobility-2",
+            "title": "Bicicletas conectadas ao transporte público",
+            "children": []
+          },
+          {
+            "id": "mobility-3",
+            "title": "Menos tempo no trânsito, mais tempo de vida",
+            "children": []
+          }
+        ]
+      },
+      {
+        "id": "nature",
+        "title": "Onde a natureza encontra a cidade?",
+        "color": "#d41197",
+        "children": [
+          {
+            "id": "nature-1",
+            "title": "Uma árvore muda a experiência de uma rua",
+            "children": [],
+            "image": {
+              "src": "park.svg",
+              "alt": "Árvores oferecendo sombra ao caminho do parque"
+            }
+          },
+          {
+            "id": "nature-2",
+            "title": "Rios vivos, margens acessíveis",
+            "children": []
+          },
+          {
+            "id": "nature-3",
+            "title": "Pequenos parques a poucos passos de casa",
+            "children": []
+          }
+        ],
+        "image": {
+          "src": "park.svg",
+          "alt": "Parque com árvores e um caminho junto ao rio"
+        }
+      },
+      {
+        "id": "community",
+        "title": "O que nos aproxima uns dos outros?",
+        "color": "#a39acb",
+        "children": [
+          {
+            "id": "community-1",
+            "title": "Praças como salas de estar coletivas",
+            "children": []
+          },
+          {
+            "id": "community-2",
+            "title": "Cultura e comércio de bairro",
+            "children": []
+          },
+          {
+            "id": "community-3",
+            "title": "Espaços para todas as idades",
+            "children": []
+          }
+        ]
+      },
+      {
+        "id": "future",
+        "title": "Por onde começamos a mudança?",
+        "color": "#d98757",
+        "children": [
+          {
+            "id": "future-1",
+            "title": "Ouvir quem já vive o lugar",
+            "children": []
+          },
+          {
+            "id": "future-2",
+            "title": "Testar em uma rua antes de ampliar",
+            "children": []
+          },
+          {
+            "id": "future-3",
+            "title": "Medir o que melhora a vida cotidiana",
+            "children": []
+          }
+        ]
+      }
+    ],
+    "image": {
+      "src": "city.svg",
+      "alt": "Cidade com árvores, caminhos e edifícios em tons verdes"
+    }
+  }
+}

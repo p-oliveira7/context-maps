@@ -21,3 +21,13 @@ Abrir um card movimenta os nós e suas linhas por 420 ms. A conexão ao primeiro
 ## Limites da prévia
 
 Um mapa demonstrativo de 17 ideias, sem editor ou salvamento. Mobile oferece pan com um dedo e botões de zoom; pinch não implementado. Expansão global enquadra o resultado: escolha deliberada de usabilidade, diferente da referência. Ilustração feita como SVG próprio; nenhuma mídia ou texto editorial da referência foi reutilizado. Nenhuma publicação automática.
+
+## Modo de edição e apresentações
+
+Execute `node server.mjs` (sem dependências) e abra http://127.0.0.1:4173. O servidor serve o app e grava cada apresentação como um arquivo JSON em `presentations/` (imagens enviadas ficam em `presentations/<id>/assets/`), prontos para versionar com Git. Sem o servidor (por exemplo, com `python -m http.server`), o app abre somente em modo de exibição com o mapa de demonstração.
+
+- **Switch "Editar"** na barra inferior alterna entre exibição e edição.
+- **Edição:** clique no texto para editar (Enter confirma). Ao passar o mouse sobre uma ideia aparecem: + Filho, + Irmão, Imagem, Sem imagem, cor (ramos principais) e Excluir. A profundidade é livre.
+- **Salvamento automático** a cada alteração; o estado aparece ao lado do nome da apresentação.
+- **Apresentações:** o menu no canto superior esquerdo troca, cria (+ Nova apresentação) ou exclui a apresentação atual.
+- `PORT` e `PRESENTATIONS_DIR` configuram porta e pasta. `node tests/edit.mjs` sobe um servidor temporário e verifica o fluxo completo.
