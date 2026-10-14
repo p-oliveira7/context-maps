@@ -44,12 +44,12 @@ WHERE o nó não possui filhos o sistema SHALL manter o título não interativo 
 
 | Requirement ID | Story | Phase | Status |
 | --- | --- | --- | --- |
-| CARD-01 | P1 | Execute | Pending |
-| CARD-02 | P1 | Execute | Pending |
-| CARD-03 | P1 | Execute | Pending |
-| CARD-04 | P1 | Execute | Pending |
-| CARD-05 | P1 | Execute | Pending |
-| CARD-06 | P1 | Execute | Pending |
+| CARD-01 | P1 | Execute | Verified |
+| CARD-02 | P1 | Execute | Verified |
+| CARD-03 | P1 | Execute | Verified |
+| CARD-04 | P1 | Execute | Verified |
+| CARD-05 | P1 | Execute | Verified |
+| CARD-06 | P1 | Execute | Verified |
 
 ## Success Criteria
 
