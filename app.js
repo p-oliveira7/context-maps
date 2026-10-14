@@ -75,7 +75,7 @@ $('#expand').onclick=()=>{expanded=allBranches(tree);render();fit();};
 $('#collapse').onclick=()=>{expanded=new Set(['root']);render();fit();};
 $('#fit').onclick=fit;$('#zoom-in').onclick=()=>zoom(1.2);$('#zoom-out').onclick=()=>zoom(1/1.2);
 $('#mode').onclick=()=>{reading=!reading;viewport.hidden=reading;$('#reading').hidden=!reading;for(const id of ['tree-controls','zoom-controls'])$('#'+id).hidden=reading;$('#mode-label').textContent=reading?'Mapa mental':'Modo texto';$('#mode').setAttribute('aria-pressed',String(reading));};
-$('#close-dialog').onclick=()=>$('dialog').close();$('dialog').addEventListener('click',e=>{if(e.target===$('dialog')){const r=e.target.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)e.target.close();}});
+$('#close-dialog').onclick=()=>$('dialog').close();$('dialog').addEventListener('click',()=>$('dialog').close());
 viewport.addEventListener('wheel',e=>{e.preventDefault();const r=viewport.getBoundingClientRect();zoom(Math.exp(-e.deltaY*.0015),{x:e.clientX-r.left,y:e.clientY-r.top});},{passive:false});
 viewport.addEventListener('dragstart',e=>e.preventDefault());
 let drag=null;
