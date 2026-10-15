@@ -31,3 +31,5 @@ Execute `node server.mjs` (sem dependências) e abra http://127.0.0.1:4173. O se
 - **Salvamento automático** a cada alteração; o estado aparece ao lado do nome da apresentação.
 - **Apresentações:** o menu no canto superior esquerdo troca, cria (+ Nova apresentação) ou exclui a apresentação atual.
 - `PORT` e `PRESENTATIONS_DIR` configuram porta e pasta. `node tests/edit.mjs` sobe um servidor temporário e verifica o fluxo completo.
+- **Diagramas:** em edição, "+ Diagrama" (ou "Editar diagrama") abre um editor Mermaid com pré-visualização ao vivo; ao aplicar, o SVG é salvo como imagem do nó e o código fica em image.source. O Mermaid (`vendor/mermaid.min.js`, MIT) é carregado só nesse momento; fora dele o app segue sem dependências.
+- **Várias mídias por ideia:** cada ideia aceita qualquer quantidade de imagens e diagramas ("+ Imagem" aceita vários arquivos; "+ Diagrama" adiciona outro). Em edição, cada mídia tem "Editar" (diagramas) e "×". Ao ampliar, setas ‹ › ou ← → navegam entre elas. Apresentações antigas com uma única imagem são migradas ao salvar.

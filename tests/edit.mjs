@@ -58,10 +58,78 @@ try{
 
  const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==','base64'); // EDIT-06: imagem
  await page.locator('[data-id="community"] input[type=file]').setInputFiles({name:'foto teste.png',mimeType:'image/png',buffer:png});
- await until(async()=>(await onDisk(id)).tree.children[2].image,'imagem não salva');
- const src=(await onDisk(id)).tree.children[2].image.src;assert.match(src,/^presentations\/cidades-para-pessoas\/assets\/foto-teste-.*\.png$/);
+ await until(async()=>(await onDisk(id)).tree.children[2].images?.length===1,'imagem não salva');
+ const src=(await onDisk(id)).tree.children[2].images[0].src;assert.match(src,/^presentations\/cidades-para-pessoas\/assets\/foto-teste-.*\.png$/);
  assert.equal((await page.request.get(`${base}/${src}`)).status(),200);
  assert.equal(await page.locator('[data-id="community"] .image-button img').count(),1);
+
+ // EDIT-11: editor de diagramas Mermaid
+ await page.locator('[data-id="community"] .toggle').click();
+ await page.locator('[data-id="community-1"] [aria-label^="Adicionar diagrama"]').click();
+ const modal=page.locator('#diagram-editor');await modal.waitFor();
+ await page.locator('#diagram-preview svg').waitFor({timeout:30000});
+ assert.equal(await page.locator('#diagram-apply').isEnabled(),true);
+ await page.locator('#diagram-source').fill('flowchart LR\n  X[Entrada] --> Y[Saída]');
+ await page.locator('#diagram-preview svg').filter({hasText:'Entrada'}).waitFor({timeout:30000});
+ await page.locator('#diagram-source').fill('flowchart LR\n  X[ --> ');
+ await page.locator('#diagram-error:not(:empty)').waitFor({timeout:30000});
+ assert.equal(await page.locator('#diagram-apply').isDisabled(),true);
+ await page.locator('#diagram-source').fill('flowchart LR\n  X[Entrada] --> Y[Saída]');
+ await page.locator('#diagram-apply:enabled').click();await modal.waitFor({state:'hidden'});
+ await until(async()=>(await onDisk(id)).tree.children[2].children[0].images?.[0]?.kind==='diagram','diagrama não salvo');
+ const diagram=(await onDisk(id)).tree.children[2].children[0].images[0];
+ assert.match(diagram.source,/Entrada/);assert.match(diagram.src,/\.svg$/);
+ assert.equal((await page.request.get(`${base}/${diagram.src}`)).status(),200);
+ assert.match(await (await page.request.get(`${base}/${diagram.src}`)).text(),/<svg/);
+ assert.equal(await page.locator('[data-id="community-1"] .image-button.is-diagram').count(),1);
+ await page.locator('[data-id="community-1"] [aria-label^="Editar diagrama"]').click(); // reabre com o código salvo
+ assert.match(await page.locator('#diagram-source').inputValue(),/Entrada/);
+ await page.keyboard.press('Escape');await modal.waitFor({state:'hidden'});
+
+ // EDIT-12: várias imagens e diagramas no mesmo card
+ await page.locator('[data-id="community-1"] input[type=file]').setInputFiles([{name:'a.png',mimeType:'image/png',buffer:png},{name:'b.png',mimeType:'image/png',buffer:png}]);
+ await until(async()=>(await onDisk(id)).tree.children[2].children[0].images.length===3,'duas imagens não adicionadas');
+ await page.locator('[data-id="community-1"] [aria-label^="Adicionar diagrama"]').click();
+ await page.locator('#diagram-preview svg').waitFor({timeout:30000});
+ await page.locator('#diagram-apply:enabled').click();await modal.waitFor({state:'hidden'});
+ await until(async()=>(await onDisk(id)).tree.children[2].children[0].images.length===4,'segundo diagrama não salvo');
+ assert.deepEqual((await onDisk(id)).tree.children[2].children[0].images.map(i=>i.kind||'image'),['diagram','image','image','diagram']);
+ assert.equal(await page.locator('[data-id="community-1"] .image-button').count(),4);
+ assert.equal(await page.locator('[data-id="community-1"] .image-button.is-diagram').count(),2);
+ await page.locator('[data-id="community-1"] .image-button').nth(3).evaluate(e=>e.click()); // lightbox com navegação
+ assert.equal(await page.locator('#lightbox-count').textContent(),'4 / 4');
+ await page.keyboard.press('ArrowRight');assert.equal(await page.locator('#lightbox-count').textContent(),'1 / 4');
+ await page.keyboard.press('ArrowLeft');assert.equal(await page.locator('#lightbox-count').textContent(),'4 / 4');
+ await page.keyboard.press('Escape');
+ await page.locator('[data-id="community-1"] [aria-label^="Remover imagem"]').nth(1).evaluate(e=>e.click());
+ await until(async()=>(await onDisk(id)).tree.children[2].children[0].images.length===3,'remoção não salva');
+ await page.locator('[data-id="community-1"] .node-badge').waitFor();
+
+ // EDIT-13: links abaixo do card
+ promptAnswer='https://example.com/docs';
+ await page.locator('[data-id="community-2"] [aria-label^="Adicionar link"]').click();
+ await until(async()=>(await onDisk(id)).tree.children[2].children[1].links?.[0]?.url==='https://example.com/docs','link não salvo');
+ assert.equal(await page.locator('[data-id="community-2"] .link-chip a').getAttribute('href'),'https://example.com/docs');
+ promptAnswer='javascript:alert(1)';
+ await page.locator('[data-id="community-2"] [aria-label^="Adicionar link"]').click();
+ await new Promise(r=>setTimeout(r,700));
+ assert.equal((await onDisk(id)).tree.children[2].children[1].links.length,1); // protocolo inseguro recusado
+ promptAnswer='exemplo.org/guia';
+ await page.locator('[data-id="community-2"] [aria-label^="Adicionar link"]').click();
+ await until(async()=>(await onDisk(id)).tree.children[2].children[1].links?.length===2,'segundo link não salvo');
+ assert.equal((await onDisk(id)).tree.children[2].children[1].links[1].url,'https://exemplo.org/guia');
+ await sw.click(); // exibição: selo "2 links" com lista
+ const badge=page.locator('[data-id="community-2"] .link-badge');
+ assert.match(await badge.textContent(),/2 links/);
+ await badge.click();
+ assert.deepEqual(await page.locator('[data-id="community-2"] .link-menu a').evaluateAll(a=>a.map(x=>x.getAttribute('href'))),['https://example.com/docs','https://exemplo.org/guia']);
+ assert.equal(await page.locator('[data-id="community-2"] .link-menu a').first().getAttribute('target'),'_blank');
+ await sw.click(); // edição: remover um link
+ await page.locator('[data-id="community-2"] [aria-label^="Remover link"]').first().click();
+ await until(async()=>(await onDisk(id)).tree.children[2].children[1].links.length===1,'remoção do link não salva');
+ await page.locator('[data-id="community-2"] [aria-label^="Remover link"]').first().click();
+ await until(async()=>(await onDisk(id)).tree.children[2].children[1].links===undefined,'links não removidos');
+ promptAnswer='Minha apresentação';
 
  await page.locator('[data-id="future"] .color-input').evaluate((e,v)=>{e.value=v;e.dispatchEvent(new Event('change',{bubbles:true}));},'#00aa55'); // cor do ramo
  await until(async()=>(await onDisk(id)).tree.children[3].color==='#00aa55','cor não salva');
@@ -93,5 +161,5 @@ try{
 
  const traversal=await page.request.get(`${base}/presentations/..%2fserver.mjs`);assert.equal(traversal.status(),404); // segurança básica
  assert.equal((await page.request.get(`${base}/server.mjs`)).status(),404);
- assert.deepEqual(errors,[]);console.log('PASS EDIT-01..10');
+ assert.deepEqual(errors,[]);console.log('PASS EDIT-01..13');
 }finally{await browser.close();server.kill();await rm(dir,{recursive:true,force:true});}

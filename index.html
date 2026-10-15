@@ -1,12 +1,19 @@
 <!doctype html>
 <html lang="pt-BR">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#121212"><title>Cidades para pessoas · Response Maps</title><link rel="stylesheet" href="styles.css?v=2"></head>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#121212"><title>Cidades para pessoas · Response Maps</title><link rel="stylesheet" href="styles.css?v=6"></head>
 <body>
  <main id="viewport" aria-label="Mapa interativo: arraste o fundo para navegar"><div id="world"><svg id="connections" aria-hidden="true"></svg><div id="nodes"></div></div></main>
  <div id="doc-bar" class="doc-bar"><button id="doc-button" aria-haspopup="menu" aria-expanded="false"><span id="doc-title"></span><svg viewBox="0 0 12 12" aria-hidden="true"><path d="m3 4.5 3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><span id="save-status" role="status" aria-live="polite"></span><div id="doc-menu" role="menu" hidden><div id="doc-list"></div><button id="doc-new" type="button" role="menuitem">+ Nova apresentação</button><button id="doc-delete" type="button" role="menuitem" class="danger">Excluir esta apresentação</button></div></div>
  <article id="reading" hidden></article>
  <div class="zoom-controls" id="zoom-controls"><button id="zoom-out" aria-label="Diminuir zoom">−</button><output id="zoom-level">100%</output><button id="zoom-in" aria-label="Aumentar zoom">+</button><span></span><button id="fit" aria-label="Enquadrar mapa" title="Enquadrar mapa">⌗</button></div>
  <nav class="toolbar" aria-label="Controles do mapa"><button id="edit-switch" class="switch" role="switch" aria-checked="false"><span class="switch-track" aria-hidden="true"><span class="switch-knob"></span></span>Editar</button><div id="tree-controls"><button id="expand"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M7 1.5h3.5V5M5 10.5H1.5V7M10.5 1.5 7 5M1.5 10.5 5 7" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Expandir tudo</button><button id="collapse"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M10.5 5H7V1.5M1.5 7H5v3.5M7 5l3.5-3.5M5 7l-3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Recolher tudo</button></div><button id="mode" aria-pressed="false"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M1.5 3h9M1.5 6h9M1.5 9h9" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg><span id="mode-label">Modo texto</span></button></nav>
- <dialog aria-label="Ilustração da cidade"><button id="close-dialog" aria-label="Fechar imagem">×</button><img src="city.svg" alt="Ilustração original de uma cidade verde, com edifícios, árvores, sol e caminhos"><p>Cidades possíveis — ilustração original</p></dialog>
- <script type="module" src="app.js?v=2"></script>
+ <dialog aria-label="Ilustração da cidade"><button id="close-dialog" aria-label="Fechar imagem">×</button><button id="lightbox-prev" aria-label="Imagem anterior" hidden>‹</button><button id="lightbox-next" aria-label="Próxima imagem" hidden>›</button><span id="lightbox-count" hidden></span><img src="city.svg" alt="Ilustração original de uma cidade verde, com edifícios, árvores, sol e caminhos"><p>Cidades possíveis — ilustração original</p></dialog>
+ <div id="diagram-editor" class="modal" role="dialog" aria-modal="true" aria-labelledby="diagram-heading" hidden>
+  <div class="modal-card">
+   <header><h2 id="diagram-heading">Diagrama (Mermaid)</h2><button id="diagram-cancel" type="button" aria-label="Fechar editor de diagrama">×</button></header>
+   <div class="modal-body"><textarea id="diagram-source" spellcheck="false" aria-label="Código Mermaid"></textarea><div id="diagram-preview" aria-live="polite"></div></div>
+   <footer><span id="diagram-error" role="alert"></span><button id="diagram-apply" type="button">Aplicar</button></footer>
+  </div>
+ </div>
+ <script type="module" src="app.js?v=6"></script>
 </body></html>
