@@ -87,7 +87,7 @@ export function parseOutline(text){
   s=s.replace(RE_MEDIA,'');
   const col=s.match(RE_COLOR);if(col){node.color=col[1];s=s.replace(RE_COLOR,'');}
   node.title=s.replace(/\s+/g,' ').trim();
-  if(!node.title)warnings.push(t('warnNoText',lineNo));
+  if(!node.title&&!node._media.length)warnings.push(t('warnNoText',lineNo));
   if(node.title.length>MAX_TITLE)warnings.push(t('warnLong',lineNo,node.title.length,MAX_TITLE));
  };
  lines.forEach((line,i)=>{

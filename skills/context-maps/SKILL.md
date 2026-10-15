@@ -54,6 +54,7 @@ CLI: `node skills/context-maps/scripts/rm.mjs <command>` (from the app root).
 - `# Title` (first line) becomes the root and the presentation name.
 - Each `-` is an idea; indentation (2 spaces or a tab) defines the hierarchy.
 - `{color=#rrggbb}` only has effect on first-level branches.
+- A bullet may have **no title** when it carries a marker (e.g. `- [mermaid:flow.mmd]` or `- [subtitle:note]`): the card then shows only the media / secondary text.
 - `[subtitle:Supporting text]` adds a subtitle shown only while hovering the card (no `]` inside).
 - `[link:https://site.com|Label]` adds a clickable link below the card (label optional; several allowed; http/https only).
 - An idea can have **several** media items: repeat the markers (`[img:a.png|A] [mermaid:flow.mmd] [img:b.png|B]`); they stack in the card, in the order written.

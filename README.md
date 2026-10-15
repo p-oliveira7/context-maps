@@ -105,6 +105,7 @@ Turn on the **Edit** switch in the bottom bar.
 | Add an idea | **+ Child**, **+ Sibling** (after), **+ Before** (sibling before) or **+ Parent** (wraps the idea in a new parent card); unlimited depth |
 | Images | **+ Image** (accepts several files); **×** removes one |
 | Diagrams | **+ Diagram** opens the Mermaid editor with live preview; **Edit** reopens it |
+| Title-less cards | Clear the title of a card that has an image/diagram or a subtitle: it then shows only that content (a subtitle-only card shows the subtitle permanently) |
 | Subtitle | Type in the "Subtitle" field under the title (clear it to remove); shown on hover in view mode |
 | Links | **+ Link** (http/https); chips with **×** to remove |
 | Branch colour | Colour picker on first-level branches |

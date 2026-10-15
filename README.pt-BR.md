@@ -105,6 +105,7 @@ Ative o switch **Editar** na barra inferior.
 | Adicionar ideia | **+ Filho**, **+ Irmão** (depois), **+ Antes** (irmão antes) ou **+ Pai** (envolve a ideia num novo card pai); profundidade livre |
 | Imagens | **+ Imagem** (aceita vários arquivos); **×** remove uma |
 | Diagramas | **+ Diagrama** abre o editor Mermaid com pré-visualização ao vivo; **Editar** reabre |
+| Cards sem título | Apague o título de um card que tenha imagem/diagrama ou subtítulo: ele passa a mostrar só esse conteúdo (card só com subtítulo mostra o subtítulo o tempo todo) |
 | Subtítulo | Digite no campo "Subtítulo" abaixo do título (apague para remover); aparece no hover na exibição |
 | Links | **+ Link** (http/https); chips com **×** para remover |
 | Cor do ramo | Seletor de cor nos ramos de primeiro nível |

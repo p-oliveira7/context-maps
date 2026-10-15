@@ -148,6 +148,36 @@ try{
 
  await page.locator('[data-id="future"] .color-input').evaluate((e,v)=>{e.value=v;e.dispatchEvent(new Event('change',{bubbles:true}));},'#00aa55'); // cor do ramo
  await until(async()=>(await onDisk(id)).tree.children[3].color==='#00aa55','cor não salva');
+ // EDIT-16: cards sem título (só mídia / só texto secundário)
+ const rootKids=async()=>(await onDisk(id)).tree.children;
+ const before=(await rootKids()).length;
+ await page.locator('[data-id="root"] [aria-label^="Adicionar filho"]').click();
+ await until(async()=>(await rootKids()).length===before+1,'filho não criado');
+ const imgId=(await rootKids()).at(-1).id;
+ await page.locator(`[data-id="${imgId}"] input[type=file]`).setInputFiles({name:'solo.png',mimeType:'image/png',buffer:png});
+ await until(async()=>(await rootKids()).at(-1).images?.length===1,'imagem do card sem título não salva');
+ await page.locator(`[data-id="${imgId}"] p:not(.node-subtitle)`).fill('');
+ await page.locator(`[data-id="${imgId}"] p:not(.node-subtitle)`).evaluate(e=>e.blur());
+ await until(async()=>(await rootKids()).at(-1).title==='','título vazio não mantido com imagem');
+ await page.locator('[data-id="root"] [aria-label^="Adicionar filho"]').click();
+ await until(async()=>(await rootKids()).length===before+2,'segundo filho não criado');
+ const subId=(await rootKids()).at(-1).id;
+ await page.locator(`[data-id="${subId}"] .node-subtitle`).fill('Só texto secundário');
+ await page.locator(`[data-id="${subId}"] p:not(.node-subtitle)`).fill('');
+ await page.locator(`[data-id="${subId}"] p:not(.node-subtitle)`).evaluate(e=>e.blur());
+ await until(async()=>{const n=(await rootKids()).at(-1);return n.title===''&&n.subtitle==='Só texto secundário';},'card só com subtítulo não salvo');
+ await page.locator('[data-id="root"] [aria-label^="Adicionar filho"]').click();
+ await until(async()=>(await rootKids()).length===before+3,'terceiro filho não criado');
+ const emptyId=(await rootKids()).at(-1).id;
+ await page.locator(`[data-id="${emptyId}"] p:not(.node-subtitle)`).fill('');
+ await page.locator(`[data-id="${emptyId}"] p:not(.node-subtitle)`).evaluate(e=>e.blur());
+ await until(async()=>(await rootKids()).at(-1).title==='Nova ideia','card totalmente vazio deveria voltar ao padrão');
+ await sw.click(); // exibição: sem título visível, subtítulo sempre visível
+ assert.equal(await page.locator(`[data-id="${imgId}"] p:not(.node-subtitle)`).isHidden(),true);
+ assert.equal(await page.locator(`[data-id="${imgId}"] .image-button`).count(),1);
+ assert.equal(await page.locator(`[data-id="${subId}"] .node-subtitle`).evaluate(e=>getComputedStyle(e).opacity),'1');
+ assert.equal(await page.locator(`[data-id="${subId}"] p:not(.node-subtitle)`).isHidden(),true);
+ await sw.click();
  // EDIT-15: inserir pai e inserir antes
  await page.locator('[data-id="future"] .toggle').click();
  const futureKids=async()=>(await onDisk(id)).tree.children[3].children;
@@ -194,5 +224,5 @@ try{
 
  const traversal=await page.request.get(`${base}/presentations/..%2fserver.mjs`);assert.equal(traversal.status(),404); // segurança básica
  assert.equal((await page.request.get(`${base}/server.mjs`)).status(),404);
- assert.deepEqual(errors,[]);console.log('PASS EDIT-01..15');
+ assert.deepEqual(errors,[]);console.log('PASS EDIT-01..16');
 }finally{await browser.close();server.kill();await rm(dir,{recursive:true,force:true});}

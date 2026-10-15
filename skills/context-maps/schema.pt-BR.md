@@ -24,6 +24,7 @@
   }
 }
 ```
+- `title` pode ser string vazia quando o nó tem `images` ou `subtitle` (o card mostra só esse conteúdo); a raiz sempre precisa de título.
 - `id` de cada nó: string única (a skill gera `n-<hex>`; a raiz é `root`).
 - `color`: opcional, só nos filhos diretos da raiz (os demais herdam).
 - `images`: lista opcional (imagens e/ou diagramas, na ordem de exibição). O campo antigo `image` (um só) ainda é lido e migrado ao salvar.

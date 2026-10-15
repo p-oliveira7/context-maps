@@ -1,6 +1,6 @@
-import {tree as seed,visibleNodes,allBranches,zoomAt,parentOf,newId,PALETTE} from './model.js?v=9';
-import {cancelMotion,snapshot,animateLayout,hoverEdge,updateEdges} from './motion.js?v=9';
-import * as store from './store.js?v=9';
+import {tree as seed,visibleNodes,allBranches,zoomAt,parentOf,newId,PALETTE} from './model.js?v=10';
+import {cancelMotion,snapshot,animateLayout,hoverEdge,updateEdges} from './motion.js?v=10';
+import * as store from './store.js?v=10';
 const $=s=>document.querySelector(s), viewport=$('#viewport'), world=$('#world');
 const ROOT_COLOR='#a7a7b8', GAP=64;
 let doc={id:null,tree:seed}, tree=seed, expanded=new Set(['root']), camera={x:0,y:0,scale:1}, reading=false, editing=false, bounds={width:1,height:1};
@@ -12,6 +12,7 @@ function zoom(factor,p={x:viewport.clientWidth/2,y:viewport.clientHeight/2}){cam
 
 /* Imagens e diagramas: cada ideia pode ter várias (node.images) */
 const imagesOf=node=>node.images||[];
+const nameOf=n=>(n.title&&n.title.trim())||(n.subtitle&&n.subtitle.trim())||'ideia sem título';
 function migrate(node){
  if(node.image){node.images=[...(node.images||[]),node.image];delete node.image;}
  node.children.forEach(migrate);
@@ -32,13 +33,13 @@ function stepGallery(delta){const n=gallery.images.length;if(n<2)return;gallery.
 function imageButton(node,image,index){
  const button=document.createElement('button');button.className='image-button';
  const many=imagesOf(node).length>1,suffix=many?` (${index+1})`:'';
- button.setAttribute('aria-label',node.id===tree.id&&index===0?'Ampliar ilustração':`Ampliar imagem: ${node.title}${suffix}`);button.append(imageFor(image));
+ button.setAttribute('aria-label',node.id===tree.id&&index===0?'Ampliar ilustração':`Ampliar imagem: ${nameOf(node)}${suffix}`);button.append(imageFor(image));
  if(image.kind==='diagram')button.classList.add('is-diagram');
  button.onclick=()=>openImage(node,index);return button;
 }
 function imageBadge(node){
  const count=imagesOf(node).length,button=document.createElement('button');button.className='node-badge';
- button.setAttribute('aria-label',count>1?`Ver ${count} imagens: ${node.title}`:`Ver imagem: ${node.title}`);button.title=count>1?'Ver imagens':'Ver imagem';
+ button.setAttribute('aria-label',count>1?`Ver ${count} imagens: ${nameOf(node)}`:`Ver imagem: ${nameOf(node)}`);button.title=count>1?'Ver imagens':'Ver imagem';
  button.innerHTML=`<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="3" width="12" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="6" cy="7" r="1.2" fill="currentColor"/><path d="m3 12 3.5-3.5 2.5 2.5 2-2 2 2.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>${count}`;
  button.onclick=()=>openImage(node,0);return button;
 }
@@ -48,10 +49,10 @@ function imageItem(node,image,index){
  const item=document.createElement('div');item.className='image-item';item.append(button);
  const tools=document.createElement('div');tools.className='image-tools';
  if(image.kind==='diagram'){
-  const edit=document.createElement('button');edit.type='button';edit.textContent='Editar';edit.setAttribute('aria-label',`Editar diagrama: ${node.title}${imagesOf(node).length>1?` (${index+1})`:''}`);
+  const edit=document.createElement('button');edit.type='button';edit.textContent='Editar';edit.setAttribute('aria-label',`Editar diagrama: ${nameOf(node)}${imagesOf(node).length>1?` (${index+1})`:''}`);
   edit.onclick=()=>openDiagramEditor(node,index);tools.append(edit);
  }
- const remove=document.createElement('button');remove.type='button';remove.textContent='×';remove.className='danger';remove.setAttribute('aria-label',`Remover imagem: ${node.title}${imagesOf(node).length>1?` (${index+1})`:''}`);
+ const remove=document.createElement('button');remove.type='button';remove.textContent='×';remove.className='danger';remove.setAttribute('aria-label',`Remover imagem: ${nameOf(node)}${imagesOf(node).length>1?` (${index+1})`:''}`);
  remove.onclick=()=>{node.images.splice(index,1);if(!node.images.length)delete node.images;commit();render();};
  tools.append(remove);item.append(tools);return item;
 }
@@ -76,7 +77,7 @@ function linkBadge(node){
  const links=linksOf(node),button=document.createElement('button');button.type='button';button.className='node-badge link-badge';
  button.innerHTML=`${LINK_ICON}${links.length} ${links.length===1?'link':'links'}`;
  button.title=links.length===1?links[0].url:'Links';
- button.setAttribute('aria-label',links.length===1?`Abrir link: ${linkLabel(links[0])}`:`Ver ${links.length} links: ${node.title}`);
+ button.setAttribute('aria-label',links.length===1?`Abrir link: ${linkLabel(links[0])}`:`Ver ${links.length} links: ${nameOf(node)}`);
  button.onclick=e=>{
   e.stopPropagation();
   if(links.length===1){window.open(links[0].url,'_blank','noopener,noreferrer');return;}
@@ -148,20 +149,20 @@ function addParent(node){
 function removeNode(node){
  const parent=parentOf(tree,node.id);if(!parent)return;
  const count=(n)=>1+n.children.reduce((a,c)=>a+count(c),0);
- if(node.children.length&&!confirm(`Excluir "${node.title}" e ${count(node)-1} ideia(s) abaixo dela?`))return;
+ if(node.children.length&&!confirm(`Excluir "${nameOf(node)}" e ${count(node)-1} ideia(s) abaixo dela?`))return;
  parent.children.splice(parent.children.indexOf(node),1);
  if(!parent.children.length)expanded.delete(parent.id);
  commit();render();
 }
 async function addImages(node,files){
  try{
-  for(const file of files){const src=await store.upload(doc.id,file);(node.images||=[]).push({src,alt:node.title});}
+  for(const file of files){const src=await store.upload(doc.id,file);(node.images||=[]).push({src,alt:nameOf(node)});}
   commit();render();
  }catch{setStatus('Erro ao enviar imagem','error');commit();render();}
 }
 function editTools(node,depth){
  const tools=document.createElement('div');tools.className='node-tools';
- const add=(label,aria,handler)=>{const b=document.createElement('button');b.type='button';b.textContent=label;b.setAttribute('aria-label',`${aria}: ${node.title}`);b.onclick=handler;tools.append(b);return b;};
+ const add=(label,aria,handler)=>{const b=document.createElement('button');b.type='button';b.textContent=label;b.setAttribute('aria-label',`${aria}: ${nameOf(node)}`);b.onclick=handler;tools.append(b);return b;};
  add('+ Filho','Adicionar filho',()=>addChild(node));
  if(depth>0){
   add('+ Irmão','Adicionar irmão',()=>addSibling(node));
@@ -174,7 +175,7 @@ function editTools(node,depth){
  add('+ Diagrama','Adicionar diagrama',()=>openDiagramEditor(node,null));
  add('+ Link','Adicionar link',()=>addLink(node));
  if(depth===1){
-  const color=document.createElement('input');color.type='color';color.value=colors.get(node.id);color.className='color-input';color.setAttribute('aria-label',`Cor do ramo: ${node.title}`);
+  const color=document.createElement('input');color.type='color';color.value=colors.get(node.id);color.className='color-input';color.setAttribute('aria-label',`Cor do ramo: ${nameOf(node)}`);
   color.onchange=()=>{node.color=color.value;commit();render();};tools.append(color);
  }
  if(depth>0)add('Excluir','Excluir ideia',()=>removeNode(node)).classList.add('danger');
@@ -227,7 +228,7 @@ function openDiagramEditor(node,index=null){
   if(!svg)return;apply.disabled=true;
   try{
    const src=await store.upload(doc.id,new File([svg],'diagrama.svg',{type:'image/svg+xml'}));
-   const entry={src,alt:`Diagrama: ${node.title}`,kind:'diagram',source:ta.value};
+   const entry={src,alt:`Diagrama: ${nameOf(node)}`,kind:'diagram',source:ta.value};
    if(current)node.images[index]=entry;else(node.images||=[]).push(entry);
    close();commit();render();
   }catch{error.textContent='Erro ao salvar o diagrama';apply.disabled=false;}
@@ -251,19 +252,24 @@ function render(){
   const images=imagesOf(node);
   if(images.length){el.classList.add('has-image');images.forEach((image,i)=>el.append(imageItem(node,image,i)));}
   const text=document.createElement(isRoot?'h1':'p');el.append(text);
+  const titled=node.title.trim().length>0;
+  if(!titled&&!editing){text.hidden=true;el.classList.add('no-title');}
   if(editing){
-   text.contentEditable='plaintext-only';text.spellcheck=false;text.textContent=node.title;text.setAttribute('aria-label','Texto da ideia');
+   text.contentEditable='plaintext-only';text.spellcheck=false;text.textContent=node.title;text.setAttribute('aria-label','Texto da ideia');text.dataset.placeholder='Título (opcional)';
    text.addEventListener('input',()=>{node.title=text.textContent;commit();});
    text.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key==='Escape'){e.preventDefault();text.blur();}});
-   text.addEventListener('blur',()=>{if(!node.title.trim()){node.title='Nova ideia';text.textContent=node.title;commit();}});
+   text.addEventListener('blur',()=>{
+    const hasContent=imagesOf(node).length>0||!!(node.subtitle&&node.subtitle.trim());
+    if(!node.title.trim()&&(isRoot||!hasContent)){node.title='Nova ideia';text.textContent=node.title;commit();}
+   });
   }
   if(node.children.length){
    const change=selector=>{const before=snapshot(camera),oldY=parseFloat(el.style.top)+el.offsetHeight/2,opening=!expanded.has(node.id);opening?expanded.add(node.id):expanded.delete(node.id);render();const next=document.querySelector(`[data-id="${node.id}"]`);camera.y+=(oldY-(parseFloat(next.style.top)+next.offsetHeight/2))*camera.scale;updateCamera();next.querySelector(selector)?.focus({preventScroll:true});animateLayout(before,camera,node.id,opening?node.children[0]?.id:null);};
    if(!editing){
-    const title=document.createElement('button');title.className='node-title';title.textContent=node.title;title.setAttribute('aria-expanded',String(expanded.has(node.id)));title.onclick=()=>change('.node-title');text.append(title);
+    if(titled){const title=document.createElement('button');title.className='node-title';title.textContent=node.title;title.setAttribute('aria-expanded',String(expanded.has(node.id)));title.onclick=()=>change('.node-title');text.append(title);}
    }
    const open=expanded.has(node.id);
-   const toggle=document.createElement('button');toggle.className=open?'toggle':'toggle is-collapsed';toggle.innerHTML=`<span class="toggle-stack" aria-hidden="true">${open?'':'<i></i><i></i>'}<b>${open?MINUS:CHEVRON}</b></span>`;toggle.setAttribute('aria-expanded',String(open));toggle.setAttribute('aria-label',`${open?'Recolher':'Expandir'}: ${node.title}`);toggle.title=open?'Recolher filhos':'Expandir filhos';toggle.onclick=()=>change('.toggle');el.append(toggle);
+   const toggle=document.createElement('button');toggle.className=open?'toggle':'toggle is-collapsed';toggle.innerHTML=`<span class="toggle-stack" aria-hidden="true">${open?'':'<i></i><i></i>'}<b>${open?MINUS:CHEVRON}</b></span>`;toggle.setAttribute('aria-expanded',String(open));toggle.setAttribute('aria-label',`${open?'Recolher':'Expandir'}: ${nameOf(node)}`);toggle.title=open?'Recolher filhos':'Expandir filhos';toggle.onclick=()=>change('.toggle');el.append(toggle);
   }else if(!editing)text.textContent=node.title;
   if(editing||node.subtitle){
    const hint=document.createElement('div');hint.className='node-subtitle';
@@ -321,7 +327,7 @@ function buildReading(){
  const article=$('#reading');article.replaceChildren();
  const intro=document.createElement('span');intro.className='eyebrow';intro.textContent='LEITURA LINEAR';article.append(intro);
  const walk=(node,depth)=>{
-  const h=document.createElement(depth===0?'h1':depth===1?'h2':'h3');h.textContent=node.title;if(depth===1)h.style.color=colors.get(node.id);article.append(h);
+  if(node.title.trim()){const h=document.createElement(depth===0?'h1':depth===1?'h2':'h3');h.textContent=node.title;if(depth===1)h.style.color=colors.get(node.id);article.append(h);}
   if(node.subtitle){const sp=document.createElement('p');sp.className='reading-subtitle';sp.textContent=node.subtitle;article.append(sp);}
   imagesOf(node).forEach(image=>article.append(imageFor(image)));
   if(linksOf(node).length){const row=document.createElement('div');row.className='reading-links';linksOf(node).forEach(l=>row.append(anchorFor(l,'reading-link')));article.append(row);}

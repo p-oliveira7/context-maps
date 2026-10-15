@@ -168,6 +168,19 @@
                 "children": []
               }
             ]
+          },
+          {
+            "id": "n-v0e1rrd",
+            "title": "",
+            "children": [],
+            "images": [
+              {
+                "src": "presentations/response-maps-visao-do-sistema/assets/diagrama-mv9m7ivv.svg",
+                "alt": "Diagrama: Nova ideia",
+                "kind": "diagram",
+                "source": "flowchart TD\n  A[Início] --> B{Decisão}\n  B -->|Sim| C[Fim]\n  B -->|Não| A"
+              }
+            ]
           }
         ],
         "color": "#d4a458"

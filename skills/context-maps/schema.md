@@ -25,6 +25,7 @@
   }
 }
 ```
+- `title` may be an empty string when the node has `images` or a `subtitle` (the card shows only that content); the root always needs a title.
 - `id` of each node: a unique string (the skill generates `n-<hex>`; the root is `root`).
 - `color`: optional, only on direct children of the root (the others inherit).
 - `images`: optional list (images and/or diagrams, in display order). The legacy single `image` field is still read and migrated on save.
