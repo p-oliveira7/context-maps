@@ -5,7 +5,7 @@ import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
-const cli=path.join(root,'skills/response-maps/scripts/rm.mjs');
+const cli=path.join(root,'skills/context-maps/scripts/rm.mjs');
 const work=await mkdtemp(path.join(tmpdir(),'rm-skill-'));
 const data=path.join(work,'data'),src=path.join(work,'src');
 await mkdir(src);

@@ -1,11 +1,11 @@
 ---
-name: response-maps
-description: Monta apresentações em mapa mental no app Response Maps a partir do contexto de uma aplicação (código, specs, README, fluxos, arquitetura, decisões). Use quando o usuário pedir um mapa mental, mapa de fluxo, mapa de arquitetura ou apresentação visual de um sistema/processo para abrir e editar no Response Maps.
+name: context-maps
+description: Monta apresentações em mapa mental no app Context Maps a partir do contexto de uma aplicação (código, specs, README, fluxos, arquitetura, decisões). Use quando o usuário pedir um mapa mental, mapa de fluxo, mapa de arquitetura ou apresentação visual de um sistema/processo para abrir e editar no Context Maps.
 ---
 
-# Response Maps — montar apresentações a partir de contexto
+# Context Maps — montar apresentações a partir de contexto
 
-O app Response Maps guarda cada apresentação como um JSON em `presentations/`. Esta skill transforma
+O app Context Maps guarda cada apresentação como um JSON em `presentations/`. Esta skill transforma
 contexto (código, documentos, conversa) em uma árvore de ideias e a publica **pela API do servidor local**.
 
 ## Pré-requisitos
@@ -13,7 +13,7 @@ contexto (código, documentos, conversa) em uma árvore de ideias e a publica **
 - Servidor do app no ar (padrão `http://127.0.0.1:4173`; mude com `RM_URL`).
 - Opcional, para diagramas: `mmdc` (mermaid-cli) no PATH ou em `MMDC`. Sem Chrome do puppeteer, aponte um Chrome instalado com `MMDC_BROWSER`.
 
-CLI: `node skills/response-maps/scripts/rm.mjs <comando>` (a partir da raiz do app).
+CLI: `node skills/context-maps/scripts/rm.mjs <comando>` (a partir da raiz do app).
 
 | Comando | O que faz |
 | --- | --- |

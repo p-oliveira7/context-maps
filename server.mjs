@@ -113,4 +113,4 @@ createServer(async(req,res)=>{
   if(req.method!=='GET'&&req.method!=='HEAD')return fail(res,405,'Método não permitido');
   await serveStatic(res,url.pathname);
  }catch(error){fail(res,error.status||500,error.status?error.message:'Erro interno');}
-}).listen(port,'127.0.0.1',()=>console.log(`Response Maps em http://127.0.0.1:${port} — apresentações em ${dataDir}`));
+}).listen(port,'127.0.0.1',()=>console.log(`Context Maps em http://127.0.0.1:${port} — apresentações em ${dataDir}`));

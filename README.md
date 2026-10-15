@@ -1,4 +1,4 @@
-# Response Maps
+# Context Maps
 
 Prévia independente de um visualizador de mapas. Conteúdo, ilustração SVG e implementação originais. Sem backend, CDN ou dependências de runtime.
 

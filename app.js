@@ -1,6 +1,6 @@
-import {tree as seed,visibleNodes,allBranches,zoomAt,parentOf,newId,PALETTE} from './model.js?v=6';
-import {cancelMotion,snapshot,animateLayout,hoverEdge,updateEdges} from './motion.js?v=6';
-import * as store from './store.js?v=6';
+import {tree as seed,visibleNodes,allBranches,zoomAt,parentOf,newId,PALETTE} from './model.js?v=7';
+import {cancelMotion,snapshot,animateLayout,hoverEdge,updateEdges} from './motion.js?v=7';
+import * as store from './store.js?v=7';
 const $=s=>document.querySelector(s), viewport=$('#viewport'), world=$('#world');
 const ROOT_COLOR='#a7a7b8', GAP=64;
 let doc={id:null,tree:seed}, tree=seed, expanded=new Set(['root']), camera={x:0,y:0,scale:1}, reading=false, editing=false, bounds={width:1,height:1};
@@ -319,7 +319,7 @@ async function openDoc(id){
  await flush();
  doc=await store.load(id);migrate(doc.tree);tree=doc.tree;expanded=new Set([tree.id]);
  history.replaceState(null,'',`?p=${encodeURIComponent(id)}`);
- $('#doc-title').textContent=tree.title;document.title=`${tree.title} · Response Maps`;
+ $('#doc-title').textContent=tree.title;document.title=`${tree.title} · Context Maps`;
  setStatus('Salvo','saved');render();fit();
 }
 async function newDoc(){
@@ -339,7 +339,7 @@ async function initStore(){
  const id=list.some(i=>i.id===wanted)?wanted:list[0]?.id;
  if(!id)return false;
  doc=await store.load(id);migrate(doc.tree);tree=doc.tree;expanded=new Set([tree.id]);
- document.body.classList.add('has-store');$('#doc-title').textContent=tree.title;document.title=`${tree.title} · Response Maps`;setStatus('Salvo','saved');
+ document.body.classList.add('has-store');$('#doc-title').textContent=tree.title;document.title=`${tree.title} · Context Maps`;setStatus('Salvo','saved');
  return true;
 }
 

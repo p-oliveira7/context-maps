@@ -6,7 +6,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 const {chromium}=await import(process.env.PLAYWRIGHT_MODULE||'playwright-core');
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
-const dir=await mkdtemp(path.join(tmpdir(),'response-maps-'));
+const dir=await mkdtemp(path.join(tmpdir(),'context-maps-'));
 const port=4190, base=`http://127.0.0.1:${port}`;
 const server=spawn(process.execPath,['server.mjs'],{cwd:root,env:{...process.env,PORT:String(port),PRESENTATIONS_DIR:dir},stdio:['ignore','pipe','inherit']});
 await new Promise((ok,fail)=>{server.stdout.once('data',ok);server.once('exit',c=>fail(new Error(`server exit ${c}`)));});

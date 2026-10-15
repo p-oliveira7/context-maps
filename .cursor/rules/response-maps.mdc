@@ -1,8 +1,0 @@
----
-description: Monta apresentações (mapas mentais) no Response Maps a partir do contexto de uma aplicação (fluxos, arquitetura). Use ao pedir um mapa mental, mapa de fluxo ou de arquitetura.
-alwaysApply: false
----
-
-Siga o procedimento em `skills/response-maps/SKILL.md` e o formato em `skills/response-maps/schema.md`
-(resumo em `AGENTS.md`). Use sempre o CLI `skills/response-maps/scripts/rm.mjs`
-(`serve`, `validate`, `create`); não grave arquivos em `presentations/` diretamente.

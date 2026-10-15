@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// CLI da skill response-maps: monta apresentações (mapas mentais) na API do servidor local.
+// CLI da skill context-maps: monta apresentações (mapas mentais) na API do servidor local.
 // Sem dependências. Requer o servidor do app (node server.mjs) — `serve` o inicia se preciso.
 import {readFile,writeFile,mkdtemp,rm as removeFile} from 'node:fs/promises';
 import {existsSync} from 'node:fs';
