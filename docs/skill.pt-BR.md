@@ -92,6 +92,7 @@ instruções. Estão **preparados, mas não foram testados** nessas ferramentas.
 | Variável | Uso |
 | --- | --- |
 | `RM_URL` | Endereço do servidor (padrão `http://127.0.0.1:4173`) |
+| `RM_LANG` | Idioma das mensagens do CLI: `en` ou `pt` (padrão: idioma do sistema) |
 | `MMDC` | Caminho do executável `mmdc` se não estiver no PATH |
 | `MMDC_BROWSER` | Chrome/Chromium já instalado, para evitar baixar o do Puppeteer |
 
@@ -204,8 +205,8 @@ Um exemplo real gerado assim acompanha o repositório em `presentations/` ("vis�
 
 | Sintoma | Causa provável | O que fazer |
 | --- | --- | --- |
-| `Servidor indisponível` (código 2) | Servidor parado ou porta diferente | `rm.mjs serve` ou `node server.mjs`; ajuste `RM_URL` |
-| `Já existe a apresentação "x"` | `--id` repetido | Escolha outro `--id` ou, se o usuário pediu, `--replace` |
+| `Servidor indisponível` / `Server unavailable` (código 2) | Servidor parado ou porta diferente | `rm.mjs serve` ou `node server.mjs`; ajuste `RM_URL` |
+| `Já existe a apresentação "x"` / `Presentation "x" already exists` | `--id` repetido | Escolha outro `--id` ou, se o usuário pediu, `--replace` |
 | Diagrama em `skipped` ("mmdc não encontrado") | mermaid-cli ausente | Instale-o ou defina `MMDC`/`MMDC_BROWSER` |
 | Diagrama em `skipped` ("falha ao renderizar") | Erro de sintaxe Mermaid | Corrija o `.mmd` (teste no editor do app) |
 | Imagem em `skipped` | Caminho errado ou URL remota | Use caminho local relativo ao outline |

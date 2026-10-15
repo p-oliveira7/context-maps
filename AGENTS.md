@@ -1,31 +1,31 @@
-# Context Maps — instruções para agentes
+# Context Maps — agent instructions
 
-App local de mapas mentais (HTML/CSS/JS + `server.mjs` em Node, sem dependências de runtime).
-Cada apresentação é um arquivo `presentations/<id>.json`.
+Local mind-map app (HTML/CSS/JS + `server.mjs` on Node, no runtime dependencies).
+Each presentation is a file `presentations/<id>.json`.
 
-## Montar uma apresentação a partir de contexto (fluxos, arquitetura)
+## Build a presentation from context (flows, architecture)
 
-Fonte única das instruções: **`skills/context-maps/SKILL.md`** (procedimento) e
-**`skills/context-maps/schema.md`** (formato e boas práticas). Leia os dois antes de começar.
-Guia completo: `docs/skill.md` (English) · `docs/skill.pt-BR.md` (Português).
+Single source of instructions: **`skills/context-maps/SKILL.md`** (procedure) and
+**`skills/context-maps/schema.md`** (format and best practices). Read both before starting.
+Full guide: `docs/skill.md` (English) · `docs/skill.pt-BR.md` (Português).
 
-Resumo:
+Summary:
 
-1. `node skills/context-maps/scripts/rm.mjs serve` — garante o servidor em `http://127.0.0.1:4173`.
-2. Leia o contexto (código, README, specs). Não invente; use "A definir" para lacunas.
-3. Escreva um outline markdown (`# Título`, itens `- ideia` com indentação; marcadores
-   `[img:arquivo|alt]`, `[mermaid:arquivo.mmd]`, `[link:https://…|rótulo]`, `{color=#hex}`).
-4. `node skills/context-maps/scripts/rm.mjs validate --outline arquivo.md`
-5. `node skills/context-maps/scripts/rm.mjs create --outline arquivo.md --id <slug>`
-   (use `--replace` apenas se o usuário pedir para sobrescrever).
-6. Informe a URL (`…/?p=<id>`), a contagem de nós e o que foi pulado.
+1. `node skills/context-maps/scripts/rm.mjs serve` — makes sure the server is on `http://127.0.0.1:4173`.
+2. Read the context (code, README, specs). Do not invent; use "To be defined" for gaps.
+3. Write a markdown outline (`# Title`, indented `- idea` items; markers
+   `[img:file|alt]`, `[mermaid:file.mmd]`, `[link:https://…|label]`, `{color=#hex}`).
+4. `node skills/context-maps/scripts/rm.mjs validate --outline file.md`
+5. `node skills/context-maps/scripts/rm.mjs create --outline file.md --id <slug>`
+   (use `--replace` only when the user asks to overwrite).
+6. Report the URL (`…/?p=<id>`), the node count and what was skipped.
 
-Diagramas mermaid exigem `mmdc` (mermaid-cli) no PATH ou em `MMDC`; use `MMDC_BROWSER` para
-apontar um Chrome já instalado.
+Mermaid diagrams need `mmdc` (mermaid-cli) on PATH or in `MMDC`; use `MMDC_BROWSER` to point to an
+installed Chrome. CLI messages follow `RM_LANG=en|pt`.
 
-## Desenvolvimento
+## Development
 
-- Servidor: `node server.mjs` (variáveis `PORT`, `PRESENTATIONS_DIR`).
-- Testes: `npm test` (modelo) e `node tests/{browser,cards,motion,edit,skill}.mjs`
-  com `PLAYWRIGHT_MODULE` apontando para `playwright-core`. `edit` e `skill` sobem servidor temporário próprio.
-- Não adicione dependências de runtime; o Mermaid em `vendor/` é carregado sob demanda só pelo editor de diagramas.
+- Server: `node server.mjs` (`PORT`, `PRESENTATIONS_DIR` variables).
+- Tests: `npm test` (model) and `node tests/{browser,cards,motion,edit,skill}.mjs`
+  with `PLAYWRIGHT_MODULE` pointing to `playwright-core`. `edit` and `skill` start their own temp server.
+- Do not add runtime dependencies; Mermaid in `vendor/` is loaded on demand by the diagram editor only.

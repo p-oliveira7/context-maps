@@ -1,63 +1,66 @@
 ---
 name: context-maps
-description: Monta apresentações em mapa mental no app Context Maps a partir do contexto de uma aplicação (código, specs, README, fluxos, arquitetura, decisões). Use quando o usuário pedir um mapa mental, mapa de fluxo, mapa de arquitetura ou apresentação visual de um sistema/processo para abrir e editar no Context Maps.
+description: Builds mind-map presentations in the Context Maps app from the context of an application (code, specs, README, flows, architecture, decisions). Use when the user asks for a mind map, flow map, architecture map or a visual presentation of a system/process to open and edit in Context Maps. Também use quando pedirem "mapa mental", "mapa de fluxo" ou "mapa de arquitetura" (Portuguese).
 ---
 
-# Context Maps — montar apresentações a partir de contexto
+# Context Maps — build presentations from context
 
-O app Context Maps guarda cada apresentação como um JSON em `presentations/`. Esta skill transforma
-contexto (código, documentos, conversa) em uma árvore de ideias e a publica **pela API do servidor local**.
+> Português: [`SKILL.pt-BR.md`](SKILL.pt-BR.md). Full guide: [`docs/skill.md`](../../docs/skill.md).
 
-## Pré-requisitos
-- Node 18+ (usa `fetch`). Sem dependências.
-- Servidor do app no ar (padrão `http://127.0.0.1:4173`; mude com `RM_URL`).
-- Opcional, para diagramas: `mmdc` (mermaid-cli) no PATH ou em `MMDC`. Sem Chrome do puppeteer, aponte um Chrome instalado com `MMDC_BROWSER`.
+The Context Maps app stores each presentation as a JSON file in `presentations/`. This skill turns
+context (code, documents, conversation) into a tree of ideas and publishes it **through the local server API**.
 
-CLI: `node skills/context-maps/scripts/rm.mjs <comando>` (a partir da raiz do app).
+## Requirements
+- Node 18+ (uses `fetch`). No dependencies.
+- App server running (default `http://127.0.0.1:4173`; change with `RM_URL`).
+- Optional, for diagrams: `mmdc` (mermaid-cli) on PATH or in `MMDC`. Without Puppeteer's Chrome, point to an installed Chrome with `MMDC_BROWSER`.
+- CLI messages follow `RM_LANG=en|pt` (default: system locale).
 
-| Comando | O que faz |
+CLI: `node skills/context-maps/scripts/rm.mjs <command>` (from the app root).
+
+| Command | What it does |
 | --- | --- |
-| `serve` | Inicia o servidor se não estiver ativo |
-| `status` | Lista as apresentações existentes |
-| `validate --outline f.md` | Confere o outline e mostra avisos (sai com 3 se houver) |
-| `create --outline f.md [--id slug] [--replace]` | Cria (ou sobrescreve) a apresentação, envia imagens/diagramas e imprime a URL |
-| `upload <id> <arquivo>` | Envia uma imagem e imprime o `src` |
+| `serve` | Starts the server if it is not running |
+| `status` | Lists the existing presentations |
+| `validate --outline f.md` | Checks the outline and prints warnings (exits with 3 if any) |
+| `create --outline f.md [--id slug] [--replace]` | Creates (or overwrites) the presentation, uploads images/diagrams and prints the URL |
+| `upload <id> <file>` | Uploads an image and prints its `src` |
 
-## Procedimento
-1. **Garanta o servidor:** `rm.mjs serve`. Rode `rm.mjs status` para ver o que já existe (evite sobrescrever sem pedir).
-2. **Colete o contexto** necessário: leia README, specs, rotas, módulos, testes, diagramas existentes. Não invente
-   o que não está no material; marque lacunas como ideia "A definir".
-3. **Escolha a forma do mapa** (veja `schema.md`):
-   - *Fluxo / jornada:* raiz = o fluxo; ramos = etapas na ordem; filhos = ações, decisões, erros e saídas.
-   - *Arquitetura:* raiz = o sistema; ramos = camadas/módulos; filhos = responsabilidades, interfaces, dependências.
-   - *Ambos:* raiz = o sistema; um ramo "Arquitetura" e um ramo "Fluxos", cada um com sua estrutura.
-4. **Escreva o outline** em markdown (formato abaixo) num arquivo temporário. Textos curtos (≤ 90 caracteres),
-   3–7 filhos por nó, profundidade ≤ 5.
-5. **Anexe mídia quando existir:** prints/diagramas do projeto com `[img:caminho|alt]`; fluxos complexos como
-   mermaid com `[mermaid:arquivo.mmd]` (renderizado para SVG se `mmdc` estiver disponível).
-6. **Valide e publique:** `rm.mjs validate --outline f.md`, corrija avisos, depois `rm.mjs create --outline f.md --id <slug>`.
-7. **Entregue:** informe a URL (`…/?p=<id>`), o arquivo gerado (`presentations/<id>.json`), contagem de nós e
-   o que foi pulado (imagens/diagramas não anexados). Lembre que dá para ajustar no modo **Editar** e versionar no Git.
+## Procedure
+1. **Make sure the server is up:** `rm.mjs serve`. Run `rm.mjs status` to see what exists (do not overwrite without being asked).
+2. **Gather the context** you need: README, specs, routes, modules, tests, existing diagrams. Do not invent
+   what is not in the material; mark gaps as an idea "To be defined".
+3. **Choose the shape of the map** (see `schema.md`):
+   - *Flow / journey:* root = the flow; branches = steps in order; children = actions, decisions, errors and outputs.
+   - *Architecture:* root = the system; branches = layers/modules; children = responsibilities, interfaces, dependencies.
+   - *Both:* root = the system; an "Architecture" branch and a "Flows" branch, each with its own structure.
+4. **Write the outline** in markdown (format below) in a temporary file. Short texts (≤ 90 characters),
+   3–7 children per node, depth ≤ 5.
+5. **Attach media when it exists:** project screenshots/diagrams with `[img:path|alt]`; complex flows as
+   mermaid with `[mermaid:file.mmd]` (rendered to SVG when `mmdc` is available).
+6. **Validate and publish:** `rm.mjs validate --outline f.md`, fix warnings, then `rm.mjs create --outline f.md --id <slug>`.
+7. **Deliver:** report the URL (`…/?p=<id>`), the generated file (`presentations/<id>.json`), the node count and
+   what was skipped (media not attached). Remind the user they can adjust it in **Edit** mode and version it in Git.
 
-## Formato do outline
+## Outline format
 ```markdown
-# Título da apresentação [img:docs/capa.png|Capa]
-- Etapa 1 {color=#c76a61}
-  - Ação ou decisão
-  - Fluxo detalhado [mermaid:docs/login.mmd]
-- Etapa 2
-  - Print da tela [img:docs/tela.png|Tela de login]
+# Presentation title [img:docs/cover.png|Cover]
+- Step 1 {color=#c76a61}
+  - Action or decision
+  - Detailed flow [mermaid:docs/login.mmd]
+- Step 2
+  - Login screen [img:docs/screen.png|Screenshot]
 ```
-- `# Título` (primeira linha) vira a raiz e o nome da apresentação.
-- Cada `-` é uma ideia; a indentação (2 espaços ou tab) define a hierarquia.
-- `{color=#rrggbb}` só tem efeito nos ramos do primeiro nível.
-- `[link:https://site.com|Rótulo]` adiciona um link clicável abaixo do card (o rótulo é opcional; vários permitidos; só http/https).
-- Uma ideia pode ter **várias** mídias: repita os marcadores ([img:a.png|A] [mermaid:fluxo.mmd] [img:b.png|B]); elas aparecem empilhadas no card, na ordem escrita.
-- Caminhos de imagem/diagrama são relativos ao arquivo outline. URLs remotas **não** são baixadas.
-- Imagens: png, jpg, webp, gif, svg.
+- `# Title` (first line) becomes the root and the presentation name.
+- Each `-` is an idea; indentation (2 spaces or a tab) defines the hierarchy.
+- `{color=#rrggbb}` only has effect on first-level branches.
+- `[link:https://site.com|Label]` adds a clickable link below the card (label optional; several allowed; http/https only).
+- An idea can have **several** media items: repeat the markers (`[img:a.png|A] [mermaid:flow.mmd] [img:b.png|B]`); they stack in the card, in the order written.
+- Image/diagram paths are relative to the outline file. Remote URLs are **not** downloaded.
+- Images: png, jpg, webp, gif, svg.
 
-## Regras
-- Nunca apague apresentações nem use `--replace` sem o usuário pedir.
-- Não copie conteúdo protegido; resuma com suas palavras.
-- Se o servidor estiver fora do ar e `serve` falhar, informe o comando manual (`node server.mjs`) em vez de gravar arquivos direto.
-- Reporte avisos e itens pulados com transparência.
+## Rules
+- Never delete presentations or use `--replace` unless the user asks.
+- Do not copy protected content; summarise in your own words.
+- If the server is down and `serve` fails, report the manual command (`node server.mjs`) instead of writing files directly.
+- Report warnings and skipped items transparently.

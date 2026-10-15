@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-// CLI da skill context-maps: monta apresentações (mapas mentais) na API do servidor local.
-// Sem dependências. Requer o servidor do app (node server.mjs) — `serve` o inicia se preciso.
+// context-maps skill CLI: builds presentations (mind maps) through the local server API.
+// No dependencies. Needs the app server (node server.mjs) — `serve` starts it when needed.
+// Messages follow RM_LANG=en|pt (default: system locale; Portuguese for pt-*, otherwise English).
 import {readFile,writeFile,mkdtemp,rm as removeFile} from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 import {spawn,spawnSync} from 'node:child_process';
@@ -14,6 +15,42 @@ const appRoot=path.resolve(here,'../../..');
 const BASE=(process.env.RM_URL||'http://127.0.0.1:4173').replace(/\/$/,'');
 const MAX_TITLE=90, MAX_DEPTH=5;
 
+const LANG=(()=>{
+ const forced=(process.env.RM_LANG||'').toLowerCase();
+ if(forced.startsWith('pt'))return 'pt';
+ if(forced.startsWith('en'))return 'en';
+ try{return Intl.DateTimeFormat().resolvedOptions().locale.toLowerCase().startsWith('pt')?'pt':'en';}catch{return 'en';}
+})();
+const MSG={
+ unavailable:{pt:(b,srv,cli)=>`Servidor indisponível em ${b}. Inicie com: node ${srv} (ou: node ${cli} serve)`,en:(b,srv,cli)=>`Server unavailable at ${b}. Start it with: node ${srv} (or: node ${cli} serve)`},
+ httpError:{pt:(st,route,d)=>`Erro ${st} em ${route}: ${d}`,en:(st,route,d)=>`Error ${st} on ${route}: ${d}`},
+ warnNoText:{pt:l=>`linha ${l}: ideia sem título`,en:l=>`line ${l}: idea without a title`},
+ warnLong:{pt:(l,n,m)=>`linha ${l}: título com ${n} caracteres (limite sugerido ${m}) — resuma`,en:(l,n,m)=>`line ${l}: title has ${n} characters (suggested limit ${m}) — shorten it`},
+ warnIgnored:{pt:l=>`linha ${l}: ignorada (use "- item" com indentação)`,en:l=>`line ${l}: ignored (use "- item" with indentation)`},
+ warnNoTitle:{pt:()=>'sem título: use "# Título" na primeira linha',en:()=>'no title: use "# Title" on the first line'},
+ lintDepth:{pt:(d,m)=>`profundidade ${d} (sugerido até ${m}) — agrupe níveis`,en:(d,m)=>`depth ${d} (suggested up to ${m}) — group levels`},
+ lintWide:{pt:n=>`um nó tem ${n} filhos (sugerido até 8) — agrupe`,en:n=>`a node has ${n} children (suggested up to 8) — group them`},
+ lintEmpty:{pt:()=>'mapa sem ramos',en:()=>'map without branches'},
+ skipLink:{pt:(t,f)=>`${t}: link inválido (${f}) — use http(s)://`,en:(t,f)=>`${t}: invalid link (${f}) — use http(s)://`},
+ skipRemote:{pt:(t,f)=>`${t}: URL remota não baixada (${f}); baixe o arquivo e use caminho local`,en:(t,f)=>`${t}: remote URL not downloaded (${f}); download the file and use a local path`},
+ skipImgMissing:{pt:(t,f)=>`${t}: imagem não encontrada (${f})`,en:(t,f)=>`${t}: image not found (${f})`},
+ skipFormat:{pt:(t,f)=>`${t}: formato não suportado (${f})`,en:(t,f)=>`${t}: unsupported format (${f})`},
+ skipDiagMissing:{pt:(t,f)=>`${t}: diagrama não encontrado (${f})`,en:(t,f)=>`${t}: diagram not found (${f})`},
+ skipNoMmdc:{pt:t=>`${t}: mermaid-cli (mmdc) não encontrado — diagrama não renderizado; instale com "npm i -g @mermaid-js/mermaid-cli" ou defina MMDC`,en:t=>`${t}: mermaid-cli (mmdc) not found — diagram not rendered; install with "npm i -g @mermaid-js/mermaid-cli" or set MMDC`},
+ skipMmdcFail:{pt:(t,e)=>`${t}: falha ao renderizar diagrama (${e})`,en:(t,e)=>`${t}: failed to render diagram (${e})`},
+ diagramAlt:{pt:t=>`Diagrama: ${t}`,en:t=>`Diagram: ${t}`},
+ statusDown:{pt:b=>`Servidor indisponível em ${b}`,en:b=>`Server unavailable at ${b}`},
+ serveActive:{pt:b=>`Servidor já ativo em ${b}`,en:b=>`Server already running at ${b}`},
+ serveStarted:{pt:b=>`Servidor iniciado em ${b}`,en:b=>`Server started at ${b}`},
+ serveFail:{pt:()=>'Não foi possível iniciar o servidor',en:()=>'Could not start the server'},
+ usageValidate:{pt:()=>'Uso: validate --outline arquivo.md',en:()=>'Usage: validate --outline file.md'},
+ usageCreate:{pt:()=>'Uso: create --outline arquivo.md [--id slug] [--title "..."]',en:()=>'Usage: create --outline file.md [--id slug] [--title "..."]'},
+ usageUpload:{pt:()=>'Uso: upload <id> <arquivo>',en:()=>'Usage: upload <id> <file>'},
+ usageCommands:{pt:()=>'Comandos: status | serve | validate --outline f.md | create --outline f.md [--id slug] [--replace] | upload <id> <arquivo>',en:()=>'Commands: status | serve | validate --outline f.md | create --outline f.md [--id slug] [--replace] | upload <id> <file>'},
+ needTitle:{pt:()=>'Defina um título (# Título no outline ou --title)',en:()=>'Set a title ("# Title" in the outline or --title)'},
+ idExists:{pt:id=>`Já existe a apresentação "${id}". Use --replace para sobrescrever ou escolha outro --id.`,en:id=>`Presentation "${id}" already exists. Use --replace to overwrite or choose another --id.`}
+};
+const t=(key,...args)=>MSG[key][LANG](...args);
 const die=(message,code=1)=>{console.error(message);process.exit(code);};
 function parseArgs(argv){
  const args={_:[]};
@@ -26,10 +63,10 @@ function parseArgs(argv){
 }
 async function api(route,options){
  let res;
- try{res=await fetch(`${BASE}${route}`,options);}catch{die(`Servidor indisponível em ${BASE}. Inicie com: node ${path.join(appRoot,'server.mjs')} (ou: node ${path.relative(process.cwd(),path.join(here,'rm.mjs'))} serve)`,2);}
+ try{res=await fetch(`${BASE}${route}`,options);}catch{die(t('unavailable',BASE,path.join(appRoot,'server.mjs'),path.relative(process.cwd(),path.join(here,'rm.mjs'))),2);}
  const type=res.headers.get('content-type')||'';
  const body=type.includes('json')?await res.json():await res.text();
- if(!res.ok)die(`Erro ${res.status} em ${route}: ${typeof body==='string'?body.slice(0,200):body.error||JSON.stringify(body)}`);
+ if(!res.ok)die(t('httpError',res.status,route,typeof body==='string'?body.slice(0,200):body.error||JSON.stringify(body)));
  return body;
 }
 const isUp=async()=>{try{const r=await fetch(`${BASE}/api/presentations`);return r.ok&&(r.headers.get('content-type')||'').includes('json');}catch{return false;}};
@@ -50,22 +87,22 @@ export function parseOutline(text){
   s=s.replace(RE_MEDIA,'');
   const col=s.match(RE_COLOR);if(col){node.color=col[1];s=s.replace(RE_COLOR,'');}
   node.title=s.replace(/\s+/g,' ').trim();
-  if(!node.title)warnings.push(`linha ${lineNo}: ideia sem título`);
-  if(node.title.length>MAX_TITLE)warnings.push(`linha ${lineNo}: título com ${node.title.length} caracteres (limite sugerido ${MAX_TITLE}) — resuma`);
+  if(!node.title)warnings.push(t('warnNoText',lineNo));
+  if(node.title.length>MAX_TITLE)warnings.push(t('warnLong',lineNo,node.title.length,MAX_TITLE));
  };
  lines.forEach((line,i)=>{
   if(!line.trim()||line.trim().startsWith('<!--'))return;
   const h=line.match(/^#\s+(.*)$/);
   if(h&&title===null){title=h[1];pull(title,root,i+1);return;}
   const b=line.match(/^([ \t]*)[-*]\s+(.*)$/);
-  if(!b){warnings.push(`linha ${i+1}: ignorada (use "- item" com indentação)`);return;}
+  if(!b){warnings.push(t('warnIgnored',i+1));return;}
   const indent=b[1].replace(/\t/g,'  ').length;
   while(stack.length>1&&stack.at(-1).indent>=indent)stack.pop();
   const parent=stack.at(-1).node;
   const node={id:nodeId(),title:'',children:[]};pull(b[2],node,i+1);
   parent.children.push(node);stack.push({indent,node});
  });
- if(!root.title)warnings.push('sem título: use "# Título" na primeira linha');
+ if(!root.title)warnings.push(t('warnNoTitle'));
  return {root,warnings};
 }
 function stats(root){
@@ -75,9 +112,9 @@ function stats(root){
 }
 function lint(root){
  const w=[],s=stats(root);
- if(s.depth>MAX_DEPTH)w.push(`profundidade ${s.depth} (sugerido até ${MAX_DEPTH}) — agrupe níveis`);
- if(s.widest>8)w.push(`um nó tem ${s.widest} filhos (sugerido até 8) — agrupe`);
- if(!root.children.length)w.push('mapa sem ramos');
+ if(s.depth>MAX_DEPTH)w.push(t('lintDepth',s.depth,MAX_DEPTH));
+ if(s.widest>8)w.push(t('lintWide',s.widest));
+ if(!root.children.length)w.push(t('lintEmpty'));
  return {warnings:w,...s};
 }
 
@@ -110,23 +147,23 @@ async function attach(id,node,baseDir,report){
  for(const item of node._media||[]){
   if(item.kind==='link'){
    let ok=false;try{ok=['http:','https:'].includes(new URL(item.file).protocol);}catch{}
-   if(!ok)report.skipped.push(`${node.title}: link inválido (${item.file}) — use http(s)://`);
+   if(!ok)report.skipped.push(t('skipLink',node.title,item.file));
    else{(node.links||=[]).push(item.alt?{url:item.file,label:item.alt}:{url:item.file});report.links=(report.links||0)+1;}
    continue;
   }
   const file=path.resolve(baseDir,item.file);
   if(item.kind==='image'){
-   if(/^https?:/i.test(item.file))report.skipped.push(`${node.title}: URL remota não baixada (${item.file}); baixe o arquivo e use caminho local`);
-   else if(!existsSync(file))report.skipped.push(`${node.title}: imagem não encontrada (${item.file})`);
-   else if(!MIME_OK.has(path.extname(file).toLowerCase()))report.skipped.push(`${node.title}: formato não suportado (${item.file})`);
+   if(/^https?:/i.test(item.file))report.skipped.push(t('skipRemote',node.title,item.file));
+   else if(!existsSync(file))report.skipped.push(t('skipImgMissing',node.title,item.file));
+   else if(!MIME_OK.has(path.extname(file).toLowerCase()))report.skipped.push(t('skipFormat',node.title,item.file));
    else{(node.images||=[]).push({src:await uploadFile(id,file),alt:item.alt||node.title});report.images++;}
   }else{
-   if(!existsSync(file)){report.skipped.push(`${node.title}: diagrama não encontrado (${item.file})`);continue;}
+   if(!existsSync(file)){report.skipped.push(t('skipDiagMissing',node.title,item.file));continue;}
    const source=await readFile(file,'utf8');
    const out=await renderMermaid(source);
-   if(!out)report.skipped.push(`${node.title}: mermaid-cli (mmdc) não encontrado — diagrama não renderizado; instale com "npm i -g @mermaid-js/mermaid-cli" ou defina MMDC`);
-   else if(out.error)report.skipped.push(`${node.title}: falha ao renderizar diagrama (${out.error})`);
-   else{(node.images||=[]).push({src:await uploadFile(id,out.file),alt:item.alt||`Diagrama: ${node.title}`,kind:'diagram',source});await removeFile(out.dir,{recursive:true,force:true});report.diagrams++;}
+   if(!out)report.skipped.push(t('skipNoMmdc',node.title));
+   else if(out.error)report.skipped.push(t('skipMmdcFail',node.title,out.error));
+   else{(node.images||=[]).push({src:await uploadFile(id,out.file),alt:item.alt||t('diagramAlt',node.title),kind:'diagram',source});await removeFile(out.dir,{recursive:true,force:true});report.diagrams++;}
   }
  }
  for(const c of node.children)await attach(id,c,baseDir,report);
@@ -139,36 +176,36 @@ function clean(node){
 /* ---------- Comandos ---------- */
 const commands={
  async status(){
-  if(!await isUp())die(`Servidor indisponível em ${BASE}`,2);
+  if(!await isUp())die(t('statusDown',BASE),2);
   const list=await api('/api/presentations');console.log(JSON.stringify({server:BASE,presentations:list},null,2));
  },
  async serve(){
-  if(await isUp()){console.log(`Servidor já ativo em ${BASE}`);return;}
+  if(await isUp()){console.log(t('serveActive',BASE));return;}
   const url=new URL(BASE);
   const child=spawn(process.execPath,[path.join(appRoot,'server.mjs')],{cwd:appRoot,detached:true,stdio:'ignore',env:{...process.env,PORT:url.port||'4173'}});
   child.unref();
-  for(let i=0;i<30;i++){await new Promise(r=>setTimeout(r,200));if(await isUp()){console.log(`Servidor iniciado em ${BASE}`);return;}}
-  die('Não foi possível iniciar o servidor');
+  for(let i=0;i<30;i++){await new Promise(r=>setTimeout(r,200));if(await isUp()){console.log(t('serveStarted',BASE));return;}}
+  die(t('serveFail'));
  },
  async validate(args){
-  const file=args.outline||args._[0];if(!file)die('Uso: validate --outline arquivo.md');
+  const file=args.outline||args._[0];if(!file)die(t('usageValidate'));
   const {root,warnings}=parseOutline(await readFile(file,'utf8'));
   const l=lint(root);
   console.log(JSON.stringify({title:root.title,nodes:l.count,depth:l.depth,widest:l.widest,warnings:[...warnings,...l.warnings]},null,2));
   process.exit(warnings.length||l.warnings.length?3:0);
  },
  async create(args){
-  const file=args.outline||args._[0];if(!file)die('Uso: create --outline arquivo.md [--id slug] [--title "..."]');
+  const file=args.outline||args._[0];if(!file)die(t('usageCreate'));
   const text=await readFile(file,'utf8');
   const {root,warnings}=parseOutline(text);
   if(args.title&&args.title!==true)root.title=args.title;
-  if(!root.title)die('Defina um título (# Título no outline ou --title)');
+  if(!root.title)die(t('needTitle'));
   const l=lint(root);
   let id=args.id&&args.id!==true?args.id:null,created;
   if(id){
    const list=await api('/api/presentations');
    if(!list.some(p=>p.id===id)){created=await api('/api/presentations',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({title:root.title,id})});id=created.id;}
-   else if(!args.replace)die(`Já existe a apresentação "${id}". Use --replace para sobrescrever ou escolha outro --id.`);
+   else if(!args.replace)die(t('idExists',id));
   }else{
    created=await api('/api/presentations',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({title:root.title})});id=created.id;
   }
@@ -179,13 +216,13 @@ const commands={
   console.log(JSON.stringify({id,url:`${BASE}/?p=${id}`,file:`presentations/${id}.json`,nodes:l.count,depth:l.depth,images:report.images,diagrams:report.diagrams,links:report.links||0,warnings:[...warnings,...l.warnings],skipped:report.skipped},null,2));
  },
  async upload(args){
-  const [id,file]=args._;if(!id||!file)die('Uso: upload <id> <arquivo>');
+  const [id,file]=args._;if(!id||!file)die(t('usageUpload'));
   console.log(await uploadFile(id,path.resolve(file)));
  }
 };
 
 if(process.argv[1]===fileURLToPath(import.meta.url)){
  const [cmd,...rest]=process.argv.slice(2);
- if(!commands[cmd])die('Comandos: status | serve | validate --outline f.md | create --outline f.md [--id slug] [--replace] | upload <id> <arquivo>',64);
+ if(!commands[cmd])die(t('usageCommands'),64);
  await commands[cmd](parseArgs(rest));
 }

@@ -5,8 +5,8 @@
 This guide explains **what the skill does, why it exists, how to install it and how to get the most out
 of it**. The operating procedure the agent follows is in
 [`skills/context-maps/SKILL.md`](../skills/context-maps/SKILL.md); the data format and modelling best
-practices are in [`skills/context-maps/schema.md`](../skills/context-maps/schema.md) (both written in
-Portuguese, since they are instructions for the agent).
+practices are in [`skills/context-maps/schema.md`](../skills/context-maps/schema.md) (Portuguese copies:
+`SKILL.pt-BR.md` and `schema.pt-BR.md`).
 
 ## 1. Purpose
 
@@ -93,6 +93,7 @@ They are **prepared but were not tested** on those tools.
 | Variable | Purpose |
 | --- | --- |
 | `RM_URL` | Server address (default `http://127.0.0.1:4173`) |
+| `RM_LANG` | CLI message language: `en` or `pt` (default: system locale) |
 | `MMDC` | Path to the `mmdc` executable if it is not on PATH |
 | `MMDC_BROWSER` | An already-installed Chrome/Chromium, to avoid downloading Puppeteer's |
 
@@ -170,7 +171,7 @@ Quality (`validate` warns when you go past the limits):
 - 3 to 7 children per node (more than 8 → group them);
 - depth up to 5 levels (beyond that, split into another presentation);
 - do not repeat the same idea in different branches;
-- do not invent: where the context does not answer, write **"To be defined"** ("A definir").
+- do not invent: where the context does not answer, write **"To be defined"**.
 
 ## 9. Full example
 
@@ -205,15 +206,15 @@ A real example generated this way ships in `presentations/` ("visão do sistema"
 
 | Symptom | Likely cause | What to do |
 | --- | --- | --- |
-| `Servidor indisponível` (code 2) | Server stopped or different port | `rm.mjs serve` or `node server.mjs`; adjust `RM_URL` |
-| `Já existe a apresentação "x"` | Repeated `--id` | Pick another `--id` or, if the user asked, `--replace` |
-| Diagram in `skipped` ("mmdc não encontrado") | mermaid-cli missing | Install it or set `MMDC`/`MMDC_BROWSER` |
-| Diagram in `skipped` ("falha ao renderizar") | Mermaid syntax error | Fix the `.mmd` (try it in the app editor) |
+| `Server unavailable` / `Servidor indisponível` (code 2) | Server stopped or different port | `rm.mjs serve` or `node server.mjs`; adjust `RM_URL` |
+| `Presentation "x" already exists` / `Já existe a apresentação "x"` | Repeated `--id` | Pick another `--id` or, if the user asked, `--replace` |
+| Diagram in `skipped` ("mmdc not found") | mermaid-cli missing | Install it or set `MMDC`/`MMDC_BROWSER` |
+| Diagram in `skipped` ("failed to render diagram") | Mermaid syntax error | Fix the `.mmd` (try it in the app editor) |
 | Image in `skipped` | Wrong path or remote URL | Use a local path relative to the outline |
-| "título com N caracteres" warning | Long text | Shorten it; use children for detail |
+| "title has N characters" warning | Long text | Shorten it; use children for detail |
 | Blank page after updating | Browser cached old modules | Hard-reload with `Ctrl+Shift+R` |
 
-> The CLI messages are in Portuguese; their meaning is given in the table above.
+> Messages follow `RM_LANG`; the table shows both languages where they differ.
 
 ## 12. Limitations
 

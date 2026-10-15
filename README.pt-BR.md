@@ -151,6 +151,9 @@ diagramas do `docs/`"*, *"transforme esta especificação em um mapa para a reun
 
 O trabalho pesado fica em um CLI Node (`rm.mjs`), então qualquer agente com acesso ao terminal consegue usar.
 
+> As instruções para agentes (`SKILL.md`, `schema.md`, `AGENTS.md`) estão em inglês, com cópias em português
+> (`SKILL.pt-BR.md`, `schema.pt-BR.md`). As mensagens do CLI seguem `RM_LANG=en|pt` (padrão: idioma do sistema).
+
 ---
 
 ## Formato dos dados

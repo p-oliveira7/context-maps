@@ -151,8 +151,8 @@ Example requests: *"map this repository's architecture"*, *"map the payment flow
 
 The heavy lifting lives in a Node CLI (`rm.mjs`), so any agent with terminal access can use it.
 
-> The agent-facing instructions (`SKILL.md`, `schema.md`, `AGENTS.md`) are written in Portuguese; agents
-> follow them regardless of the language you talk to them in.
+> Agent-facing instructions (`SKILL.md`, `schema.md`, `AGENTS.md`) are in English, with Portuguese copies
+> (`SKILL.pt-BR.md`, `schema.pt-BR.md`). CLI messages follow `RM_LANG=en|pt` (default: system locale).
 
 ---
 

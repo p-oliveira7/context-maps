@@ -12,7 +12,7 @@ await mkdir(src);
 const port=4191,base=`http://127.0.0.1:${port}`;
 const server=spawn(process.execPath,['server.mjs'],{cwd:root,env:{...process.env,PORT:String(port),PRESENTATIONS_DIR:data},stdio:['ignore','pipe','inherit']});
 await new Promise((ok,fail)=>{server.stdout.once('data',ok);server.once('exit',c=>fail(new Error(`server exit ${c}`)));});
-const run=(args,env={})=>spawnSync(process.execPath,[cli,...args],{cwd:src,encoding:'utf8',env:{...process.env,RM_URL:base,...env}});
+const run=(args,env={})=>spawnSync(process.execPath,[cli,...args],{cwd:src,encoding:'utf8',env:{...process.env,RM_URL:base,RM_LANG:'pt',...env}});
 try{
  // validate: avisos e código de saída
  await writeFile(path.join(src,'bad.md'),`# Ruim\n- ${'x'.repeat(120)}\n`);
@@ -63,5 +63,9 @@ try{
 
  // servidor fora do ar
  const down=run(['status'],{RM_URL:'http://127.0.0.1:1'});assert.equal(down.status,2);
- console.log('PASS SKILL-01..06');
+ // idioma das mensagens (RM_LANG)
+ const badEn=run(['validate','--outline','bad.md'],{RM_LANG:'en'});assert.match(badEn.stdout,/characters/);
+ const againEn=run(['create','--outline','mapa.md','--id','fluxo-login'],{RM_LANG:'en',MMDC:shim});assert.match(againEn.stderr,/already exists/);
+ const downEn=run(['status'],{RM_URL:'http://127.0.0.1:1',RM_LANG:'en'});assert.match(downEn.stderr,/Server unavailable/);
+ console.log('PASS SKILL-01..07');
 }finally{server.kill();await rm(work,{recursive:true,force:true});}

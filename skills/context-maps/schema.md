@@ -1,53 +1,56 @@
-# Formato e boas práticas
+# Format and best practices
 
-## JSON da apresentação (`presentations/<id>.json`)
+> Português: [`schema.pt-BR.md`](schema.pt-BR.md).
+
+## Presentation JSON (`presentations/<id>.json`)
 ```json
 {
-  "id": "meu-fluxo",
+  "id": "my-flow",
   "tree": {
     "id": "root",
-    "title": "Título",
+    "title": "Title",
     "children": [
       {
         "id": "n-1a2b3c4d",
-        "title": "Ideia",
+        "title": "Idea",
         "color": "#c76a61",
         "images": [
-          {"src": "presentations/meu-fluxo/assets/foto.png", "alt": "Descrição"},
-          {"src": "presentations/meu-fluxo/assets/d.svg", "alt": "Diagrama", "kind": "diagram", "source": "flowchart TD…"}
+          {"src": "presentations/my-flow/assets/photo.png", "alt": "Description"},
+          {"src": "presentations/my-flow/assets/d.svg", "alt": "Diagram", "kind": "diagram", "source": "flowchart TD…"}
         ],
+        "links": [{"url": "https://example.com/docs", "label": "Docs"}],
         "children": []
       }
     ]
   }
 }
 ```
-- `id` de cada nó: string única (a skill gera `n-<hex>`; a raiz é `root`).
-- `color`: opcional, só nos filhos diretos da raiz (os demais herdam).
-- `images`: lista opcional (imagens e/ou diagramas, na ordem de exibição). O campo antigo `image` (um só) ainda é lido e migrado ao salvar.
-- `links`: lista opcional de `{url, label?}` (apenas http/https), exibida como selo "N link(s)" abaixo do card.
-- `kind: "diagram"` e `source` (mermaid) são opcionais; diagramas aparecem sem corte no cartão.
-- Prefira criar pelo outline (`rm.mjs create`); o servidor valida a estrutura (ids únicos, profundidade ≤ 40).
+- `id` of each node: a unique string (the skill generates `n-<hex>`; the root is `root`).
+- `color`: optional, only on direct children of the root (the others inherit).
+- `images`: optional list (images and/or diagrams, in display order). The legacy single `image` field is still read and migrated on save.
+- `links`: optional list of `{url, label?}` (http/https only), shown as an "N link(s)" badge below the card.
+- `kind: "diagram"` and `source` (mermaid) are optional; diagrams are shown uncropped on the card.
+- Prefer creating through the outline (`rm.mjs create`); the server validates the structure (unique ids, depth ≤ 40).
 
-## Como estruturar
-**Fluxo** — leia da esquerda para a direita:
-- Ramos de primeiro nível = etapas em ordem (prefixe com número se a ordem importar: "1. Autenticar").
-- Filhos = o que acontece, decisões ("Se token expirado → …") e falhas.
-- Ciclos ("volta ao passo 2") viram texto no nó ou um diagrama mermaid anexado.
+## How to structure
+**Flow** — read left to right:
+- First-level branches = steps in order (prefix a number if order matters: "1. Authenticate").
+- Children = what happens, decisions ("If token expired → …") and failures.
+- Cycles ("back to step 2") become text on the node or an attached mermaid diagram.
 
-**Arquitetura**:
-- Ramos = camadas ou módulos (API, Domínio, Dados, Integrações).
-- Filhos = responsabilidade, entradas/saídas, dependências críticas.
-- Para topologias ou sequências, anexe mermaid (`flowchart`, `sequenceDiagram`, `erDiagram`).
+**Architecture**:
+- Branches = layers or modules (API, Domain, Data, Integrations).
+- Children = responsibility, inputs/outputs, critical dependencies.
+- For topologies or sequences, attach mermaid (`flowchart`, `sequenceDiagram`, `erDiagram`).
 
-## Qualidade
-- Títulos curtos e informativos (frases nominais). Máximo ~90 caracteres.
-- 3 a 7 filhos por nó; mais que 8 → agrupe.
-- Profundidade até 5 níveis; mais que isso → quebre em outra apresentação.
-- Não repita a mesma ideia em ramos diferentes; ligue por referência no texto.
-- Não invente: onde o contexto não responde, escreva "A definir".
+## Quality
+- Short, informative titles (noun phrases). At most ~90 characters.
+- 3 to 7 children per node; more than 8 → group them.
+- Depth up to 5 levels; beyond that → split into another presentation.
+- Do not repeat the same idea in different branches; link by reference in the text.
+- Do not invent: where the context does not answer, write "To be defined".
 
 ## Mermaid
-Requer `mmdc` (`npm i -g @mermaid-js/mermaid-cli`) no PATH ou `MMDC=caminho`; use `MMDC_BROWSER=caminho/do/chrome` para reaproveitar um Chrome instalado (instale com `PUPPETEER_SKIP_DOWNLOAD=1`). O diagrama é renderizado em SVG
-com tema escuro e fundo transparente e enviado como imagem do nó; o código-fonte fica em `image.source`.
-Sem `mmdc`, o nó é criado sem imagem e o item aparece em `skipped` no relatório.
+Requires `mmdc` (`npm i -g @mermaid-js/mermaid-cli`) on PATH or `MMDC=path`; use `MMDC_BROWSER=path/to/chrome` to reuse an installed Chrome (install with `PUPPETEER_SKIP_DOWNLOAD=1`). The diagram is rendered to SVG
+with a dark theme and transparent background and uploaded as the node's image; the source stays in `images[].source`.
+Without `mmdc`, the node is created without an image and the item appears in `skipped` in the report.
