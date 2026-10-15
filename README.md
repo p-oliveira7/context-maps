@@ -1,55 +1,57 @@
 # Context Maps
 
-**Mapas mentais montados a partir de contexto.** Um app local para visualizar e editar apresentações em
-formato de mapa mental, mais uma *skill* para agentes (Claude, Codex, Cursor) que lê o contexto de uma
-aplicação — código, specs, fluxos, decisões — e publica o mapa pronto, com imagens, diagramas e links.
+[Português (BR)](README.pt-BR.md) · **English**
 
-> Sem backend externo, sem CDN, sem dependências de runtime. Tudo roda em `127.0.0.1` e cada
-> apresentação é um arquivo JSON que você versiona com Git.
+**Mind maps built from context.** A local app to view and edit presentations as mind maps, plus an
+agent *skill* (Claude, Codex, Cursor) that reads the context of an application — code, specs, flows,
+decisions — and publishes the finished map, with images, diagrams and links.
 
----
-
-## A ideia
-
-Explicar um sistema costuma exigir três coisas que vivem em lugares diferentes: **o texto** (README,
-specs), **os diagramas** (fluxos, arquitetura) e **as evidências** (prints, links). Um mapa mental junta
-as três numa só superfície navegável: você começa pela visão geral e abre os ramos conforme a conversa.
-
-O Context Maps nasce da combinação de duas peças:
-
-1. **Um visualizador/editor local** de mapas mentais, rápido e sem dependências, onde as apresentações são
-   arquivos simples dentro do repositório.
-2. **Uma skill para agentes** que transforma contexto em apresentação. Em vez de montar o mapa à mão, você
-   pede — *"monte um mapa do fluxo de checkout desta aplicação"* — e o agente lê o projeto, escreve a
-   estrutura, anexa diagramas e links, valida e entrega uma URL para abrir e ajustar no modo de edição.
-
-O resultado é revisável (é um JSON no Git), editável (modo de edição no app) e reproduzível (a skill pode
-regerar ou ampliar o mapa quando o sistema muda).
-
-### Por que arquivos JSON locais?
-
-- **Versionamento de graça:** `git diff` mostra exatamente que ideia mudou.
-- **Sem conta, sem nuvem:** o conteúdo da sua arquitetura não sai da sua máquina.
-- **Legível por agentes:** o formato é pequeno e documentado ([`schema.md`](skills/context-maps/schema.md)).
+> No external backend, no CDN, no runtime dependencies. Everything runs on `127.0.0.1`, and every
+> presentation is a JSON file you version with Git.
 
 ---
 
-## Visão geral
+## The idea
 
-| Peça | O que é | Onde |
+Explaining a system usually needs three things that live in different places: **text** (README, specs),
+**diagrams** (flows, architecture) and **evidence** (screenshots, links). A mind map brings the three onto
+one navigable surface: you start from the overview and open branches as the conversation goes.
+
+Context Maps combines two pieces:
+
+1. **A local mind-map viewer/editor**, fast and dependency-free, where presentations are plain files
+   inside your repository.
+2. **An agent skill** that turns context into a presentation. Instead of building the map by hand you ask —
+   *"build a map of this application's checkout flow"* — and the agent reads the project, writes the
+   structure, attaches diagrams and links, validates it and hands you a URL to open and tweak in edit mode.
+
+The result is reviewable (it is JSON in Git), editable (edit mode in the app) and reproducible (the skill
+can regenerate or extend the map when the system changes).
+
+### Why local JSON files?
+
+- **Versioning for free:** `git diff` shows exactly which idea changed.
+- **No account, no cloud:** the content of your architecture never leaves your machine.
+- **Agent-friendly:** the format is small and documented ([`schema.md`](skills/context-maps/schema.md)).
+
+---
+
+## Overview
+
+| Piece | What it is | Where |
 | --- | --- | --- |
-| **App** | Visualizador e editor de mapas (HTML/CSS/ES modules) | `index.html`, `app.js`, `motion.js`, `model.js`, `store.js`, `styles.css` |
-| **Servidor local** | Node sem pacotes: serve o app e grava as apresentações | `server.mjs` |
-| **Apresentações** | Um JSON por mapa + pasta de imagens | `presentations/<id>.json`, `presentations/<id>/assets/` |
-| **Skill** | Procedimento + CLI para agentes montarem mapas | `skills/context-maps/` |
-| **Guia da skill** | Documentação detalhada da skill | [`docs/skill.md`](docs/skill.md) |
-| **Testes** | Modelo, navegador, cards, movimento, edição e skill | `tests/` |
+| **App** | Map viewer and editor (HTML/CSS/ES modules) | `index.html`, `app.js`, `motion.js`, `model.js`, `store.js`, `styles.css` |
+| **Local server** | Plain Node: serves the app and stores presentations | `server.mjs` |
+| **Presentations** | One JSON per map + an images folder | `presentations/<id>.json`, `presentations/<id>/assets/` |
+| **Skill** | Procedure + CLI for agents to build maps | `skills/context-maps/` |
+| **Skill guide** | Detailed skill documentation | [`docs/skill.md`](docs/skill.md) |
+| **Tests** | Model, browser, cards, motion, edit and skill | `tests/` |
 
 ```
- contexto (código, specs, README)        ┌──────────────────────────────┐
-        │                                │  app no navegador            │
-        ▼                                │  exibir · editar · diagramas │
- agente + skill ──outline──▶ rm.mjs ──▶  └──────────────▲───────────────┘
+ context (code, specs, README)           ┌──────────────────────────────┐
+        │                                │  app in the browser          │
+        ▼                                │  view · edit · diagrams      │
+ agent + skill ──outline──▶ rm.mjs ──▶   └──────────────▲───────────────┘
                                 │                       │ GET/PUT/upload
                                 ▼                       │
                         server.mjs (127.0.0.1) ─────────┘
@@ -60,115 +62,118 @@ regerar ou ampliar o mapa quando o sistema muda).
 
 ---
 
-## Começando
+## Getting started
 
-Requisitos: **Node 18+** (testado em Node 24). Nenhum `npm install` é necessário para usar o app.
+Requirements: **Node 18+** (tested on Node 24). No `npm install` is needed to use the app.
 
 ```bash
-node server.mjs          # ou: npm start
+node server.mjs          # or: npm start
 ```
 
-Abra <http://127.0.0.1:4173>. Na primeira execução o servidor cria a apresentação de demonstração em
-`presentations/`. Variáveis opcionais:
+Open <http://127.0.0.1:4173>. On first run the server creates the demo presentation in
+`presentations/`. Optional variables:
 
-| Variável | Padrão | Uso |
+| Variable | Default | Purpose |
 | --- | --- | --- |
-| `PORT` | `4173` | Porta do servidor |
-| `PRESENTATIONS_DIR` | `./presentations` | Pasta onde ficam os mapas |
+| `PORT` | `4173` | Server port |
+| `PRESENTATIONS_DIR` | `./presentations` | Folder where maps are stored |
 
-> Sem o servidor (por exemplo `python -m http.server`), o app abre **somente em exibição**, com o mapa
-> de demonstração embutido. Não abra o `index.html` por `file://` (usa módulos ES).
+> Without the server (for example `python -m http.server`) the app opens in **view mode only**, with the
+> built-in demo map. Do not open `index.html` through `file://` (it uses ES modules).
 
 ---
 
-## Usando o app
+## Using the app
 
-### Exibição
-- **Arrastar** o fundo move o mapa; **rolar** dá zoom; os botões − / + e ⌗ (enquadrar) ficam no canto.
-- **Clique no título** (ou Enter/Espaço) expande ou recolhe um ramo; o botão em leque ao lado do card também.
-  Abrir um ramo anima os cards por 420 ms e destaca por 1 s a conexão ao primeiro filho
-  (respeita `prefers-reduced-motion`).
-- **Passar o mouse** num card destaca a linha que chega até ele.
-- **Expandir tudo / Recolher tudo** e **Modo texto** (leitura linear do mapa inteiro) na barra inferior.
-- **Imagens e diagramas** abrem em tela cheia; com várias mídias há setas ‹ › (ou ← →) e contador.
-- **Links** aparecem como selo "🔗 N link(s)" abaixo do card: um link abre direto, vários abrem uma lista.
+### View mode
+- **Drag** the background to pan; **scroll** to zoom; the − / + and ⌗ (fit) buttons sit in the corner.
+- **Click a title** (or Enter/Space) to expand or collapse a branch; the fan-style button beside the card works too.
+  Opening a branch animates the cards for 420 ms and highlights the connection to the first child for 1 s
+  (honours `prefers-reduced-motion`).
+- **Hovering** a card highlights the line that leads to it.
+- **Expand all / Collapse all** and **Text mode** (linear reading of the whole map) live in the bottom bar.
+- **Images and diagrams** open full screen; with several items there are ‹ › arrows (or ← →) and a counter.
+- **Links** show as a "🔗 N link(s)" badge below the card: one link opens directly, several open a list.
 
-### Edição
-Ative o switch **Editar** na barra inferior.
+### Edit mode
+Turn on the **Edit** switch in the bottom bar.
 
-| Ação | Como |
+| Action | How |
 | --- | --- |
-| Editar texto | Clique no texto; Enter confirma |
-| Adicionar ideia | **+ Filho** ou **+ Irmão** (profundidade livre) |
-| Imagens | **+ Imagem** (aceita vários arquivos); **×** remove uma |
-| Diagramas | **+ Diagrama** abre o editor Mermaid com pré-visualização ao vivo; **Editar** reabre |
-| Links | **+ Link** (http/https); chips com **×** para remover |
-| Cor do ramo | Seletor de cor nos ramos de primeiro nível |
-| Excluir | **Excluir** (pede confirmação se houver ideias abaixo) |
+| Edit text | Click the text; Enter confirms |
+| Add an idea | **+ Child** or **+ Sibling** (unlimited depth) |
+| Images | **+ Image** (accepts several files); **×** removes one |
+| Diagrams | **+ Diagram** opens the Mermaid editor with live preview; **Edit** reopens it |
+| Links | **+ Link** (http/https); chips with **×** to remove |
+| Branch colour | Colour picker on first-level branches |
+| Delete | **Delete** (asks for confirmation when there are ideas below) |
 
-O **salvamento é automático** (o estado aparece ao lado do nome: *Salvo / Salvando… / Erro ao salvar*).
-O menu no canto superior esquerdo troca, cria ou exclui apresentações.
+**Autosave** is on (status next to the name: *Saved / Saving… / Save error*). The menu in the top-left
+corner switches, creates or deletes presentations.
 
 ---
 
-## Usando a skill
+## Using the skill
 
-A skill transforma contexto em mapa. Resumo do fluxo (detalhes em [`docs/skill.md`](docs/skill.md)):
+The skill turns context into a map. Flow summary (details in [`docs/skill.md`](docs/skill.md)):
 
-1. O agente garante o servidor: `node skills/context-maps/scripts/rm.mjs serve`.
-2. Lê o contexto relevante (código, README, specs, diagramas existentes).
-3. Escreve um **outline** em markdown:
+1. The agent makes sure the server is up: `node skills/context-maps/scripts/rm.mjs serve`.
+2. It reads the relevant context (code, README, specs, existing diagrams).
+3. It writes a markdown **outline**:
 
    ```markdown
-   # Fluxo de login [img:docs/capa.png|Capa]
-   - Autenticar {color=#c76a61}
-     - Validar credenciais [link:https://owasp.org/|OWASP]
-     - Fluxo detalhado [mermaid:docs/login.mmd]
-   - Sessão
-     - Renovar token
+   # Login flow [img:docs/cover.png|Cover]
+   - Authenticate {color=#c76a61}
+     - Validate credentials [link:https://owasp.org/|OWASP]
+     - Detailed flow [mermaid:docs/login.mmd]
+   - Session
+     - Refresh token
    ```
-4. Valida e publica:
+4. It validates and publishes:
 
    ```bash
-   node skills/context-maps/scripts/rm.mjs validate --outline mapa.md
-   node skills/context-maps/scripts/rm.mjs create   --outline mapa.md --id fluxo-login
+   node skills/context-maps/scripts/rm.mjs validate --outline map.md
+   node skills/context-maps/scripts/rm.mjs create   --outline map.md --id login-flow
    ```
-5. Recebe a URL (`http://127.0.0.1:4173/?p=fluxo-login`), o arquivo gerado e um relatório (nós, mídias,
-   itens pulados).
+5. It gets the URL (`http://127.0.0.1:4173/?p=login-flow`), the generated file and a report (nodes, media,
+   skipped items).
 
-Exemplos de pedidos: *"mapa da arquitetura deste repositório"*, *"mapa dos fluxos de pagamento com os
-diagramas do `docs/`"*, *"transforme esta especificação em um mapa para a reunião de amanhã"*.
+Example requests: *"map this repository's architecture"*, *"map the payment flows using the diagrams in
+`docs/`"*, *"turn this specification into a map for tomorrow's meeting"*.
 
-### Compatibilidade com agentes
+### Agent compatibility
 
-| Agente | Como a skill é encontrada | Status |
+| Agent | How the skill is found | Status |
 | --- | --- | --- |
-| **Claude (Claude Code)** | `skills/context-maps/SKILL.md` (copie para `~/.claude/skills/` para uso global) | Formato nativo |
-| **Codex** | `AGENTS.md` na raiz aponta para o `SKILL.md` | Preparado; não testado |
-| **Cursor** | `.cursor/rules/context-maps.mdc` e `AGENTS.md` | Preparado; não testado |
+| **Claude (Claude Code)** | `skills/context-maps/SKILL.md` (copy to `~/.claude/skills/` for global use) | Native format |
+| **Codex** | `AGENTS.md` at the root points to `SKILL.md` | Prepared; not tested |
+| **Cursor** | `.cursor/rules/context-maps.mdc` and `AGENTS.md` | Prepared; not tested |
 
-O trabalho pesado fica em um CLI Node (`rm.mjs`), então qualquer agente com acesso ao terminal consegue usar.
+The heavy lifting lives in a Node CLI (`rm.mjs`), so any agent with terminal access can use it.
+
+> The agent-facing instructions (`SKILL.md`, `schema.md`, `AGENTS.md`) are written in Portuguese; agents
+> follow them regardless of the language you talk to them in.
 
 ---
 
-## Formato dos dados
+## Data format
 
 ```json
 {
-  "id": "meu-fluxo",
+  "id": "my-flow",
   "tree": {
     "id": "root",
-    "title": "Título da apresentação",
+    "title": "Presentation title",
     "children": [
       {
         "id": "n-1a2b3c4d",
-        "title": "Ideia",
+        "title": "Idea",
         "color": "#c76a61",
         "images": [
-          {"src": "presentations/meu-fluxo/assets/tela.png", "alt": "Tela inicial"},
-          {"src": "presentations/meu-fluxo/assets/d.svg", "alt": "Diagrama", "kind": "diagram", "source": "flowchart TD…"}
+          {"src": "presentations/my-flow/assets/screen.png", "alt": "Home screen"},
+          {"src": "presentations/my-flow/assets/d.svg", "alt": "Diagram", "kind": "diagram", "source": "flowchart TD…"}
         ],
-        "links": [{"url": "https://exemplo.com/docs", "label": "Docs"}],
+        "links": [{"url": "https://example.com/docs", "label": "Docs"}],
         "children": []
       }
     ]
@@ -176,61 +181,61 @@ O trabalho pesado fica em um CLI Node (`rm.mjs`), então qualquer agente com ace
 }
 ```
 
-Referência completa e boas práticas de modelagem: [`skills/context-maps/schema.md`](skills/context-maps/schema.md).
+Full reference and modelling best practices: [`skills/context-maps/schema.md`](skills/context-maps/schema.md).
 
-## API do servidor
+## Server API
 
-Escuta apenas em `127.0.0.1`. Todas as rotas respondem JSON e `Cache-Control: no-store`.
+Listens on `127.0.0.1` only. Every route answers JSON with `Cache-Control: no-store`.
 
-| Método e rota | Função |
+| Method and route | Purpose |
 | --- | --- |
-| `GET /api/presentations` | Lista (`id`, `title`, `updatedAt`) |
-| `POST /api/presentations` | Cria (`{title, id?}`) |
-| `GET /api/presentations/:id` | Lê |
-| `PUT /api/presentations/:id` | Salva a árvore (valida ids únicos, profundidade ≤ 40, mídias/links ≤ 50 por nó) |
-| `DELETE /api/presentations/:id` | Remove o arquivo e as imagens |
-| `POST /api/presentations/:id/assets?name=…` | Envia imagem (png, jpg, webp, gif, svg; até 15 MB) |
+| `GET /api/presentations` | List (`id`, `title`, `updatedAt`) |
+| `POST /api/presentations` | Create (`{title, id?}`) |
+| `GET /api/presentations/:id` | Read |
+| `PUT /api/presentations/:id` | Save the tree (validates unique ids, depth ≤ 40, ≤ 50 media/links per node) |
+| `DELETE /api/presentations/:id` | Remove the file and its images |
+| `POST /api/presentations/:id/assets?name=…` | Upload an image (png, jpg, webp, gif, svg; up to 15 MB) |
 
-Segurança básica: sem acesso a arquivos fora da pasta do app/`presentations/`, só links http/https, e o
-Mermaid roda em `securityLevel: strict`.
+Basic safety: no access to files outside the app folder / `presentations/`, only http/https links, and
+Mermaid runs with `securityLevel: strict`.
 
 ---
 
-## Testes
+## Tests
 
-`npm test` roda os testes de modelo (Node). Os demais usam Playwright e Chrome instalados:
+`npm test` runs the model tests (Node). The rest use Playwright and an installed Chrome:
 
 ```bash
-export PLAYWRIGHT_MODULE=file:///caminho/para/playwright-core/index.mjs   # caminho absoluto
-node tests/edit.mjs      # EDIT-01..13  edição, diagramas, mídias, links (sobe servidor temporário)
-node tests/skill.mjs     # SKILL-01..06 CLI da skill (sobe servidor temporário)
-node tests/browser.mjs   # MAP-01..08   navegação, zoom, modo texto, mobile
-node tests/cards.mjs     # CARD-01..06  títulos, raiz, teclado, imagens
-node tests/motion.mjs    # MOT-01..05   animações e movimento reduzido
+export PLAYWRIGHT_MODULE=file:///path/to/playwright-core/index.mjs   # absolute path
+node tests/edit.mjs      # EDIT-01..13  editing, diagrams, media, links (starts a temp server)
+node tests/skill.mjs     # SKILL-01..06 skill CLI (starts a temp server)
+node tests/browser.mjs   # MAP-01..08   navigation, zoom, text mode, mobile
+node tests/cards.mjs     # CARD-01..06  titles, root, keyboard, images
+node tests/motion.mjs    # MOT-01..05   animations and reduced motion
 ```
 
-`browser`, `cards` e `motion` esperam um servidor ativo (`PREVIEW_URL`, padrão `http://127.0.0.1:4173`)
-**com os dados de demonstração**: rode-os contra um servidor com `PRESENTATIONS_DIR` vazio ou temporário
-para não depender das suas apresentações. `BROWSER_EXECUTABLE` escolhe o Chrome/Chromium.
+`browser`, `cards` and `motion` expect a running server (`PREVIEW_URL`, default `http://127.0.0.1:4173`)
+**with the demo data**: run them against a server with an empty or temporary `PRESENTATIONS_DIR` so they
+do not depend on your own presentations. `BROWSER_EXECUTABLE` selects Chrome/Chromium.
 
 ---
 
-## Limitações conhecidas
+## Known limitations
 
-- **Sem ligações cruzadas** entre ideias (a estrutura é uma árvore). Ciclos viram texto ou diagrama.
-- **Reordenar** ideias ou mídias por arrastar ainda não existe.
-- **Diagramas via CLI** exigem `mmdc` (mermaid-cli); no editor do app o Mermaid já vem embutido.
-- URLs remotas de imagem **não são baixadas** pela skill (use arquivos locais).
-- Mobile: arrastar com um dedo e botões de zoom; pinch não implementado.
-- Remover uma mídia não apaga o arquivo em `assets/`.
-- Uso pensado para **máquina local, usuário único**: não há autenticação nem edição simultânea.
+- **No cross-links** between ideas (the structure is a tree). Cycles become text or a diagram.
+- **Reordering** ideas or media by dragging does not exist yet.
+- **CLI diagrams** need `mmdc` (mermaid-cli); in the app editor Mermaid is already bundled.
+- Remote image URLs are **not downloaded** by the skill (use local files).
+- Mobile: one-finger pan and zoom buttons; pinch is not implemented.
+- Removing a media item does not delete its file from `assets/`.
+- Designed for a **local machine, single user**: there is no authentication or simultaneous editing.
 
-## Terceiros
+## Third-party
 
-`vendor/mermaid.min.js` — [Mermaid](https://github.com/mermaid-js/mermaid) 12.2.0, licença MIT
-(`vendor/mermaid.LICENSE`). Carregado sob demanda apenas pelo editor de diagramas.
+`vendor/mermaid.min.js` — [Mermaid](https://github.com/mermaid-js/mermaid) 12.2.0, MIT licence
+(`vendor/mermaid.LICENSE`). Loaded on demand by the diagram editor only.
 
-## Origem
+## Origin
 
-O comportamento do visualizador foi inspirado na observação de um visualizador de mapas mentais público.
-Conteúdo, ilustrações, código e textos deste repositório são originais; nada da referência foi copiado.
+The viewer's behaviour was inspired by observing a public mind-map viewer. The content, illustrations,
+code and texts in this repository are original; nothing from the reference was copied.

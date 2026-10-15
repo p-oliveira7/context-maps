@@ -1,65 +1,68 @@
-# Guia da skill `context-maps`
+# `context-maps` skill guide
 
-Este guia explica **o que a skill faz, por que existe, como instalá-la e como tirar bom proveito dela**.
-O procedimento operacional que o agente segue está em
-[`skills/context-maps/SKILL.md`](../skills/context-maps/SKILL.md); o formato dos dados e as boas práticas
-de modelagem estão em [`skills/context-maps/schema.md`](../skills/context-maps/schema.md).
+[Português (BR)](skill.pt-BR.md) · **English**
 
-## 1. Propósito
+This guide explains **what the skill does, why it exists, how to install it and how to get the most out
+of it**. The operating procedure the agent follows is in
+[`skills/context-maps/SKILL.md`](../skills/context-maps/SKILL.md); the data format and modelling best
+practices are in [`skills/context-maps/schema.md`](../skills/context-maps/schema.md) (both written in
+Portuguese, since they are instructions for the agent).
 
-> Transformar contexto de uma aplicação (código, specs, fluxos, decisões) em uma apresentação em mapa
-> mental navegável e editável, sem montar nada à mão.
+## 1. Purpose
 
-A skill resolve um problema recorrente: documentar ou apresentar um sistema exige reunir texto, diagramas
-e evidências. Em vez de escrever slides, você pede ao agente, que:
+> Turn the context of an application (code, specs, flows, decisions) into a navigable, editable mind-map
+> presentation, without building anything by hand.
 
-1. **lê** o material do projeto;
-2. **estrutura** o conhecimento como árvore (fluxo, arquitetura ou ambos);
-3. **anexa** imagens, diagramas Mermaid e links;
-4. **publica** na API do app local e devolve a URL.
+The skill solves a recurring problem: documenting or presenting a system means gathering text, diagrams
+and evidence. Instead of writing slides you ask the agent, which:
 
-O mapa resultante é um JSON no repositório: revisável em PR, ajustável no modo **Editar** e regerável quando
-o sistema muda.
+1. **reads** the project material;
+2. **structures** the knowledge as a tree (flow, architecture or both);
+3. **attaches** images, Mermaid diagrams and links;
+4. **publishes** to the local app's API and returns the URL.
 
-## 2. Quando usar (e quando não)
+The resulting map is a JSON file in the repository: reviewable in a PR, adjustable in **Edit** mode and
+regenerable when the system changes.
 
-| Use quando… | Evite quando… |
+## 2. When to use it (and when not to)
+
+| Use it when… | Avoid it when… |
 | --- | --- |
-| Precisa explicar um sistema/processo para outras pessoas | O objetivo é documentação textual longa (use docs) |
-| Quer visão geral navegável: do macro ao detalhe | Precisa de relações cruzadas complexas (grafos) |
-| Tem diagramas e prints espalhados e quer reuni-los | O conteúdo é confidencial e o agente roda em nuvem sem política de dados |
-| Quer um ponto de partida para editar à mão | Precisa de edição simultânea por várias pessoas |
+| You need to explain a system/process to other people | The goal is long-form written documentation (use docs) |
+| You want a navigable overview, from macro to detail | You need complex cross-relations (graphs) |
+| You have diagrams and screenshots scattered around and want them together | The content is confidential and the agent runs in the cloud without a data policy |
+| You want a starting point to edit by hand | You need simultaneous editing by several people |
 
-## 3. Como funciona
+## 3. How it works
 
 ```
-pedido do usuário
+user request
       │
       ▼
- 1 serve  ──────────  garante o servidor em 127.0.0.1:4173
- 2 coletar contexto ─ código, README, specs, diagramas existentes
- 3 modelar ─────────  escolhe fluxo / arquitetura / ambos
- 4 outline (.md) ───  árvore + marcadores [img] [mermaid] [link] {color}
- 5 validate ────────  avisos: títulos longos, profundidade, nós largos
- 6 create ──────────  POST/PUT na API, upload de mídias, renderiza mermaid
- 7 entregar ────────  URL, arquivo, contagem de nós, itens pulados
+ 1 serve  ──────────  make sure the server is on 127.0.0.1:4173
+ 2 gather context ──  code, README, specs, existing diagrams
+ 3 model ───────────  choose flow / architecture / both
+ 4 outline (.md) ───  tree + markers [img] [mermaid] [link] {color}
+ 5 validate ────────  warnings: long titles, depth, wide nodes
+ 6 create ──────────  POST/PUT to the API, upload media, render mermaid
+ 7 deliver ─────────  URL, file, node count, skipped items
 ```
 
-### Por que um *outline* markdown e não o JSON direto?
-Listas indentadas são o formato mais natural e menos propenso a erro para um modelo de linguagem: não há
-ids para inventar, vírgulas para esquecer nem chaves para balancear. O CLI converte o outline em JSON,
-gera ids únicos, valida e envia.
+### Why a markdown *outline* and not JSON directly?
+Indented lists are the most natural and least error-prone format for a language model: no ids to invent,
+no commas to forget, no braces to balance. The CLI converts the outline into JSON, generates unique ids,
+validates and sends it.
 
-### Por que usar a API do servidor?
-A API é o único ponto que valida estrutura, protege contra caminhos inválidos e grava de forma atômica.
-Escrever o arquivo direto contornaria essas regras e duplicaria lógica. Se o servidor estiver fora do ar, a
-skill o inicia (`serve`) ou informa o comando manual — nunca grava em `presentations/` por fora.
+### Why go through the server API?
+The API is the single point that validates structure, protects against invalid paths and writes
+atomically. Writing the file directly would bypass those rules and duplicate logic. If the server is down,
+the skill starts it (`serve`) or reports the manual command — it never writes to `presentations/` on its own.
 
-## 4. Instalação
+## 4. Installation
 
 ### Claude (Claude Code)
-A skill já está no repositório em `skills/context-maps/`. Para usá-la em **qualquer** projeto, copie a
-pasta para o diretório de skills do usuário:
+The skill already lives in the repository at `skills/context-maps/`. To use it in **any** project, copy
+the folder to the user skills directory:
 
 ```bash
 # macOS / Linux
@@ -68,57 +71,57 @@ cp -r skills/context-maps ~/.claude/skills/context-maps
 Copy-Item -Recurse skills\context-maps $env:USERPROFILE\.claude\skills\context-maps
 ```
 
-Quando a skill é usada **fora** do repositório do app:
+When the skill is used **outside** the app repository:
 
-- chame o CLI pelo caminho absoluto de `rm.mjs`;
-- inicie o servidor manualmente (`node /caminho/context-maps/server.mjs`) ou defina `RM_URL` apontando
-  para um servidor já ativo — o comando `serve` só encontra o `server.mjs` quando a skill está na pasta do app.
+- call the CLI by the absolute path of `rm.mjs`;
+- start the server manually (`node /path/context-maps/server.mjs`) or set `RM_URL` to a server that is
+  already running — the `serve` command only finds `server.mjs` when the skill sits inside the app folder.
 
-### Codex e Cursor
-O repositório inclui `AGENTS.md` (Codex; também reconhecido pelo Cursor) e
-`.cursor/rules/context-maps.mdc`. Ambos apontam para o mesmo `SKILL.md`, que é a fonte única das
-instruções. Estão **preparados, mas não foram testados** nessas ferramentas.
+### Codex and Cursor
+The repository ships `AGENTS.md` (Codex; also recognised by Cursor) and
+`.cursor/rules/context-maps.mdc`. Both point to the same `SKILL.md`, the single source of instructions.
+They are **prepared but were not tested** on those tools.
 
-## 5. Pré-requisitos e configuração
+## 5. Requirements and configuration
 
-| Item | Obrigatório | Detalhe |
+| Item | Required | Detail |
 | --- | --- | --- |
-| Node 18+ | Sim | Usa `fetch` nativo; sem pacotes |
-| Servidor do app | Sim | `node server.mjs` (padrão `http://127.0.0.1:4173`) |
-| `mmdc` (mermaid-cli) | Só para `[mermaid:…]` via CLI | `npm i -g @mermaid-js/mermaid-cli` |
+| Node 18+ | Yes | Uses native `fetch`; no packages |
+| App server | Yes | `node server.mjs` (default `http://127.0.0.1:4173`) |
+| `mmdc` (mermaid-cli) | Only for `[mermaid:…]` via CLI | `npm i -g @mermaid-js/mermaid-cli` |
 
-| Variável | Uso |
+| Variable | Purpose |
 | --- | --- |
-| `RM_URL` | Endereço do servidor (padrão `http://127.0.0.1:4173`) |
-| `MMDC` | Caminho do executável `mmdc` se não estiver no PATH |
-| `MMDC_BROWSER` | Chrome/Chromium já instalado, para evitar baixar o do Puppeteer |
+| `RM_URL` | Server address (default `http://127.0.0.1:4173`) |
+| `MMDC` | Path to the `mmdc` executable if it is not on PATH |
+| `MMDC_BROWSER` | An already-installed Chrome/Chromium, to avoid downloading Puppeteer's |
 
-> Dica: instale o mermaid-cli com `PUPPETEER_SKIP_DOWNLOAD=1` e aponte `MMDC_BROWSER` para o Chrome que você
-> já tem.
+> Tip: install mermaid-cli with `PUPPETEER_SKIP_DOWNLOAD=1` and point `MMDC_BROWSER` at the Chrome you
+> already have.
 
-## 6. Referência do CLI (`rm.mjs`)
+## 6. CLI reference (`rm.mjs`)
 
 ```bash
-node skills/context-maps/scripts/rm.mjs <comando> [opções]
+node skills/context-maps/scripts/rm.mjs <command> [options]
 ```
 
-| Comando | Opções | Resultado |
+| Command | Options | Result |
 | --- | --- | --- |
-| `serve` | — | Inicia o servidor se não estiver ativo |
-| `status` | — | JSON com as apresentações existentes |
-| `validate` | `--outline f.md` | Estatísticas e avisos; **sai com código 3** se houver avisos |
-| `create` | `--outline f.md` `[--id slug]` `[--title "…"]` `[--replace]` | Cria/sobrescreve, envia mídias, imprime relatório JSON |
-| `upload` | `<id> <arquivo>` | Envia uma imagem e imprime o `src` |
+| `serve` | — | Starts the server if it is not running |
+| `status` | — | JSON with the existing presentations |
+| `validate` | `--outline f.md` | Stats and warnings; **exits with code 3** if there are warnings |
+| `create` | `--outline f.md` `[--id slug]` `[--title "…"]` `[--replace]` | Creates/overwrites, uploads media, prints a JSON report |
+| `upload` | `<id> <file>` | Uploads an image and prints its `src` |
 
-Códigos de saída: `0` ok · `1` erro · `2` servidor indisponível · `3` avisos na validação · `64` uso incorreto.
+Exit codes: `0` ok · `1` error · `2` server unavailable · `3` validation warnings · `64` wrong usage.
 
-Exemplo de relatório do `create`:
+Sample `create` report:
 
 ```json
 {
-  "id": "fluxo-login",
-  "url": "http://127.0.0.1:4173/?p=fluxo-login",
-  "file": "presentations/fluxo-login.json",
+  "id": "login-flow",
+  "url": "http://127.0.0.1:4173/?p=login-flow",
+  "file": "presentations/login-flow.json",
   "nodes": 12, "depth": 3,
   "images": 2, "diagrams": 1, "links": 3,
   "warnings": [],
@@ -126,94 +129,96 @@ Exemplo de relatório do `create`:
 }
 ```
 
-## 7. Formato do outline
+## 7. Outline format
 
 ```markdown
-# Título da apresentação [img:docs/capa.png|Capa]
-- Etapa 1 {color=#c76a61}
-  - Ação ou decisão [link:https://exemplo.com/regra|Regra de negócio]
-  - Fluxo detalhado [mermaid:docs/login.mmd]
-- Etapa 2
-  - Tela de login [img:docs/tela.png|Print da tela] [img:docs/erro.png|Estado de erro]
+# Presentation title [img:docs/cover.png|Cover]
+- Step 1 {color=#c76a61}
+  - Action or decision [link:https://example.com/rule|Business rule]
+  - Detailed flow [mermaid:docs/login.mmd]
+- Step 2
+  - Login screen [img:docs/screen.png|Screenshot] [img:docs/error.png|Error state]
 ```
 
-| Elemento | Regra |
+| Element | Rule |
 | --- | --- |
-| `# Título` | Primeira linha; vira a raiz e o nome da apresentação |
-| `- item` | Uma ideia; **indentação** (2 espaços ou tab) define a hierarquia |
-| `{color=#rrggbb}` | Cor do ramo; só tem efeito no primeiro nível |
-| `[img:caminho\|alt]` | Imagem local (png, jpg, webp, gif, svg); `alt` opcional |
-| `[mermaid:arquivo.mmd]` | Diagrama; renderizado com tema escuro e fundo transparente |
-| `[link:https://…\|rótulo]` | Link http/https; rótulo opcional (padrão: domínio) |
-| Vários marcadores | Repita à vontade; aparecem na ordem escrita |
-| Caminhos | Relativos ao arquivo do outline; URLs remotas de imagem **não** são baixadas |
+| `# Title` | First line; becomes the root and the presentation name |
+| `- item` | One idea; **indentation** (2 spaces or a tab) defines the hierarchy |
+| `{color=#rrggbb}` | Branch colour; only effective at the first level |
+| `[img:path\|alt]` | Local image (png, jpg, webp, gif, svg); `alt` optional |
+| `[mermaid:file.mmd]` | Diagram; rendered with a dark theme and transparent background |
+| `[link:https://…\|label]` | http/https link; label optional (default: the domain) |
+| Several markers | Repeat freely; they appear in the order written |
+| Paths | Relative to the outline file; remote image URLs are **not** downloaded |
 
-## 8. Como modelar bem o mapa
+## 8. Modelling a good map
 
-**Fluxo / jornada** — leitura da esquerda para a direita:
-- raiz = o fluxo; ramos = etapas **na ordem** (prefixe com números se a ordem importa);
-- filhos = ações, decisões ("Se token expirado → …") e falhas.
+**Flow / journey** — read left to right:
+- root = the flow; branches = steps **in order** (prefix numbers if order matters);
+- children = actions, decisions ("If token expired → …") and failures.
 
-**Arquitetura**:
-- raiz = o sistema; ramos = camadas ou módulos;
-- filhos = responsabilidades, interfaces e dependências críticas;
-- anexe `flowchart`, `sequenceDiagram` ou `erDiagram` para topologias e sequências.
+**Architecture**:
+- root = the system; branches = layers or modules;
+- children = responsibilities, interfaces and critical dependencies;
+- attach `flowchart`, `sequenceDiagram` or `erDiagram` for topologies and sequences.
 
-**Ambos** — raiz = o sistema, com um ramo "Arquitetura" e outro "Fluxos".
+**Both** — root = the system, with an "Architecture" branch and a "Flows" branch.
 
-Qualidade (o `validate` avisa quando passa dos limites):
+Quality (`validate` warns when you go past the limits):
 
-- títulos curtos, em frase nominal, até ~90 caracteres;
-- 3 a 7 filhos por nó (mais de 8 → agrupe);
-- profundidade até 5 níveis (além disso, quebre em outra apresentação);
-- sem repetir a mesma ideia em ramos diferentes;
-- sem inventar: onde o contexto não responde, escreva **"A definir"**.
+- short titles, noun phrases, up to ~90 characters;
+- 3 to 7 children per node (more than 8 → group them);
+- depth up to 5 levels (beyond that, split into another presentation);
+- do not repeat the same idea in different branches;
+- do not invent: where the context does not answer, write **"To be defined"** ("A definir").
 
-## 9. Exemplo completo
+## 9. Full example
 
-Pedido: *"monte um mapa da visão do sistema Context Maps, com diagramas e links das tecnologias."*
+Request: *"build a map of the Context Maps system overview, with diagrams and links for the technologies."*
 
-1. O agente lê `README.md`, `server.mjs`, `app.js` e `tests/`.
-2. Escreve `sistema.md`:
+1. The agent reads `README.md`, `server.mjs`, `app.js` and `tests/`.
+2. It writes `system.md`:
 
    ```markdown
-   # Context Maps — visão do sistema
-   - Arquitetura {color=#6fa3d6}
-     - Diagramas do sistema [mermaid:arquitetura.mmd] [mermaid:fluxo-edicao.mmd] [link:https://mermaid.js.org/|Mermaid]
-     - App no navegador (HTML, CSS e módulos ES, sem dependências)
-     - Servidor local (server.mjs, Node sem pacotes) [link:https://nodejs.org/api/http.html]
-   - Fluxos {color=#d4a458}
-     - Editar uma apresentação
-       - Autosave envia a árvore completa para a API
+   # Context Maps — system overview
+   - Architecture {color=#6fa3d6}
+     - System diagrams [mermaid:architecture.mmd] [mermaid:edit-flow.mmd] [link:https://mermaid.js.org/|Mermaid]
+     - Browser app (HTML, CSS and ES modules, no dependencies)
+     - Local server (server.mjs, plain Node) [link:https://nodejs.org/api/http.html]
+   - Flows {color=#d4a458}
+     - Edit a presentation
+       - Autosave sends the whole tree to the API
    ```
-3. `validate` → sem avisos; `create --id visao-do-sistema` → URL + relatório.
+3. `validate` → no warnings; `create --id system-overview` → URL + report.
 
-Um exemplo real gerado assim acompanha o repositório em `presentations/` ("visão do sistema").
+A real example generated this way ships in `presentations/` ("visão do sistema").
 
-## 10. Regras de segurança e boas maneiras do agente
+## 10. Safety rules and agent etiquette
 
-- **Não sobrescrever** apresentações sem o usuário pedir (`--replace`); o CLI recusa se o `id` já existe.
-- **Nunca apagar** apresentações pela skill.
-- **Não copiar** conteúdo protegido; resumir com as próprias palavras.
-- **Transparência:** reportar `warnings` e `skipped`.
-- O servidor só escuta em `127.0.0.1` e o CLI não envia dados para fora da máquina.
+- **Do not overwrite** presentations unless the user asks (`--replace`); the CLI refuses if the `id` exists.
+- **Never delete** presentations through the skill.
+- **Do not copy** protected content; summarise in your own words.
+- **Transparency:** report `warnings` and `skipped`.
+- The server listens on `127.0.0.1` only and the CLI sends no data off the machine.
 
-## 11. Solução de problemas
+## 11. Troubleshooting
 
-| Sintoma | Causa provável | O que fazer |
+| Symptom | Likely cause | What to do |
 | --- | --- | --- |
-| `Servidor indisponível` (código 2) | Servidor parado ou porta diferente | `rm.mjs serve` ou `node server.mjs`; ajuste `RM_URL` |
-| `Já existe a apresentação "x"` | `--id` repetido | Escolha outro `--id` ou, se o usuário pediu, `--replace` |
-| Diagrama em `skipped` ("mmdc não encontrado") | mermaid-cli ausente | Instale-o ou defina `MMDC`/`MMDC_BROWSER` |
-| Diagrama em `skipped` ("falha ao renderizar") | Erro de sintaxe Mermaid | Corrija o `.mmd` (teste no editor do app) |
-| Imagem em `skipped` | Caminho errado ou URL remota | Use caminho local relativo ao outline |
-| Aviso "título com N caracteres" | Texto longo | Resuma; use filhos para detalhar |
-| Página em branco após atualizar | Cache do navegador com módulos antigos | Recarregue com `Ctrl+Shift+R` |
+| `Servidor indisponível` (code 2) | Server stopped or different port | `rm.mjs serve` or `node server.mjs`; adjust `RM_URL` |
+| `Já existe a apresentação "x"` | Repeated `--id` | Pick another `--id` or, if the user asked, `--replace` |
+| Diagram in `skipped` ("mmdc não encontrado") | mermaid-cli missing | Install it or set `MMDC`/`MMDC_BROWSER` |
+| Diagram in `skipped` ("falha ao renderizar") | Mermaid syntax error | Fix the `.mmd` (try it in the app editor) |
+| Image in `skipped` | Wrong path or remote URL | Use a local path relative to the outline |
+| "título com N caracteres" warning | Long text | Shorten it; use children for detail |
+| Blank page after updating | Browser cached old modules | Hard-reload with `Ctrl+Shift+R` |
 
-## 12. Limitações
+> The CLI messages are in Portuguese; their meaning is given in the table above.
 
-- Estrutura em **árvore**; sem ligações cruzadas entre ideias.
-- Sem reordenação por arrastar; para trocar a ordem, edite o outline e use `--replace`.
-- Mídias por URL remota não são baixadas.
-- Renderização de Mermaid pelo CLI depende do `mmdc` externo (no editor do app já é embutido).
-- Fora do app, Codex e Cursor foram preparados, mas **não testados**.
+## 12. Limitations
+
+- **Tree** structure; no cross-links between ideas.
+- No drag reordering; to change order, edit the outline and use `--replace`.
+- Remote-URL media is not downloaded.
+- CLI Mermaid rendering depends on the external `mmdc` (the app editor already bundles it).
+- Outside Claude, Codex and Cursor were prepared but **not tested**.

@@ -7,7 +7,7 @@ Cada apresentação é um arquivo `presentations/<id>.json`.
 
 Fonte única das instruções: **`skills/context-maps/SKILL.md`** (procedimento) e
 **`skills/context-maps/schema.md`** (formato e boas práticas). Leia os dois antes de começar.
-Guia completo: `docs/skill.md`.
+Guia completo: `docs/skill.md` (English) · `docs/skill.pt-BR.md` (Português).
 
 Resumo:
 
