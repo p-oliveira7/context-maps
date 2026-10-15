@@ -103,7 +103,7 @@ Ative o switch **Editar** na barra inferior.
 | --- | --- |
 | Editar texto | Clique no texto; Enter confirma |
 | Adicionar ideia | **+ Filho**, **+ Irmão** (depois), **+ Antes** (irmão antes) ou **+ Pai** (envolve a ideia num novo card pai); profundidade livre |
-| Imagens | **+ Imagem** (aceita vários arquivos); **×** remove uma |
+| Imagens | **+ Imagem** (aceita vários arquivos) ou **arraste arquivos de imagem para o card**; cada arquivo é **copiado** para `presentations/<id>/assets/` e o original não é alterado; **×** remove uma |
 | Diagramas | **+ Diagrama** abre o editor Mermaid com pré-visualização ao vivo; **Editar** reabre |
 | Cards sem título | Apague o título de um card que tenha imagem/diagrama ou subtítulo: ele passa a mostrar só esse conteúdo (card só com subtítulo mostra o subtítulo o tempo todo) |
 | Subtítulo | Digite no campo "Subtítulo" abaixo do título (apague para remover); aparece no hover na exibição |

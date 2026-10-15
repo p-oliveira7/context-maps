@@ -160,6 +160,24 @@ async function addImages(node,files){
   commit();render();
  }catch{setStatus('Erro ao enviar imagem','error');commit();render();}
 }
+/* Arrastar e soltar: arquivos de imagem soltos num card viram cópias em presentations/<id>/assets */
+const isImageFile=f=>/^image\/(png|jpe?g|webp|gif|svg\+xml)$/.test(f.type)||/\.(png|jpe?g|webp|gif|svg)$/i.test(f.name);
+const hasFiles=e=>!!e.dataTransfer&&[...(e.dataTransfer.types||[])].includes('Files');
+function enableDrop(el,node){
+ const over=e=>{if(!hasFiles(e))return;e.preventDefault();e.dataTransfer.dropEffect='copy';el.classList.add('drop-target');};
+ el.addEventListener('dragenter',over);el.addEventListener('dragover',over);
+ el.addEventListener('dragleave',e=>{if(!el.contains(e.relatedTarget))el.classList.remove('drop-target');});
+ el.addEventListener('drop',e=>{
+  if(!hasFiles(e))return;
+  e.preventDefault();e.stopPropagation();el.classList.remove('drop-target');
+  const files=[...e.dataTransfer.files],images=files.filter(isImageFile);
+  if(images.length)addImages(node,images);
+  if(images.length<files.length)setStatus('Só imagens são aceitas (png, jpg, webp, gif ou svg)','error');
+ });
+}
+// Soltar um arquivo fora de um card não deve abrir o arquivo no navegador.
+for(const type of ['dragover','drop'])window.addEventListener(type,e=>{if(hasFiles(e))e.preventDefault();});
+
 function editTools(node,depth){
  const tools=document.createElement('div');tools.className='node-tools';
  const add=(label,aria,handler)=>{const b=document.createElement('button');b.type='button';b.textContent=label;b.setAttribute('aria-label',`${aria}: ${nameOf(node)}`);b.onclick=handler;tools.append(b);return b;};
@@ -171,7 +189,7 @@ function editTools(node,depth){
  }
  const picker=document.createElement('input');picker.type='file';picker.accept='image/png,image/jpeg,image/webp,image/gif,image/svg+xml';picker.hidden=true;picker.multiple=true;
  picker.onchange=()=>{if(picker.files.length)addImages(node,[...picker.files]);};
- add('+ Imagem','Adicionar imagem',()=>picker.click());tools.append(picker);
+ add('+ Imagem','Adicionar imagem',()=>picker.click()).title='Escolher arquivos (ou arraste imagens para o card)';tools.append(picker);
  add('+ Diagrama','Adicionar diagrama',()=>openDiagramEditor(node,null));
  add('+ Link','Adicionar link',()=>addLink(node));
  if(depth===1){
@@ -288,7 +306,7 @@ function render(){
    if(links.length)row.append(editing?linkChips(node):linkBadge(node));
    el.append(row);
   }
-  if(editing)el.append(editTools(node,depth));
+  if(editing){el.append(editTools(node,depth));enableDrop(el,node);}
   container.append(el);elements.set(node.id,el);
  }
 

@@ -57,6 +57,12 @@
                 "title": "Modo texto e visualizador de imagens",
                 "children": []
               }
+            ],
+            "images": [
+              {
+                "src": "presentations/response-maps-visao-do-sistema/assets/captura-de-tela-2026-10-14-185023-mv9qdy1v.png",
+                "alt": "App no navegador (HTML, CSS e módulos ES, sem dependências)"
+              }
             ]
           },
           {
@@ -78,6 +84,12 @@
             "links": [
               {
                 "url": "https://nodejs.org/api/http.html"
+              }
+            ],
+            "images": [
+              {
+                "src": "presentations/response-maps-visao-do-sistema/assets/captura-de-tela-2026-10-14-185023-mv9qejta.png",
+                "alt": "Servidor local (server.mjs, Node sem pacotes)"
               }
             ]
           },

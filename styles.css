@@ -201,3 +201,6 @@ body.is-editing .node [contenteditable]:empty::before{content:attr(data-placehol
 
 /* Botão de tela cheia */
 #fullscreen[hidden]{display:none}
+
+/* Soltar imagens no card (edição) */
+.node.drop-target{outline:2px dashed #4f9d7a;outline-offset:6px;border-radius:12px;background:#4f9d7a14}

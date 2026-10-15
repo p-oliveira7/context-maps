@@ -148,6 +148,32 @@ try{
 
  await page.locator('[data-id="future"] .color-input').evaluate((e,v)=>{e.value=v;e.dispatchEvent(new Event('change',{bubbles:true}));},'#00aa55'); // cor do ramo
  await until(async()=>(await onDisk(id)).tree.children[3].color==='#00aa55','cor não salva');
+ // EDIT-17: arrastar e soltar imagens no card (cópia em assets, origem intacta)
+ await page.locator('[data-id="community-2"]').scrollIntoViewIfNeeded();
+ const dropFiles=(selector,files)=>page.evaluate(({selector,files})=>{
+  const target=document.querySelector(selector),dt=new DataTransfer();
+  for(const f of files){const bytes=Uint8Array.from(atob(f.b64),c=>c.charCodeAt(0));dt.items.add(new File([bytes],f.name,{type:f.type}));}
+  const fire=(type)=>target.dispatchEvent(new DragEvent(type,{bubbles:true,cancelable:true,dataTransfer:dt}));
+  fire('dragenter');fire('dragover');
+  const marked=target.classList.contains('drop-target');
+  fire('drop');
+  return marked;
+ },{selector,files});
+ const c2=async()=>(await onDisk(id)).tree.children[2].children[1];
+ const imagesBefore=(await c2()).images?.length||0;
+ const marked=await dropFiles('[data-id="community-2"]',[{name:'solta a.png',type:'image/png',b64:png.toString('base64')},{name:'solta-b.png',type:'image/png',b64:png.toString('base64')}]);
+ assert.equal(marked,true); // realce durante o arraste
+ await until(async()=>((await c2()).images?.length||0)===imagesBefore+2,'imagens soltas não salvas');
+ const dropped=(await c2()).images.slice(-2);
+ for(const image of dropped){
+  assert.match(image.src,/^presentations\/cidades-para-pessoas\/assets\/solta-.*\.png$/);
+  assert.equal((await page.request.get(`${base}/${image.src}`)).status(),200);
+ }
+ assert.equal(await page.locator('[data-id="community-2"]').evaluate(el=>el.classList.contains('drop-target')),false);
+ await dropFiles('[data-id="community-2"]',[{name:'nota.txt',type:'text/plain',b64:btoa('oi')}]); // arquivo não suportado
+ await new Promise(r=>setTimeout(r,500));
+ assert.equal((await c2()).images.length,imagesBefore+2);
+ assert.equal(await page.locator('#save-status').getAttribute('data-state'),'error');
  // EDIT-16: cards sem título (só mídia / só texto secundário)
  const rootKids=async()=>(await onDisk(id)).tree.children;
  const before=(await rootKids()).length;
@@ -224,5 +250,5 @@ try{
 
  const traversal=await page.request.get(`${base}/presentations/..%2fserver.mjs`);assert.equal(traversal.status(),404); // segurança básica
  assert.equal((await page.request.get(`${base}/server.mjs`)).status(),404);
- assert.deepEqual(errors,[]);console.log('PASS EDIT-01..16');
+ assert.deepEqual(errors,[]);console.log('PASS EDIT-01..17');
 }finally{await browser.close();server.kill();await rm(dir,{recursive:true,force:true});}
