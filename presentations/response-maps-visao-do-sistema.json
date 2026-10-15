@@ -1,0 +1,191 @@
+{
+  "id": "response-maps-visao-do-sistema",
+  "tree": {
+    "id": "root",
+    "title": "Response Maps — visão do sistema",
+    "children": [
+      {
+        "id": "n-0def51b8",
+        "title": "Arquitetura",
+        "children": [
+          {
+            "id": "n-d24b4c07",
+            "title": "Diagramas do sistema",
+            "children": [],
+            "images": [
+              {
+                "src": "presentations/response-maps-visao-do-sistema/assets/d-mv8sn2ad.svg",
+                "alt": "Diagrama: Diagramas do sistema",
+                "kind": "diagram",
+                "source": "flowchart LR\n    subgraph Browser[\"Navegador\"]\n        UI[\"app.js<br/>render e edição\"]\n        M[\"motion.js<br/>animações\"]\n        ST[\"store.js<br/>cliente da API\"]\n        UI --> M\n        UI --> ST\n    end\n    subgraph Local[\"Máquina local\"]\n        SRV[\"server.mjs<br/>API e estáticos\"]\n        FS[(\"presentations/<br/>JSON + assets\")]\n        SRV --> FS\n    end\n    SK[\"Skill response-maps<br/>rm.mjs\"] -->|\"POST / PUT\"| SRV\n    ST -->|\"GET / PUT / upload\"| SRV\n    GIT[(\"Git\")] -.versiona.-> FS\n"
+              },
+              {
+                "src": "presentations/response-maps-visao-do-sistema/assets/d-mv8sn33f.svg",
+                "alt": "Diagrama: Diagramas do sistema",
+                "kind": "diagram",
+                "source": "sequenceDiagram\n    actor U as Usuário\n    participant A as App (navegador)\n    participant S as Servidor local\n    participant F as presentations/*.json\n    U->>A: Ativa o switch \"Editar\"\n    U->>A: Altera texto / adiciona ideia / envia imagem\n    A->>A: Atualiza a árvore em memória e redesenha\n    A->>S: PUT /api/presentations/:id (autosave, 500 ms)\n    S->>S: Valida estrutura (ids únicos, profundidade)\n    S->>F: Grava o JSON (arquivo temporário + rename)\n    S-->>A: ok\n    A-->>U: Status \"Salvo\"\n"
+              }
+            ],
+            "links": [
+              {
+                "url": "https://mermaid.js.org/",
+                "label": "Mermaid"
+              },
+              {
+                "url": "https://mermaid.js.org/syntax/flowchart.html",
+                "label": "Sintaxe de flowchart"
+              }
+            ]
+          },
+          {
+            "id": "n-03ac5755",
+            "title": "App no navegador (HTML, CSS e módulos ES, sem dependências)",
+            "children": [
+              {
+                "id": "n-eb5fc31a",
+                "title": "Mapa: câmera, zoom, arraste e layout em colunas",
+                "children": []
+              },
+              {
+                "id": "n-a2e22f33",
+                "title": "Edição inline, ferramentas por ideia e autosave",
+                "children": []
+              },
+              {
+                "id": "n-1a199b84",
+                "title": "Modo texto e visualizador de imagens",
+                "children": []
+              }
+            ]
+          },
+          {
+            "id": "n-d1c98191",
+            "title": "Servidor local (server.mjs, Node sem pacotes)",
+            "children": [
+              {
+                "id": "n-08997317",
+                "title": "API REST de apresentações e upload de imagens",
+                "children": []
+              },
+              {
+                "id": "n-5d107e2d",
+                "title": "Arquivos estáticos sem cache",
+                "children": []
+              }
+            ],
+            "links": [
+              {
+                "url": "https://nodejs.org/api/http.html"
+              }
+            ]
+          },
+          {
+            "id": "n-119afe81",
+            "title": "Armazenamento em arquivos JSON versionáveis",
+            "children": [
+              {
+                "id": "n-7bf851ad",
+                "title": "presentations/<id>.json e pasta assets",
+                "children": []
+              }
+            ]
+          }
+        ],
+        "color": "#6fa3d6"
+      },
+      {
+        "id": "n-2f6d5708",
+        "title": "Fluxos",
+        "children": [
+          {
+            "id": "n-2af8f77c",
+            "title": "Exibir uma apresentação",
+            "children": [
+              {
+                "id": "n-a143029a",
+                "title": "Abrir o app e carregar a apresentação por ?p=",
+                "children": []
+              },
+              {
+                "id": "n-000515ab",
+                "title": "Expandir ramos com animação de 420 ms",
+                "children": [],
+                "links": [
+                  {
+                    "url": "https://developer.mozilla.org/docs/Web/API/Window/requestAnimationFrame",
+                    "label": "requestAnimationFrame"
+                  }
+                ]
+              },
+              {
+                "id": "n-fa21f9d0",
+                "title": "Ampliar imagens em tela cheia",
+                "children": []
+              }
+            ]
+          },
+          {
+            "id": "n-600ca010",
+            "title": "Editar uma apresentação",
+            "children": [
+              {
+                "id": "n-421b9ac3",
+                "title": "Ativar o switch Editar",
+                "children": []
+              },
+              {
+                "id": "n-34e61184",
+                "title": "Alterar texto, adicionar filho ou irmão, trocar imagem",
+                "children": []
+              },
+              {
+                "id": "n-4cb82b07",
+                "title": "Autosave envia a árvore completa para a API",
+                "children": []
+              }
+            ]
+          },
+          {
+            "id": "n-3b5e9e70",
+            "title": "Criar apresentação com a skill",
+            "children": [
+              {
+                "id": "n-fe3c8ffc",
+                "title": "Claude lê o contexto e escreve o outline",
+                "children": []
+              },
+              {
+                "id": "n-4ec1ad5e",
+                "title": "rm.mjs valida o outline e envia imagens",
+                "children": []
+              },
+              {
+                "id": "n-d3a92926",
+                "title": "API grava o JSON e devolve a URL",
+                "children": []
+              }
+            ]
+          }
+        ],
+        "color": "#d4a458"
+      },
+      {
+        "id": "n-f79f1898",
+        "title": "Qualidade",
+        "children": [
+          {
+            "id": "n-3c1f850c",
+            "title": "Testes de modelo, navegador, cards, motion, edição e skill",
+            "children": []
+          },
+          {
+            "id": "n-e91f3fb9",
+            "title": "Validação independente por especificação",
+            "children": []
+          }
+        ],
+        "color": "#7fb59a"
+      }
+    ]
+  }
+}
