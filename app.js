@@ -1,13 +1,13 @@
-import {tree as seed,visibleNodes,allBranches,zoomAt,parentOf,newId,PALETTE} from './model.js?v=7';
-import {cancelMotion,snapshot,animateLayout,hoverEdge,updateEdges} from './motion.js?v=7';
-import * as store from './store.js?v=7';
+import {tree as seed,visibleNodes,allBranches,zoomAt,parentOf,newId,PALETTE} from './model.js?v=8';
+import {cancelMotion,snapshot,animateLayout,hoverEdge,updateEdges} from './motion.js?v=8';
+import * as store from './store.js?v=8';
 const $=s=>document.querySelector(s), viewport=$('#viewport'), world=$('#world');
 const ROOT_COLOR='#a7a7b8', GAP=64;
 let doc={id:null,tree:seed}, tree=seed, expanded=new Set(['root']), camera={x:0,y:0,scale:1}, reading=false, editing=false, bounds={width:1,height:1};
 let colors=new Map(), saveTimer=0, saving=Promise.resolve();
 
 function updateCamera(){world.style.transform=`translate(${camera.x}px, ${camera.y}px) scale(${camera.scale})`;$('#zoom-level').textContent=`${Math.round(camera.scale*100)}%`;}
-function fit(){const side=40,top=40,bottom=100,availH=viewport.clientHeight-top-bottom;camera.scale=Math.min(1,(viewport.clientWidth-side*2)/bounds.width,availH/bounds.height);camera.x=(viewport.clientWidth-bounds.width*camera.scale)/2;camera.y=top+(availH-bounds.height*camera.scale)/2;updateCamera();}
+function fit(){const side=40,top=40,bottom=100,availH=viewport.clientHeight-top-bottom;camera.scale=Math.max(.1,Math.min(1,(viewport.clientWidth-side*2)/bounds.width,availH/bounds.height));camera.x=(viewport.clientWidth-bounds.width*camera.scale)/2;camera.y=top+(availH-bounds.height*camera.scale)/2;updateCamera();}
 function zoom(factor,p={x:viewport.clientWidth/2,y:viewport.clientHeight/2}){camera=zoomAt(camera,factor,p);updateCamera();}
 
 /* Imagens e diagramas: cada ideia pode ter várias (node.images) */
@@ -250,6 +250,16 @@ function render(){
    const open=expanded.has(node.id);
    const toggle=document.createElement('button');toggle.className=open?'toggle':'toggle is-collapsed';toggle.innerHTML=`<span class="toggle-stack" aria-hidden="true">${open?'':'<i></i><i></i>'}<b>${open?MINUS:CHEVRON}</b></span>`;toggle.setAttribute('aria-expanded',String(open));toggle.setAttribute('aria-label',`${open?'Recolher':'Expandir'}: ${node.title}`);toggle.title=open?'Recolher filhos':'Expandir filhos';toggle.onclick=()=>change('.toggle');el.append(toggle);
   }else if(!editing)text.textContent=node.title;
+  if(editing||node.subtitle){
+   const hint=document.createElement('div');hint.className='node-subtitle';
+   if(editing){
+    hint.contentEditable='plaintext-only';hint.spellcheck=false;hint.textContent=node.subtitle||'';
+    hint.dataset.placeholder='Subtítulo (aparece ao passar o mouse)';hint.setAttribute('aria-label','Subtítulo da ideia');
+    hint.addEventListener('input',()=>{if(hint.textContent.trim())node.subtitle=hint.textContent;else delete node.subtitle;commit();});
+    hint.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key==='Escape'){e.preventDefault();hint.blur();}});
+   }else hint.textContent=node.subtitle;
+   el.append(hint);
+  }
   const links=linksOf(node);
   if(images.length||links.length){
    const row=document.createElement('div');row.className='node-badges';
@@ -275,6 +285,7 @@ function render(){
  };
  place(tree,0);
  for(const [id,p] of positions){const el=elements.get(id);el.style.left=`${p.x}px`;el.style.top=`${p.y}px`;}
+ for(const el of elements.values())el.style.setProperty('--base-h',`${el.offsetHeight}px`);
 
  function connect(parent,child,color){
   const ns='http://www.w3.org/2000/svg',path=document.createElementNS(ns,'path');path.dataset.parent=parent.id;path.dataset.child=child.id;path.style.color=color;
@@ -296,6 +307,7 @@ function buildReading(){
  const intro=document.createElement('span');intro.className='eyebrow';intro.textContent='LEITURA LINEAR';article.append(intro);
  const walk=(node,depth)=>{
   const h=document.createElement(depth===0?'h1':depth===1?'h2':'h3');h.textContent=node.title;if(depth===1)h.style.color=colors.get(node.id);article.append(h);
+  if(node.subtitle){const sp=document.createElement('p');sp.className='reading-subtitle';sp.textContent=node.subtitle;article.append(sp);}
   imagesOf(node).forEach(image=>article.append(imageFor(image)));
   if(linksOf(node).length){const row=document.createElement('div');row.className='reading-links';linksOf(node).forEach(l=>row.append(anchorFor(l,'reading-link')));article.append(row);}
   node.children.forEach(c=>walk(c,depth+1));

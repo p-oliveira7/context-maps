@@ -54,6 +54,7 @@ CLI: `node skills/context-maps/scripts/rm.mjs <comando>` (a partir da raiz do ap
 - `# Título` (primeira linha) vira a raiz e o nome da apresentação.
 - Cada `-` é uma ideia; a indentação (2 espaços ou tab) define a hierarquia.
 - `{color=#rrggbb}` só tem efeito nos ramos do primeiro nível.
+- `[subtitle:Texto de apoio]` adiciona um subtítulo exibido só ao passar o mouse no card (sem `]` dentro).
 - `[link:https://site.com|Rótulo]` adiciona um link clicável abaixo do card (o rótulo é opcional; vários permitidos; só http/https).
 - Uma ideia pode ter **várias** mídias: repita os marcadores ([img:a.png|A] [mermaid:fluxo.mmd] [img:b.png|B]); elas aparecem empilhadas no card, na ordem escrita.
 - Caminhos de imagem/diagrama são relativos ao arquivo outline. URLs remotas **não** são baixadas.

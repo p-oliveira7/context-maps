@@ -27,6 +27,7 @@
 - `id` de cada nó: string única (a skill gera `n-<hex>`; a raiz é `root`).
 - `color`: opcional, só nos filhos diretos da raiz (os demais herdam).
 - `images`: lista opcional (imagens e/ou diagramas, na ordem de exibição). O campo antigo `image` (um só) ainda é lido e migrado ao salvar.
+- `subtitle`: texto de apoio opcional (até 2000 caracteres), exibido só ao passar o mouse no card.
 - `links`: lista opcional de `{url, label?}` (apenas http/https), exibida como selo "N link(s)" abaixo do card.
 - `kind: "diagram"` e `source` (mermaid) são opcionais; diagramas aparecem sem corte no cartão.
 - Prefira criar pelo outline (`rm.mjs create`); o servidor valida a estrutura (ids únicos, profundidade ≤ 40).

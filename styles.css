@@ -181,3 +181,15 @@ body.is-editing #viewport [contenteditable]:focus{box-shadow:0 0 0 2px #4f9d7a}
 .reading-links{display:flex;flex-wrap:wrap;gap:.4rem;margin:.5rem 0 .9rem}
 .reading-link{display:inline-flex;align-items:center;font-size:.8rem;color:#c9d1ff;text-decoration:none;background:#818cf81a;border:1px solid #818cf840;border-radius:6px;padding:.2rem .55rem}
 .reading-link:hover{background:#818cf833}
+
+/* Subtítulo: dentro do card, logo abaixo do título; revelado ao passar o mouse (exibição) ou editável (edição) */
+.node-subtitle{font-size:13px;font-weight:400;line-height:1.45;letter-spacing:0;color:#b4b4b4;overflow-wrap:break-word;white-space:pre-wrap}
+body:not(.is-editing) .node-subtitle{max-height:0;margin-top:0;opacity:0;overflow:hidden;transition:max-height .22s ease,opacity .18s ease,margin-top .22s ease}
+body:not(.is-editing) .node:hover .node-subtitle,body:not(.is-editing) .node:focus-within .node-subtitle{max-height:12em;margin-top:6px;opacity:1}
+body:not(.is-editing) .node:hover,body:not(.is-editing) .node:focus-within{z-index:10;background:#121212;border-radius:10px}
+.node .toggle{top:calc(var(--base-h,100%)/2)}
+@media(hover:none){body:not(.is-editing) .node-subtitle{max-height:none;margin-top:4px;opacity:1;color:#a0a0a0}}
+.node-subtitle[contenteditable]{margin-top:4px;color:#b8b8b8}
+.node-subtitle[contenteditable]:empty::before{content:attr(data-placeholder);color:#ffffff4d}
+body.is-editing #viewport .node-subtitle[contenteditable]{font-size:13px}
+.reading-subtitle{margin:-.4rem 0 .8rem;color:#a0a0a0;font-size:.95rem;line-height:1.6}

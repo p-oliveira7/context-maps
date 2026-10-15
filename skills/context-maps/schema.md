@@ -28,6 +28,7 @@
 - `id` of each node: a unique string (the skill generates `n-<hex>`; the root is `root`).
 - `color`: optional, only on direct children of the root (the others inherit).
 - `images`: optional list (images and/or diagrams, in display order). The legacy single `image` field is still read and migrated on save.
+- `subtitle`: optional supporting text (up to 2000 characters), shown only while hovering the card.
 - `links`: optional list of `{url, label?}` (http/https only), shown as an "N link(s)" badge below the card.
 - `kind: "diagram"` and `source` (mermaid) are optional; diagrams are shown uncropped on the card.
 - Prefer creating through the outline (`rm.mjs create`); the server validates the structure (unique ids, depth ≤ 40).

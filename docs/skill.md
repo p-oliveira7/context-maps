@@ -149,6 +149,7 @@ Sample `create` report:
 | `[img:path\|alt]` | Local image (png, jpg, webp, gif, svg); `alt` optional |
 | `[mermaid:file.mmd]` | Diagram; rendered with a dark theme and transparent background |
 | `[link:https://…\|label]` | http/https link; label optional (default: the domain) |
+| `[subtitle:text]` | Supporting text shown only while hovering the card (no `]` inside) |
 | Several markers | Repeat freely; they appear in the order written |
 | Paths | Relative to the outline file; remote image URLs are **not** downloaded |
 

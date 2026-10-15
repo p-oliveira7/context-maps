@@ -131,6 +131,21 @@ try{
  await until(async()=>(await onDisk(id)).tree.children[2].children[1].links===undefined,'links não removidos');
  promptAnswer='Minha apresentação';
 
+ // EDIT-14: subtítulo que aparece ao passar o mouse
+ await page.locator('[data-id="community-3"] .node-subtitle').fill('Texto de apoio que só aparece no hover');
+ await until(async()=>(await onDisk(id)).tree.children[2].children[2].subtitle==='Texto de apoio que só aparece no hover','subtítulo não salvo');
+ await sw.click(); // exibição
+ const hint=page.locator('[data-id="community-3"] .node-subtitle');
+ assert.equal(await hint.textContent(),'Texto de apoio que só aparece no hover');
+ await page.mouse.move(2,300);await page.waitForTimeout(250);
+ assert.equal(await hint.evaluate(e=>getComputedStyle(e).opacity),'0');
+ await page.locator('[data-id="community-3"]').hover();await page.waitForTimeout(300);
+ assert.equal(await hint.evaluate(e=>getComputedStyle(e).opacity),'1');
+ assert.equal(await page.locator('[data-id="community-2"] .node-subtitle').count(),0); // sem subtítulo, nada renderizado
+ await sw.click(); // edição: limpar remove o campo
+ await page.locator('[data-id="community-3"] .node-subtitle').fill('');
+ await until(async()=>(await onDisk(id)).tree.children[2].children[2].subtitle===undefined,'subtítulo não removido');
+
  await page.locator('[data-id="future"] .color-input').evaluate((e,v)=>{e.value=v;e.dispatchEvent(new Event('change',{bubbles:true}));},'#00aa55'); // cor do ramo
  await until(async()=>(await onDisk(id)).tree.children[3].color==='#00aa55','cor não salva');
 
@@ -161,5 +176,5 @@ try{
 
  const traversal=await page.request.get(`${base}/presentations/..%2fserver.mjs`);assert.equal(traversal.status(),404); // segurança básica
  assert.equal((await page.request.get(`${base}/server.mjs`)).status(),404);
- assert.deepEqual(errors,[]);console.log('PASS EDIT-01..13');
+ assert.deepEqual(errors,[]);console.log('PASS EDIT-01..14');
 }finally{await browser.close();server.kill();await rm(dir,{recursive:true,force:true});}

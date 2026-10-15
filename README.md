@@ -93,6 +93,7 @@ Open <http://127.0.0.1:4173>. On first run the server creates the demo presentat
 - **Hovering** a card highlights the line that leads to it.
 - **Expand all / Collapse all** and **Text mode** (linear reading of the whole map) live in the bottom bar.
 - **Images and diagrams** open full screen; with several items there are ‹ › arrows (or ← →) and a counter.
+- **Subtitles** (supporting text) appear in a small panel under the card **only while hovering it**.
 - **Links** show as a "🔗 N link(s)" badge below the card: one link opens directly, several open a list.
 
 ### Edit mode
@@ -104,6 +105,7 @@ Turn on the **Edit** switch in the bottom bar.
 | Add an idea | **+ Child** or **+ Sibling** (unlimited depth) |
 | Images | **+ Image** (accepts several files); **×** removes one |
 | Diagrams | **+ Diagram** opens the Mermaid editor with live preview; **Edit** reopens it |
+| Subtitle | Type in the "Subtitle" field under the title (clear it to remove); shown on hover in view mode |
 | Links | **+ Link** (http/https); chips with **×** to remove |
 | Branch colour | Colour picker on first-level branches |
 | Delete | **Delete** (asks for confirmation when there are ideas below) |
@@ -169,6 +171,7 @@ The heavy lifting lives in a Node CLI (`rm.mjs`), so any agent with terminal acc
         "id": "n-1a2b3c4d",
         "title": "Idea",
         "color": "#c76a61",
+        "subtitle": "Supporting text shown on hover",
         "images": [
           {"src": "presentations/my-flow/assets/screen.png", "alt": "Home screen"},
           {"src": "presentations/my-flow/assets/d.svg", "alt": "Diagram", "kind": "diagram", "source": "flowchart TD…"}

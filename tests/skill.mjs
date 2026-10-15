@@ -30,7 +30,7 @@ try{
  await writeFile(path.join(src,'mapa.md'),[
   '# Fluxo de login [img:tela.png|Tela inicial] [img:tela.png|Segunda tela]',
   '- Autenticar {color=#112233}',
-  '  - Validar credenciais',
+  '  - Validar credenciais [subtitle:Confere usuário e senha | pode usar SSO]',
   '  - Fluxo detalhado [mermaid:fluxo.mmd] [mermaid:fluxo.mmd] [img:tela.png|Print]',
   '- Sessão',
   '    - Renovar token',
@@ -45,7 +45,7 @@ try{
  const doc=JSON.parse(await readFile(path.join(data,'fluxo-login.json'),'utf8'));
  const t=doc.tree;
  assert.equal(t.title,'Fluxo de login');assert.equal(t.children.length,4);assert.equal(t.images.length,2);assert.equal(t.images[0].alt,'Tela inicial');assert.equal(t.images[1].alt,'Segunda tela');assert.equal(t.image,undefined);
- assert.equal(t.children[0].color,'#112233');assert.equal(t.children[0].children.length,2);
+ assert.equal(t.children[0].color,'#112233');assert.equal(t.children[0].children[0].subtitle,'Confere usuário e senha | pode usar SSO');assert.equal(t.children[0].children[0].title,'Validar credenciais');assert.equal(t.children[0].children.length,2);
  const multi=t.children[0].children[1].images;assert.deepEqual(multi.map(i=>i.kind||'image'),['diagram','diagram','image']);assert.match(multi[0].source,/flowchart/);
  assert.equal(t.children[1].children[0].title,'Renovar token');
  assert.deepEqual(t.children[3].links,[{url:'https://example.com/docs',label:'Docs'},{url:'https://example.org'}]);

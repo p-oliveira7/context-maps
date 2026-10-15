@@ -93,6 +93,7 @@ Abra <http://127.0.0.1:4173>. Na primeira execução o servidor cria a apresenta
 - **Passar o mouse** num card destaca a linha que chega até ele.
 - **Expandir tudo / Recolher tudo** e **Modo texto** (leitura linear do mapa inteiro) na barra inferior.
 - **Imagens e diagramas** abrem em tela cheia; com várias mídias há setas ‹ › (ou ← →) e contador.
+- **Subtítulos** (texto de apoio) aparecem num pequeno painel sob o card **somente ao passar o mouse**.
 - **Links** aparecem como selo "🔗 N link(s)" abaixo do card: um link abre direto, vários abrem uma lista.
 
 ### Edição
@@ -104,6 +105,7 @@ Ative o switch **Editar** na barra inferior.
 | Adicionar ideia | **+ Filho** ou **+ Irmão** (profundidade livre) |
 | Imagens | **+ Imagem** (aceita vários arquivos); **×** remove uma |
 | Diagramas | **+ Diagrama** abre o editor Mermaid com pré-visualização ao vivo; **Editar** reabre |
+| Subtítulo | Digite no campo "Subtítulo" abaixo do título (apague para remover); aparece no hover na exibição |
 | Links | **+ Link** (http/https); chips com **×** para remover |
 | Cor do ramo | Seletor de cor nos ramos de primeiro nível |
 | Excluir | **Excluir** (pede confirmação se houver ideias abaixo) |
@@ -169,6 +171,7 @@ O trabalho pesado fica em um CLI Node (`rm.mjs`), então qualquer agente com ace
         "id": "n-1a2b3c4d",
         "title": "Ideia",
         "color": "#c76a61",
+        "subtitle": "Texto de apoio exibido ao passar o mouse",
         "images": [
           {"src": "presentations/meu-fluxo/assets/tela.png", "alt": "Tela inicial"},
           {"src": "presentations/meu-fluxo/assets/d.svg", "alt": "Diagrama", "kind": "diagram", "source": "flowchart TD…"}

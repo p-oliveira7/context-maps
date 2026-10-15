@@ -148,6 +148,7 @@ Exemplo de relatório do `create`:
 | `[img:caminho\|alt]` | Imagem local (png, jpg, webp, gif, svg); `alt` opcional |
 | `[mermaid:arquivo.mmd]` | Diagrama; renderizado com tema escuro e fundo transparente |
 | `[link:https://…\|rótulo]` | Link http/https; rótulo opcional (padrão: domínio) |
+| `[subtitle:texto]` | Texto de apoio exibido só ao passar o mouse no card (sem `]` dentro) |
 | Vários marcadores | Repita à vontade; aparecem na ordem escrita |
 | Caminhos | Relativos ao arquivo do outline; URLs remotas de imagem **não** são baixadas |
 
