@@ -198,3 +198,6 @@ body.is-editing #viewport .node-subtitle[contenteditable]{font-size:13px}
 .node.no-title{padding-top:14px;padding-bottom:14px}
 body:not(.is-editing) .node.no-title .node-subtitle{max-height:none;margin-top:0;opacity:1;color:#c0c0c0}
 body.is-editing .node [contenteditable]:empty::before{content:attr(data-placeholder);color:#ffffff4d;font-weight:400}
+
+/* Botão de tela cheia */
+#fullscreen[hidden]{display:none}

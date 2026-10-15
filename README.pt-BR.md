@@ -91,7 +91,7 @@ Abra <http://127.0.0.1:4173>. Na primeira execução o servidor cria a apresenta
   Abrir um ramo anima os cards por 420 ms e destaca por 1 s a conexão ao primeiro filho
   (respeita `prefers-reduced-motion`).
 - **Passar o mouse** num card destaca a linha que chega até ele.
-- **Expandir tudo / Recolher tudo** e **Modo texto** (leitura linear do mapa inteiro) na barra inferior.
+- **Expandir tudo / Recolher tudo**, **Tela cheia** (modo de tela cheia do navegador; o mapa funciona exatamente igual) e **Modo texto** (leitura linear do mapa inteiro) na barra inferior.
 - **Imagens e diagramas** abrem em tela cheia; com várias mídias há setas ‹ › (ou ← →) e contador.
 - **Subtítulos** (texto de apoio) aparecem num pequeno painel sob o card **somente ao passar o mouse**.
 - **Links** aparecem como selo "🔗 N link(s)" abaixo do card: um link abre direto, vários abrem uma lista.
@@ -213,7 +213,7 @@ Mermaid roda em `securityLevel: strict`.
 export PLAYWRIGHT_MODULE=file:///caminho/para/playwright-core/index.mjs   # caminho absoluto
 node tests/edit.mjs      # EDIT-01..13  edição, diagramas, mídias, links (sobe servidor temporário)
 node tests/skill.mjs     # SKILL-01..06 CLI da skill (sobe servidor temporário)
-node tests/browser.mjs   # MAP-01..08   navegação, zoom, modo texto, mobile
+node tests/browser.mjs   # MAP-01..09   navegação, zoom, modo texto, mobile, tela cheia
 node tests/cards.mjs     # CARD-01..06  títulos, raiz, teclado, imagens
 node tests/motion.mjs    # MOT-01..05   animações e movimento reduzido
 ```

@@ -382,6 +382,19 @@ $('#collapse').onclick=()=>{expanded=new Set([tree.id]);render();fit();};
 $('#fit').onclick=fit;$('#zoom-in').onclick=()=>zoom(1.2);$('#zoom-out').onclick=()=>zoom(1/1.2);
 $('#mode').onclick=()=>{reading=!reading;if(reading)buildReading();viewport.hidden=reading;$('#reading').hidden=!reading;for(const id of ['tree-controls','zoom-controls','edit-switch'])$('#'+id).hidden=reading;$('#mode-label').textContent=reading?'Mapa mental':'Modo texto';$('#mode').setAttribute('aria-pressed',String(reading));};
 $('#edit-switch').onclick=()=>setEditing(!editing);
+/* Tela cheia do navegador: o mapa continua igual, só ganha toda a tela */
+const fullscreenButton=$('#fullscreen');
+if(!document.fullscreenEnabled)fullscreenButton.hidden=true;
+fullscreenButton.onclick=()=>{
+ if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});
+ else document.documentElement.requestFullscreen().catch(()=>{});
+};
+document.addEventListener('fullscreenchange',()=>{
+ const on=!!document.fullscreenElement;
+ fullscreenButton.setAttribute('aria-pressed',String(on));
+ $('#fullscreen-label').textContent=on?'Sair da tela cheia':'Tela cheia';
+ fullscreenButton.title=on?'Sair da tela cheia':'Tela cheia';
+});
 $('#doc-button').onclick=async()=>{const menu=$('#doc-menu');if(menu.hidden){await refreshMenu();menu.hidden=false;$('#doc-button').setAttribute('aria-expanded','true');}else closeMenu();};
 $('#doc-new').onclick=()=>{closeMenu();newDoc();};
 $('#doc-delete').onclick=()=>{closeMenu();deleteDoc();};
