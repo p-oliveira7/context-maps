@@ -148,6 +148,24 @@ try{
 
  await page.locator('[data-id="future"] .color-input').evaluate((e,v)=>{e.value=v;e.dispatchEvent(new Event('change',{bubbles:true}));},'#00aa55'); // cor do ramo
  await until(async()=>(await onDisk(id)).tree.children[3].color==='#00aa55','cor não salva');
+ // EDIT-15: inserir pai e inserir antes
+ await page.locator('[data-id="future"] .toggle').click();
+ const futureKids=async()=>(await onDisk(id)).tree.children[3].children;
+ await until(async()=>(await futureKids()).length===3,'filhos de future não carregados');
+ const f1=(await futureKids())[0].id;
+ await page.locator(`[data-id="${f1}"] [aria-label^="Inserir pai de"]`).click();
+ await until(async()=>(await futureKids())[0].id!==f1&&(await futureKids())[0].children[0]?.id===f1,'pai não inserido');
+ assert.equal((await futureKids()).length,3);
+ const f2=(await futureKids())[1].id;
+ await page.locator(`[data-id="${f2}"] [aria-label^="Inserir antes de"]`).click();
+ await until(async()=>(await futureKids()).length===4&&(await futureKids())[2].id===f2,'irmão antes não inserido');
+ assert.equal((await futureKids())[1].children.length,0);
+ // ramo de primeiro nível: o novo pai herda a cor e o ramo vira filho
+ await page.locator('[data-id="future"] [aria-label^="Inserir pai de"]').click();
+ await until(async()=>(await onDisk(id)).tree.children[3].children[0]?.id==='future','pai do ramo não inserido');
+ assert.equal((await onDisk(id)).tree.children[3].color,'#00aa55');
+ assert.equal((await onDisk(id)).tree.children[3].children[0].color,undefined);
+ assert.equal(await page.locator('[data-id="root"] [aria-label^="Inserir pai de"]').count(),0); // raiz não tem pai
 
  await page.reload();await page.locator('.node').first().waitFor(); // EDIT-07: persistência
  await page.locator('[data-id="mobility"] .node-title').waitFor();
@@ -176,5 +194,5 @@ try{
 
  const traversal=await page.request.get(`${base}/presentations/..%2fserver.mjs`);assert.equal(traversal.status(),404); // segurança básica
  assert.equal((await page.request.get(`${base}/server.mjs`)).status(),404);
- assert.deepEqual(errors,[]);console.log('PASS EDIT-01..14');
+ assert.deepEqual(errors,[]);console.log('PASS EDIT-01..15');
 }finally{await browser.close();server.kill();await rm(dir,{recursive:true,force:true});}

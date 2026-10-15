@@ -1,6 +1,6 @@
-import {tree as seed,visibleNodes,allBranches,zoomAt,parentOf,newId,PALETTE} from './model.js?v=8';
-import {cancelMotion,snapshot,animateLayout,hoverEdge,updateEdges} from './motion.js?v=8';
-import * as store from './store.js?v=8';
+import {tree as seed,visibleNodes,allBranches,zoomAt,parentOf,newId,PALETTE} from './model.js?v=9';
+import {cancelMotion,snapshot,animateLayout,hoverEdge,updateEdges} from './motion.js?v=9';
+import * as store from './store.js?v=9';
 const $=s=>document.querySelector(s), viewport=$('#viewport'), world=$('#world');
 const ROOT_COLOR='#a7a7b8', GAP=64;
 let doc={id:null,tree:seed}, tree=seed, expanded=new Set(['root']), camera={x:0,y:0,scale:1}, reading=false, editing=false, bounds={width:1,height:1};
@@ -134,6 +134,17 @@ function addSibling(node){
  const parent=parentOf(tree,node.id);if(!parent)return;
  const sibling={id:newId(),title:'Nova ideia',children:[]};parent.children.splice(parent.children.indexOf(node)+1,0,sibling);commit();render();focusText(sibling.id);
 }
+function addBefore(node){
+ const parent=parentOf(tree,node.id);if(!parent)return;
+ const sibling={id:newId(),title:'Nova ideia',children:[]};parent.children.splice(parent.children.indexOf(node),0,sibling);commit();render();focusText(sibling.id);
+}
+function addParent(node){
+ const parent=parentOf(tree,node.id);if(!parent)return;
+ const wrapper={id:newId(),title:'Nova ideia',children:[node]};
+ if(node.color){wrapper.color=node.color;delete node.color;}
+ parent.children[parent.children.indexOf(node)]=wrapper;
+ expanded.add(wrapper.id);commit();render();focusText(wrapper.id);
+}
 function removeNode(node){
  const parent=parentOf(tree,node.id);if(!parent)return;
  const count=(n)=>1+n.children.reduce((a,c)=>a+count(c),0);
@@ -152,7 +163,11 @@ function editTools(node,depth){
  const tools=document.createElement('div');tools.className='node-tools';
  const add=(label,aria,handler)=>{const b=document.createElement('button');b.type='button';b.textContent=label;b.setAttribute('aria-label',`${aria}: ${node.title}`);b.onclick=handler;tools.append(b);return b;};
  add('+ Filho','Adicionar filho',()=>addChild(node));
- if(depth>0)add('+ Irmão','Adicionar irmão',()=>addSibling(node));
+ if(depth>0){
+  add('+ Irmão','Adicionar irmão',()=>addSibling(node));
+  add('+ Antes','Inserir antes de',()=>addBefore(node));
+  add('+ Pai','Inserir pai de',()=>addParent(node));
+ }
  const picker=document.createElement('input');picker.type='file';picker.accept='image/png,image/jpeg,image/webp,image/gif,image/svg+xml';picker.hidden=true;picker.multiple=true;
  picker.onchange=()=>{if(picker.files.length)addImages(node,[...picker.files]);};
  add('+ Imagem','Adicionar imagem',()=>picker.click());tools.append(picker);

@@ -102,7 +102,7 @@ Turn on the **Edit** switch in the bottom bar.
 | Action | How |
 | --- | --- |
 | Edit text | Click the text; Enter confirms |
-| Add an idea | **+ Child** or **+ Sibling** (unlimited depth) |
+| Add an idea | **+ Child**, **+ Sibling** (after), **+ Before** (sibling before) or **+ Parent** (wraps the idea in a new parent card); unlimited depth |
 | Images | **+ Image** (accepts several files); **×** removes one |
 | Diagrams | **+ Diagram** opens the Mermaid editor with live preview; **Edit** reopens it |
 | Subtitle | Type in the "Subtitle" field under the title (clear it to remove); shown on hover in view mode |

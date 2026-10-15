@@ -102,7 +102,7 @@ Ative o switch **Editar** na barra inferior.
 | Ação | Como |
 | --- | --- |
 | Editar texto | Clique no texto; Enter confirma |
-| Adicionar ideia | **+ Filho** ou **+ Irmão** (profundidade livre) |
+| Adicionar ideia | **+ Filho**, **+ Irmão** (depois), **+ Antes** (irmão antes) ou **+ Pai** (envolve a ideia num novo card pai); profundidade livre |
 | Imagens | **+ Imagem** (aceita vários arquivos); **×** remove uma |
 | Diagramas | **+ Diagrama** abre o editor Mermaid com pré-visualização ao vivo; **Editar** reabre |
 | Subtítulo | Digite no campo "Subtítulo" abaixo do título (apague para remover); aparece no hover na exibição |

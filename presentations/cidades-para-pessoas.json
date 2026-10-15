@@ -75,24 +75,38 @@
         ]
       },
       {
-        "id": "community",
-        "title": "O que nos aproxima uns dos outros?",
-        "color": "#a39acb",
+        "id": "n-2wy5veq",
+        "title": "Nova ideia",
         "children": [
           {
-            "id": "community-1",
-            "title": "Praças como salas de estar coletivas",
-            "children": []
-          },
+            "id": "community",
+            "title": "O que nos aproxima uns dos outros?",
+            "children": [
+              {
+                "id": "community-1",
+                "title": "Praças como salas de estar coletivas",
+                "children": []
+              },
+              {
+                "id": "community-2",
+                "title": "Cultura e comércio de bairro",
+                "children": []
+              },
+              {
+                "id": "community-3",
+                "title": "Espaços para todas as idades",
+                "children": []
+              }
+            ]
+          }
+        ],
+        "color": "#a39acb",
+        "images": [
           {
-            "id": "community-2",
-            "title": "Cultura e comércio de bairro",
-            "children": []
-          },
-          {
-            "id": "community-3",
-            "title": "Espaços para todas as idades",
-            "children": []
+            "src": "presentations/cidades-para-pessoas/assets/diagrama-mv9iao8o.svg",
+            "alt": "Diagrama: Nova ideia",
+            "kind": "diagram",
+            "source": "flowchart TD\n  A[Início] --> B{Decisão}\n  B -->|Sim| C[Fim]\n  B -->|Não| A"
           }
         ]
       },
