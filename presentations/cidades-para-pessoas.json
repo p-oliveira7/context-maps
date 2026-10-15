@@ -29,16 +29,18 @@
       {
         "id": "nature",
         "title": "Onde a natureza encontra a cidade?",
-        "color": "#d41197",
+        "color": "#ba635b",
         "children": [
           {
             "id": "nature-1",
             "title": "Uma árvore muda a experiência de uma rua",
             "children": [],
-            "image": {
-              "src": "park.svg",
-              "alt": "Árvores oferecendo sombra ao caminho do parque"
-            }
+            "images": [
+              {
+                "src": "park.svg",
+                "alt": "Árvores oferecendo sombra ao caminho do parque"
+              }
+            ]
           },
           {
             "id": "nature-2",
@@ -48,13 +50,29 @@
           {
             "id": "nature-3",
             "title": "Pequenos parques a poucos passos de casa",
-            "children": []
+            "children": [],
+            "images": [
+              {
+                "src": "presentations/cidades-para-pessoas/assets/diagrama-mv8scvwr.svg",
+                "alt": "Diagrama: Pequenos parques a poucos passos de casa",
+                "kind": "diagram",
+                "source": "flowchart TD\n  A[Início] --> B{Decisão}\n  B -->|Sim| C[Fim]\n  B -->|Não| A"
+              }
+            ]
           }
         ],
-        "image": {
-          "src": "park.svg",
-          "alt": "Parque com árvores e um caminho junto ao rio"
-        }
+        "images": [
+          {
+            "src": "park.svg",
+            "alt": "Parque com árvores e um caminho junto ao rio"
+          },
+          {
+            "src": "presentations/cidades-para-pessoas/assets/diagrama-mv8qc2bv.svg",
+            "alt": "Diagrama: Onde a natureza encontra a cidade?",
+            "kind": "diagram",
+            "source": "flowchart TD\n  A[Início] --> B{Decisão}\n  B -->|Sim| C[Fim]\n  B -->|Não| A"
+          }
+        ]
       },
       {
         "id": "community",
@@ -101,9 +119,11 @@
         ]
       }
     ],
-    "image": {
-      "src": "city.svg",
-      "alt": "Cidade com árvores, caminhos e edifícios em tons verdes"
-    }
+    "images": [
+      {
+        "src": "city.svg",
+        "alt": "Cidade com árvores, caminhos e edifícios em tons verdes"
+      }
+    ]
   }
 }

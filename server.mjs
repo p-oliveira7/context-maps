@@ -23,7 +23,13 @@ function validNode(node,depth=0,ids=new Set()){
  if(!node||typeof node!=='object'||depth>40)return false;
  if(typeof node.id!=='string'||!node.id||ids.has(node.id)||typeof node.title!=='string'||!Array.isArray(node.children))return false;
  ids.add(node.id);
- if(node.image!==undefined&&!(node.image&&typeof node.image.src==='string'&&typeof node.image.alt==='string'))return false;
+ const okImage=i=>i&&typeof i==='object'&&typeof i.src==='string'&&typeof i.alt==='string';
+ if(node.image!==undefined&&!okImage(node.image))return false;
+ if(node.links!==undefined){
+  const okLink=l=>{if(!l||typeof l.url!=='string'||(l.label!==undefined&&typeof l.label!=='string'))return false;try{return ['http:','https:'].includes(new URL(l.url).protocol);}catch{return false;}};
+  if(!(Array.isArray(node.links)&&node.links.length<=50&&node.links.every(okLink)))return false;
+ }
+ if(node.images!==undefined&&!(Array.isArray(node.images)&&node.images.length<=50&&node.images.every(okImage)))return false;
  if(node.color!==undefined&&typeof node.color!=='string')return false;
  return node.children.every(c=>validNode(c,depth+1,ids));
 }
@@ -52,7 +58,8 @@ async function api(req,res,url){
   if(req.method==='POST'){
    const body=JSON.parse((await readBody(req,MAX_JSON)).toString()||'{}');
    const title=String(body.title||'').trim()||'Nova apresentação';
-   let base=slug(title),next=base,n=2;while(existsSync(fileOf(next)))next=`${base}-${n++}`;
+   if(body.id!==undefined&&(!ID.test(String(body.id))||existsSync(fileOf(String(body.id)))))return fail(res,409,'Identificador inválido ou já existente');
+   let base=body.id!==undefined?String(body.id):slug(title),next=base,n=2;while(existsSync(fileOf(next)))next=`${base}-${n++}`;
    const doc={id:next,tree:{id:'root',title,children:[]}};await writeJson(fileOf(next),doc);return send(res,201,doc);
   }
   return fail(res,405,'Método não permitido');
@@ -106,4 +113,4 @@ createServer(async(req,res)=>{
   if(req.method!=='GET'&&req.method!=='HEAD')return fail(res,405,'Método não permitido');
   await serveStatic(res,url.pathname);
  }catch(error){fail(res,error.status||500,error.status?error.message:'Erro interno');}
-}).listen(port,'127.0.0.1',()=>console.log(`Response Maps em http://127.0.0.1:${port} — apresentações em ${dataDir}`));
+}).listen(port,'127.0.0.1',()=>console.log(`Context Maps em http://127.0.0.1:${port} — apresentações em ${dataDir}`));
