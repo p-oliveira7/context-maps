@@ -31,6 +31,7 @@ function validNode(node,depth=0,ids=new Set()){
  }
  if(node.images!==undefined&&!(Array.isArray(node.images)&&node.images.length<=50&&node.images.every(okImage)))return false;
  if(node.color!==undefined&&typeof node.color!=='string')return false;
+ if(node.linksColor!==undefined&&typeof node.linksColor!=='string')return false;
  if(node.subtitle!==undefined&&(typeof node.subtitle!=='string'||node.subtitle.length>2000))return false;
  return node.children.every(c=>validNode(c,depth+1,ids));
 }

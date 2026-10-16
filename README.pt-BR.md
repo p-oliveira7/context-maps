@@ -108,7 +108,7 @@ Ative o switch **Editar** na barra inferior.
 | Cards sem título | Apague o título de um card que tenha imagem/diagrama ou subtítulo: ele passa a mostrar só esse conteúdo (card só com subtítulo mostra o subtítulo o tempo todo) |
 | Subtítulo | Digite no campo "Subtítulo" abaixo do título (apague para remover); aparece no hover na exibição |
 | Links | **+ Link** (http/https); chips com **×** para remover |
-| Cor do ramo | Seletor de cor nos ramos de primeiro nível |
+| Cor das ligações | Seletor de cor em qualquer ideia que tenha filhas (inclusive a raiz): muda **só as linhas que saem daquele card** em direção às filhas; **Cor padrão** restaura |
 | Excluir | **Excluir** (pede confirmação se houver ideias abaixo) |
 
 O **salvamento é automático** (o estado aparece ao lado do nome: *Salvo / Salvando… / Erro ao salvar*).
@@ -172,6 +172,7 @@ O trabalho pesado fica em um CLI Node (`rm.mjs`), então qualquer agente com ace
         "id": "n-1a2b3c4d",
         "title": "Ideia",
         "color": "#c76a61",
+        "linksColor": "#ffffff",
         "subtitle": "Texto de apoio exibido ao passar o mouse",
         "images": [
           {"src": "presentations/meu-fluxo/assets/tela.png", "alt": "Tela inicial"},

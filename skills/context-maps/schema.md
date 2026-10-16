@@ -28,6 +28,7 @@
 - `title` may be an empty string when the node has `images` or a `subtitle` (the card shows only that content); the root always needs a title.
 - `id` of each node: a unique string (the skill generates `n-<hex>`; the root is `root`).
 - `color`: optional, only on direct children of the root (the others inherit).
+- `linksColor`: optional colour of the lines that leave this node towards its children (any node with children, including the root); it does not affect the node, its children or the line that arrives at it.
 - `images`: optional list (images and/or diagrams, in display order). The legacy single `image` field is still read and migrated on save.
 - `subtitle`: optional supporting text (up to 2000 characters), shown only while hovering the card.
 - `links`: optional list of `{url, label?}` (http/https only), shown as an "N link(s)" badge below the card.

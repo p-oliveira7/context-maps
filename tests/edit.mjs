@@ -146,8 +146,30 @@ try{
  await page.locator('[data-id="community-3"] .node-subtitle').fill('');
  await until(async()=>(await onDisk(id)).tree.children[2].children[2].subtitle===undefined,'subtítulo não removido');
 
- await page.locator('[data-id="future"] .color-input').evaluate((e,v)=>{e.value=v;e.dispatchEvent(new Event('change',{bubbles:true}));},'#00aa55'); // cor do ramo
- await until(async()=>(await onDisk(id)).tree.children[3].color==='#00aa55','cor não salva');
+ await page.locator('[data-id="future"] .color-input').evaluate((e,v)=>{e.value=v;e.dispatchEvent(new Event('change',{bubbles:true}));},'#00aa55'); // cor das ligações do ramo
+ await until(async()=>(await onDisk(id)).tree.children[3].linksColor==='#00aa55','cor não salva');
+ // EDIT-18: cor das ligações com as filhas (só as linhas que saem do card)
+ const edgeStroke=(sel)=>page.locator(sel).evaluate(p=>p.getAttribute('stroke'));
+ const stopColor=(child)=>page.locator(`#fade-${child} stop`).last().evaluate(s=>s.getAttribute('stop-color'));
+ const before1=await edgeStroke('#connections path[data-parent="community"][data-child="community-1"]');
+ const rootEdgeBefore=await stopColor('community');
+ await page.locator('[data-id="community"] .color-input').evaluate((el,v)=>{el.value=v;el.dispatchEvent(new Event('change',{bubbles:true}));},'#aa0033');
+ await until(async()=>(await onDisk(id)).tree.children[2].linksColor==='#aa0033','cor das ligações não salva');
+ for(const kid of ['community-1','community-2','community-3'])
+  assert.equal(await edgeStroke(`#connections path[data-parent="community"][data-child="${kid}"]`),'#aa0033'); // saem do card
+ assert.equal(await stopColor('community'),rootEdgeBefore); // a ligação que chega ao card não muda
+ assert.equal(await page.locator('[data-id="community-1"]').evaluate(el=>getComputedStyle(el).getPropertyValue('--branch').trim()),before1); // filhas intactas
+ assert.equal((await onDisk(id)).tree.children[2].color,'#a39acb'); // a cor do próprio ramo não mudou
+ await page.locator('[data-id="community"] [aria-label^="Restaurar cor das ligações"]').click();
+ await until(async()=>(await onDisk(id)).tree.children[2].linksColor===undefined,'cor das ligações não restaurada');
+ assert.equal(await edgeStroke('#connections path[data-parent="community"][data-child="community-1"]'),before1);
+ await page.locator('[data-id="root"] .color-input').evaluate((el,v)=>{el.value=v;el.dispatchEvent(new Event('change',{bubbles:true}));},'#0066cc');
+ await until(async()=>(await onDisk(id)).tree.linksColor==='#0066cc','cor das ligações da raiz não salva');
+ assert.equal(await stopColor('community'),'#0066cc');
+ await page.locator('[data-id="root"] [aria-label^="Restaurar cor das ligações"]').click();
+ await until(async()=>(await onDisk(id)).tree.linksColor===undefined,'raiz não restaurada');
+ assert.equal(await page.locator('[data-id="community-1"] .color-input').count(),0); // folha não tem ligações para colorir
+
  // EDIT-17: arrastar e soltar imagens no card (cópia em assets, origem intacta)
  await page.locator('[data-id="community-2"]').scrollIntoViewIfNeeded();
  const dropFiles=(selector,files)=>page.evaluate(({selector,files})=>{
@@ -216,11 +238,11 @@ try{
  await page.locator(`[data-id="${f2}"] [aria-label^="Inserir antes de"]`).click();
  await until(async()=>(await futureKids()).length===4&&(await futureKids())[2].id===f2,'irmão antes não inserido');
  assert.equal((await futureKids())[1].children.length,0);
- // ramo de primeiro nível: o novo pai herda a cor e o ramo vira filho
+ // ramo de primeiro nível: o ramo vira filho do novo pai e mantém suas ligações coloridas
  await page.locator('[data-id="future"] [aria-label^="Inserir pai de"]').click();
  await until(async()=>(await onDisk(id)).tree.children[3].children[0]?.id==='future','pai do ramo não inserido');
- assert.equal((await onDisk(id)).tree.children[3].color,'#00aa55');
- assert.equal((await onDisk(id)).tree.children[3].children[0].color,undefined);
+ assert.equal((await onDisk(id)).tree.children[3].linksColor,undefined); // o novo pai não herda a cor das ligações do ramo
+ assert.equal((await onDisk(id)).tree.children[3].children[0].linksColor,'#00aa55'); // o ramo mantém as suas
  assert.equal(await page.locator('[data-id="root"] [aria-label^="Inserir pai de"]').count(),0); // raiz não tem pai
 
  await page.reload();await page.locator('.node').first().waitFor(); // EDIT-07: persistência
@@ -250,5 +272,5 @@ try{
 
  const traversal=await page.request.get(`${base}/presentations/..%2fserver.mjs`);assert.equal(traversal.status(),404); // segurança básica
  assert.equal((await page.request.get(`${base}/server.mjs`)).status(),404);
- assert.deepEqual(errors,[]);console.log('PASS EDIT-01..17');
+ assert.deepEqual(errors,[]);console.log('PASS EDIT-01..18');
 }finally{await browser.close();server.kill();await rm(dir,{recursive:true,force:true});}

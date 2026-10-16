@@ -108,7 +108,7 @@ Turn on the **Edit** switch in the bottom bar.
 | Title-less cards | Clear the title of a card that has an image/diagram or a subtitle: it then shows only that content (a subtitle-only card shows the subtitle permanently) |
 | Subtitle | Type in the "Subtitle" field under the title (clear it to remove); shown on hover in view mode |
 | Links | **+ Link** (http/https); chips with **×** to remove |
-| Branch colour | Colour picker on first-level branches |
+| Line colour | Colour picker on any idea that has children (including the root): changes **only the lines that leave that card** towards its children; **Default colour** restores it |
 | Delete | **Delete** (asks for confirmation when there are ideas below) |
 
 **Autosave** is on (status next to the name: *Saved / Saving… / Save error*). The menu in the top-left
@@ -172,6 +172,7 @@ The heavy lifting lives in a Node CLI (`rm.mjs`), so any agent with terminal acc
         "id": "n-1a2b3c4d",
         "title": "Idea",
         "color": "#c76a61",
+        "linksColor": "#ffffff",
         "subtitle": "Supporting text shown on hover",
         "images": [
           {"src": "presentations/my-flow/assets/screen.png", "alt": "Home screen"},

@@ -192,9 +192,13 @@ function editTools(node,depth){
  add('+ Imagem','Adicionar imagem',()=>picker.click()).title='Escolher arquivos (ou arraste imagens para o card)';tools.append(picker);
  add('+ Diagrama','Adicionar diagrama',()=>openDiagramEditor(node,null));
  add('+ Link','Adicionar link',()=>addLink(node));
- if(depth===1){
-  const color=document.createElement('input');color.type='color';color.value=colors.get(node.id);color.className='color-input';color.setAttribute('aria-label',`Cor do ramo: ${nameOf(node)}`);
-  color.onchange=()=>{node.color=color.value;commit();render();};tools.append(color);
+ if(node.children.length){
+  // Cor das ligações com as filhas: muda só as linhas que saem deste card.
+  const first=colors.get(node.children[0].id),current=node.linksColor||first;
+  const color=document.createElement('input');color.type='color';color.value=/^#[0-9a-f]{6}$/i.test(current)?current:'#888888';color.className='color-input';
+  color.title='Cor das ligações com as filhas';color.setAttribute('aria-label',`Cor das ligações: ${nameOf(node)}`);
+  color.onchange=()=>{node.linksColor=color.value;commit();render();};tools.append(color);
+  if(node.linksColor)add('Cor padrão','Restaurar cor das ligações',()=>{delete node.linksColor;commit();render();});
  }
  if(depth>0)add('Excluir','Excluir ideia',()=>removeNode(node)).classList.add('danger');
  return tools;
@@ -335,7 +339,7 @@ function render(){
   }else path.setAttribute('stroke',color);
   $('#connections').append(path);
  }
- for(const node of visible)for(const kid of kidsOf(node))connect(node,kid,colors.get(kid.id));
+ for(const node of visible)for(const kid of kidsOf(node))connect(node,kid,node.linksColor||colors.get(kid.id));
  updateEdges();
  bounds={width:Math.max(...[...positions].map(([id,p])=>p.x+elements.get(id).offsetWidth+(elements.get(id).querySelector('.toggle')?40:0))),height:total};
  updateCamera();

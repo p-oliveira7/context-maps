@@ -145,6 +145,7 @@ Exemplo de relatório do `create`:
 | `# Título` | Primeira linha; vira a raiz e o nome da apresentação |
 | `- item` | Uma ideia; **indentação** (2 espaços ou tab) define a hierarquia |
 | `{color=#rrggbb}` | Cor do ramo; só tem efeito no primeiro nível |
+| `{links=#rrggbb}` | Cor das linhas daquela ideia até as filhas |
 | `[img:caminho\|alt]` | Imagem local (png, jpg, webp, gif, svg); `alt` opcional |
 | `[mermaid:arquivo.mmd]` | Diagrama; renderizado com tema escuro e fundo transparente |
 | `[link:https://…\|rótulo]` | Link http/https; rótulo opcional (padrão: domínio) |

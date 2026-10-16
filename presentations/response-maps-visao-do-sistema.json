@@ -36,7 +36,8 @@
                 "label": "Sintaxe de flowchart"
               }
             ],
-            "subtitle": "jsaid"
+            "subtitle": "jsaid",
+            "color": "#d770b6"
           },
           {
             "id": "n-8ad2a6f6",
@@ -63,7 +64,9 @@
                 "src": "presentations/response-maps-visao-do-sistema/assets/captura-de-tela-2026-10-14-185023-mv9qdy1v.png",
                 "alt": "App no navegador (HTML, CSS e módulos ES, sem dependências)"
               }
-            ]
+            ],
+            "color": "#6fa3d6",
+            "linksColor": "#d7656b"
           },
           {
             "id": "n-09eb9dd3",
@@ -91,7 +94,8 @@
                 "src": "presentations/response-maps-visao-do-sistema/assets/captura-de-tela-2026-10-14-185023-mv9qejta.png",
                 "alt": "Servidor local (server.mjs, Node sem pacotes)"
               }
-            ]
+            ],
+            "color": "#6fa3d6"
           },
           {
             "id": "n-8356f428",
@@ -102,11 +106,13 @@
                 "title": "presentations/<id>.json e pasta assets",
                 "children": []
               }
-            ]
+            ],
+            "color": "#6fa3d6"
           }
         ],
-        "color": "#6fa3d6",
-        "subtitle": "Camadas do sistema e como elas conversam"
+        "color": "#6569d7",
+        "subtitle": "Camadas do sistema e como elas conversam",
+        "linksColor": "#d7658d"
       },
       {
         "id": "n-17bdc602",
@@ -214,6 +220,7 @@
         ],
         "color": "#7fb59a"
       }
-    ]
+    ],
+    "linksColor": "#d76565"
   }
 }
