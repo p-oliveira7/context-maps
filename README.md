@@ -91,8 +91,9 @@ Open <http://127.0.0.1:4173>. On first run the server creates the demo presentat
   Opening a branch animates the cards for 420 ms and highlights the connection to the first child for 1 s
   (honours `prefers-reduced-motion`).
 - **Hovering** a card highlights the line that leads to it.
-- **Expand all / Collapse all** and **Text mode** (linear reading of the whole map) live in the bottom bar.
+- **Expand all / Collapse all**, **Full screen** (the browser's full-screen mode; the map keeps working exactly the same) and **Text mode** (linear reading of the whole map) live in the bottom bar.
 - **Images and diagrams** open full screen; with several items there are ‹ › arrows (or ← →) and a counter.
+- **Subtitles** (supporting text) appear in a small panel under the card **only while hovering it**.
 - **Links** show as a "🔗 N link(s)" badge below the card: one link opens directly, several open a list.
 
 ### Edit mode
@@ -101,11 +102,15 @@ Turn on the **Edit** switch in the bottom bar.
 | Action | How |
 | --- | --- |
 | Edit text | Click the text; Enter confirms |
-| Add an idea | **+ Child** or **+ Sibling** (unlimited depth) |
-| Images | **+ Image** (accepts several files); **×** removes one |
+| Edit menu | Hover a card and click the **✎ button** at its top-centre: a **wheel of actions** opens around it (it closes with **Esc**, ×, or by clicking outside) |
+| Add an idea | **+ Child**, **+ Sibling** (after), **+ Before** (sibling before) or **+ Parent** (wraps the idea in a new parent card); unlimited depth |
+| Images | **+ Image** (accepts several files) or **drag image files onto a card**; each file is **copied** into `presentations/<id>/assets/` and the original is left untouched; **×** removes one |
 | Diagrams | **+ Diagram** opens the Mermaid editor with live preview; **Edit** reopens it |
+| Title-less cards | Clear the title of a card that has an image/diagram or a subtitle: it then shows only that content (a subtitle-only card shows the subtitle permanently) |
+| Subtitle | Type in the "Subtitle" field under the title (clear it to remove); shown on hover in view mode |
 | Links | **+ Link** (http/https); chips with **×** to remove |
-| Branch colour | Colour picker on first-level branches |
+| Line colour | **Colour lines** in the wheel (any idea with children, including the root): pick a colour (palette, custom or default), then choose **Only direct children** (the lines leaving that card) or **The whole branch below** (that card and every card under it). The card itself, its children and the line arriving at it never change |
+| Move | Drag the **⋮⋮ handle** on the left of a card. The card and **everything below it** leave the map and follow the cursor as a small tree. Drop on another card (becomes its child; a leaf pulses and a dashed line shows the connection) or on its top/bottom edge (becomes a sibling). Hovering a **collapsed branch opens it by itself**, so you can walk through its sub-branches (it closes again when you leave). Hold the **middle mouse button** to pan the map while dragging, wheel to zoom, **Esc** to cancel; an **Undo** toast follows every move |
 | Delete | **Delete** (asks for confirmation when there are ideas below) |
 
 **Autosave** is on (status next to the name: *Saved / Saving… / Save error*). The menu in the top-left
@@ -169,6 +174,8 @@ The heavy lifting lives in a Node CLI (`rm.mjs`), so any agent with terminal acc
         "id": "n-1a2b3c4d",
         "title": "Idea",
         "color": "#c76a61",
+        "linksColor": "#ffffff",
+        "subtitle": "Supporting text shown on hover",
         "images": [
           {"src": "presentations/my-flow/assets/screen.png", "alt": "Home screen"},
           {"src": "presentations/my-flow/assets/d.svg", "alt": "Diagram", "kind": "diagram", "source": "flowchart TD…"}
@@ -207,9 +214,9 @@ Mermaid runs with `securityLevel: strict`.
 
 ```bash
 export PLAYWRIGHT_MODULE=file:///path/to/playwright-core/index.mjs   # absolute path
-node tests/edit.mjs      # EDIT-01..13  editing, diagrams, media, links (starts a temp server)
+node tests/edit.mjs      # EDIT-01..19  editing, diagrams, media, links (starts a temp server)
 node tests/skill.mjs     # SKILL-01..06 skill CLI (starts a temp server)
-node tests/browser.mjs   # MAP-01..08   navigation, zoom, text mode, mobile
+node tests/browser.mjs   # MAP-01..09   navigation, zoom, text mode, mobile, full screen
 node tests/cards.mjs     # CARD-01..06  titles, root, keyboard, images
 node tests/motion.mjs    # MOT-01..05   animations and reduced motion
 ```

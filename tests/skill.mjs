@@ -29,11 +29,13 @@ try{
  await chmod(shim,0o755);
  await writeFile(path.join(src,'mapa.md'),[
   '# Fluxo de login [img:tela.png|Tela inicial] [img:tela.png|Segunda tela]',
-  '- Autenticar {color=#112233}',
-  '  - Validar credenciais',
+  '- Autenticar {color=#112233} {links=#445566}',
+  '  - Validar credenciais [subtitle:Confere usuário e senha | pode usar SSO]',
   '  - Fluxo detalhado [mermaid:fluxo.mmd] [mermaid:fluxo.mmd] [img:tela.png|Print]',
   '- Sessão',
   '    - Renovar token',
+  '    - [mermaid:fluxo.mmd]',
+  '    - [subtitle:Só texto secundário]',
   '- Anexo ausente [img:nao-existe.png]',
   '- Documentação [link:https://example.com/docs|Docs] [link:https://example.org] [link:ftp://x.test/arquivo]',
   ''].join('\n'));
@@ -41,13 +43,15 @@ try{
  assert.equal(ok.status,0,ok.stderr+ok.stdout);
  const report=JSON.parse(ok.stdout);
  assert.equal(report.id,'fluxo-login');assert.equal(report.url,`${base}/?p=fluxo-login`);
- assert.equal(report.images,3);assert.equal(report.diagrams,2);assert.equal(report.skipped.length,2);assert.equal(report.links,2);
+ assert.equal(report.images,3);assert.equal(report.diagrams,3);assert.deepEqual(report.warnings,[]);assert.equal(report.skipped.length,2);assert.equal(report.links,2);
  const doc=JSON.parse(await readFile(path.join(data,'fluxo-login.json'),'utf8'));
  const t=doc.tree;
  assert.equal(t.title,'Fluxo de login');assert.equal(t.children.length,4);assert.equal(t.images.length,2);assert.equal(t.images[0].alt,'Tela inicial');assert.equal(t.images[1].alt,'Segunda tela');assert.equal(t.image,undefined);
- assert.equal(t.children[0].color,'#112233');assert.equal(t.children[0].children.length,2);
+ assert.equal(t.children[0].color,'#112233');assert.equal(t.children[0].linksColor,'#445566');assert.equal(t.children[0].title,'Autenticar');assert.equal(t.children[0].children[0].subtitle,'Confere usuário e senha | pode usar SSO');assert.equal(t.children[0].children[0].title,'Validar credenciais');assert.equal(t.children[0].children.length,2);
  const multi=t.children[0].children[1].images;assert.deepEqual(multi.map(i=>i.kind||'image'),['diagram','diagram','image']);assert.match(multi[0].source,/flowchart/);
  assert.equal(t.children[1].children[0].title,'Renovar token');
+ assert.equal(t.children[1].children[1].title,'');assert.equal(t.children[1].children[1].images[0].kind,'diagram');
+ assert.equal(t.children[1].children[2].title,'');assert.equal(t.children[1].children[2].subtitle,'Só texto secundário');
  assert.deepEqual(t.children[3].links,[{url:'https://example.com/docs',label:'Docs'},{url:'https://example.org'}]);
  assert.equal(t.children[3].title,'Documentação');
  assert.equal((await fetch(`${base}/${t.images[0].src}`)).status,200);

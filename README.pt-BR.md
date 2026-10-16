@@ -91,8 +91,9 @@ Abra <http://127.0.0.1:4173>. Na primeira execução o servidor cria a apresenta
   Abrir um ramo anima os cards por 420 ms e destaca por 1 s a conexão ao primeiro filho
   (respeita `prefers-reduced-motion`).
 - **Passar o mouse** num card destaca a linha que chega até ele.
-- **Expandir tudo / Recolher tudo** e **Modo texto** (leitura linear do mapa inteiro) na barra inferior.
+- **Expandir tudo / Recolher tudo**, **Tela cheia** (modo de tela cheia do navegador; o mapa funciona exatamente igual) e **Modo texto** (leitura linear do mapa inteiro) na barra inferior.
 - **Imagens e diagramas** abrem em tela cheia; com várias mídias há setas ‹ › (ou ← →) e contador.
+- **Subtítulos** (texto de apoio) aparecem num pequeno painel sob o card **somente ao passar o mouse**.
 - **Links** aparecem como selo "🔗 N link(s)" abaixo do card: um link abre direto, vários abrem uma lista.
 
 ### Edição
@@ -101,11 +102,15 @@ Ative o switch **Editar** na barra inferior.
 | Ação | Como |
 | --- | --- |
 | Editar texto | Clique no texto; Enter confirma |
-| Adicionar ideia | **+ Filho** ou **+ Irmão** (profundidade livre) |
-| Imagens | **+ Imagem** (aceita vários arquivos); **×** remove uma |
+| Menu de edição | Passe o mouse num card e clique no botão **✎** no topo, ao centro: abre uma **roda de ações** em volta dele (fecha com **Esc**, × ou clicando fora) |
+| Adicionar ideia | **+ Filho**, **+ Irmão** (depois), **+ Antes** (irmão antes) ou **+ Pai** (envolve a ideia num novo card pai); profundidade livre |
+| Imagens | **+ Imagem** (aceita vários arquivos) ou **arraste arquivos de imagem para o card**; cada arquivo é **copiado** para `presentations/<id>/assets/` e o original não é alterado; **×** remove uma |
 | Diagramas | **+ Diagrama** abre o editor Mermaid com pré-visualização ao vivo; **Editar** reabre |
+| Cards sem título | Apague o título de um card que tenha imagem/diagrama ou subtítulo: ele passa a mostrar só esse conteúdo (card só com subtítulo mostra o subtítulo o tempo todo) |
+| Subtítulo | Digite no campo "Subtítulo" abaixo do título (apague para remover); aparece no hover na exibição |
 | Links | **+ Link** (http/https); chips com **×** para remover |
-| Cor do ramo | Seletor de cor nos ramos de primeiro nível |
+| Cor das ligações | **Cor linhas** na roda (qualquer ideia com filhas, inclusive a raiz): escolha a cor (paleta, personalizada ou padrão) e depois **Só filhos diretos** (as linhas que saem daquele card) ou **Toda a ramificação abaixo** (aquele card e todos abaixo dele). O próprio card, as filhas e a linha que chega até ele nunca mudam |
+| Mover | Arraste a **alça ⋮⋮** à esquerda do card. O card e **tudo abaixo dele** saem do mapa e acompanham o cursor como uma pequena árvore. Solte sobre outro card (vira filho; folhas pulsam e uma linha tracejada mostra a conexão) ou na borda de cima/baixo (vira irmão). Pairar sobre um **ramo fechado o abre sozinho**, para você percorrer as ramificações (fecha de novo ao sair). Segure o **botão do meio do mouse** para mover o quadro durante o arraste, a roda dá zoom e **Esc** cancela; depois de cada movimento aparece **Desfazer** |
 | Excluir | **Excluir** (pede confirmação se houver ideias abaixo) |
 
 O **salvamento é automático** (o estado aparece ao lado do nome: *Salvo / Salvando… / Erro ao salvar*).
@@ -169,6 +174,8 @@ O trabalho pesado fica em um CLI Node (`rm.mjs`), então qualquer agente com ace
         "id": "n-1a2b3c4d",
         "title": "Ideia",
         "color": "#c76a61",
+        "linksColor": "#ffffff",
+        "subtitle": "Texto de apoio exibido ao passar o mouse",
         "images": [
           {"src": "presentations/meu-fluxo/assets/tela.png", "alt": "Tela inicial"},
           {"src": "presentations/meu-fluxo/assets/d.svg", "alt": "Diagrama", "kind": "diagram", "source": "flowchart TD…"}
@@ -209,7 +216,7 @@ Mermaid roda em `securityLevel: strict`.
 export PLAYWRIGHT_MODULE=file:///caminho/para/playwright-core/index.mjs   # caminho absoluto
 node tests/edit.mjs      # EDIT-01..13  edição, diagramas, mídias, links (sobe servidor temporário)
 node tests/skill.mjs     # SKILL-01..06 CLI da skill (sobe servidor temporário)
-node tests/browser.mjs   # MAP-01..08   navegação, zoom, modo texto, mobile
+node tests/browser.mjs   # MAP-01..09   navegação, zoom, modo texto, mobile, tela cheia
 node tests/cards.mjs     # CARD-01..06  títulos, raiz, teclado, imagens
 node tests/motion.mjs    # MOT-01..05   animações e movimento reduzido
 ```

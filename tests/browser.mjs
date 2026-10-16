@@ -64,5 +64,16 @@ try {
    }
    if(process.env.SHOT_DIR) await page.screenshot({path:`${process.env.SHOT_DIR}/preview-${width}.png`});
  }
- assert.deepEqual(errors,[]); console.log('PASS: MAP-01..08 browser scenarios, desktop + mobile');
+ // MAP-09: tela cheia do navegador mantém o mapa igual
+ await page.setViewportSize({width:1280,height:720}); await page.reload(); await page.locator('.node').first().waitFor();
+ const fullscreen=page.locator('#fullscreen'), nodesBefore=await count();
+ assert.equal(await fullscreen.getAttribute('aria-pressed'),'false');
+ await fullscreen.click(); await page.waitForFunction(()=>!!document.fullscreenElement);
+ assert.equal(await fullscreen.getAttribute('aria-pressed'),'true');
+ assert.equal(await page.locator('#fullscreen-label').textContent(),'Sair da tela cheia');
+ assert.equal(await count(),nodesBefore);
+ await page.getByRole('button',{name:'Expandir tudo',exact:true}).click(); assert.equal(await count(),17); // continua interativo
+ await fullscreen.click(); await page.waitForFunction(()=>!document.fullscreenElement);
+ assert.equal(await fullscreen.getAttribute('aria-pressed'),'false');
+ assert.deepEqual(errors,[]); console.log('PASS: MAP-01..09 browser scenarios, desktop + mobile');
 } finally {await browser.close();}

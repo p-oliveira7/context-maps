@@ -146,9 +146,11 @@ Sample `create` report:
 | `# Title` | First line; becomes the root and the presentation name |
 | `- item` | One idea; **indentation** (2 spaces or a tab) defines the hierarchy |
 | `{color=#rrggbb}` | Branch colour; only effective at the first level |
+| `{links=#rrggbb}` | Colour of the lines from that idea to its children |
 | `[img:path\|alt]` | Local image (png, jpg, webp, gif, svg); `alt` optional |
 | `[mermaid:file.mmd]` | Diagram; rendered with a dark theme and transparent background |
 | `[link:https://…\|label]` | http/https link; label optional (default: the domain) |
+| `[subtitle:text]` | Supporting text shown only while hovering the card (no `]` inside) |
 | Several markers | Repeat freely; they appear in the order written |
 | Paths | Relative to the outline file; remote image URLs are **not** downloaded |
 

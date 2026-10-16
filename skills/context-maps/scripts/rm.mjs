@@ -73,8 +73,9 @@ const isUp=async()=>{try{const r=await fetch(`${BASE}/api/presentations`);return
 
 /* ---------- Outline (markdown com marcadores) → árvore ---------- */
 const nodeId=()=>`n-${randomBytes(4).toString('hex')}`;
-const RE_MEDIA=/\[(img|mermaid|link):([^\]|]+)(?:\|([^\]]*))?\]/g;
+const RE_MEDIA=/\[(img|mermaid|link|subtitle):([^\]|]+)(?:\|([^\]]*))?\]/g;
 const RE_COLOR=/\{color=(#[0-9a-fA-F]{3,8})\}/;
+const RE_LINKS=/\{links=(#[0-9a-fA-F]{3,8})\}/;
 export function parseOutline(text){
  const warnings=[];
  const lines=text.replace(/^﻿/,'').replace(/\r\n/g,'\n').split('\n');
@@ -83,11 +84,12 @@ export function parseOutline(text){
  const stack=[{indent:-1,node:root}];
  const pull=(raw,node,lineNo)=>{
   let s=raw;
-  node._media=[...s.matchAll(RE_MEDIA)].map(m=>({kind:m[1]==='img'?'image':m[1]==='link'?'link':'diagram',file:m[2].trim(),alt:(m[3]||'').trim()}));
+  node._media=[...s.matchAll(RE_MEDIA)].map(m=>({kind:m[1]==='img'?'image':m[1]==='link'?'link':m[1]==='subtitle'?'subtitle':'diagram',file:m[2].trim(),alt:(m[3]||'').trim(),raw:m[2]+(m[3]!==undefined?'|'+m[3]:'')}));
   s=s.replace(RE_MEDIA,'');
   const col=s.match(RE_COLOR);if(col){node.color=col[1];s=s.replace(RE_COLOR,'');}
+  const lnk=s.match(RE_LINKS);if(lnk){node.linksColor=lnk[1];s=s.replace(RE_LINKS,'');}
   node.title=s.replace(/\s+/g,' ').trim();
-  if(!node.title)warnings.push(t('warnNoText',lineNo));
+  if(!node.title&&!node._media.length)warnings.push(t('warnNoText',lineNo));
   if(node.title.length>MAX_TITLE)warnings.push(t('warnLong',lineNo,node.title.length,MAX_TITLE));
  };
  lines.forEach((line,i)=>{
@@ -145,6 +147,11 @@ async function renderMermaid(source){
 }
 async function attach(id,node,baseDir,report){
  for(const item of node._media||[]){
+  if(item.kind==='subtitle'){
+   const text=item.raw.trim();
+   node.subtitle=node.subtitle?`${node.subtitle} ${text}`:text;
+   continue;
+  }
   if(item.kind==='link'){
    let ok=false;try{ok=['http:','https:'].includes(new URL(item.file).protocol);}catch{}
    if(!ok)report.skipped.push(t('skipLink',node.title,item.file));

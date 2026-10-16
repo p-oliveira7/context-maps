@@ -14,7 +14,7 @@ Summary:
 1. `node skills/context-maps/scripts/rm.mjs serve` — makes sure the server is on `http://127.0.0.1:4173`.
 2. Read the context (code, README, specs). Do not invent; use "To be defined" for gaps.
 3. Write a markdown outline (`# Title`, indented `- idea` items; markers
-   `[img:file|alt]`, `[mermaid:file.mmd]`, `[link:https://…|label]`, `{color=#hex}`).
+   `[img:file|alt]`, `[mermaid:file.mmd]`, `[link:https://…|label]`, `[subtitle:text]`, `{color=#hex}`).
 4. `node skills/context-maps/scripts/rm.mjs validate --outline file.md`
 5. `node skills/context-maps/scripts/rm.mjs create --outline file.md --id <slug>`
    (use `--replace` only when the user asks to overwrite).

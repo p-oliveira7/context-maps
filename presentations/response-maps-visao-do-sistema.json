@@ -5,109 +5,20 @@
     "title": "Response Maps — visão do sistema",
     "children": [
       {
-        "id": "n-0def51b8",
-        "title": "Arquitetura",
-        "children": [
-          {
-            "id": "n-d24b4c07",
-            "title": "Diagramas do sistema",
-            "children": [],
-            "images": [
-              {
-                "src": "presentations/response-maps-visao-do-sistema/assets/d-mv8sn2ad.svg",
-                "alt": "Diagrama: Diagramas do sistema",
-                "kind": "diagram",
-                "source": "flowchart LR\n    subgraph Browser[\"Navegador\"]\n        UI[\"app.js<br/>render e edição\"]\n        M[\"motion.js<br/>animações\"]\n        ST[\"store.js<br/>cliente da API\"]\n        UI --> M\n        UI --> ST\n    end\n    subgraph Local[\"Máquina local\"]\n        SRV[\"server.mjs<br/>API e estáticos\"]\n        FS[(\"presentations/<br/>JSON + assets\")]\n        SRV --> FS\n    end\n    SK[\"Skill response-maps<br/>rm.mjs\"] -->|\"POST / PUT\"| SRV\n    ST -->|\"GET / PUT / upload\"| SRV\n    GIT[(\"Git\")] -.versiona.-> FS\n"
-              },
-              {
-                "src": "presentations/response-maps-visao-do-sistema/assets/d-mv8sn33f.svg",
-                "alt": "Diagrama: Diagramas do sistema",
-                "kind": "diagram",
-                "source": "sequenceDiagram\n    actor U as Usuário\n    participant A as App (navegador)\n    participant S as Servidor local\n    participant F as presentations/*.json\n    U->>A: Ativa o switch \"Editar\"\n    U->>A: Altera texto / adiciona ideia / envia imagem\n    A->>A: Atualiza a árvore em memória e redesenha\n    A->>S: PUT /api/presentations/:id (autosave, 500 ms)\n    S->>S: Valida estrutura (ids únicos, profundidade)\n    S->>F: Grava o JSON (arquivo temporário + rename)\n    S-->>A: ok\n    A-->>U: Status \"Salvo\"\n"
-              }
-            ],
-            "links": [
-              {
-                "url": "https://mermaid.js.org/",
-                "label": "Mermaid"
-              },
-              {
-                "url": "https://mermaid.js.org/syntax/flowchart.html",
-                "label": "Sintaxe de flowchart"
-              }
-            ]
-          },
-          {
-            "id": "n-03ac5755",
-            "title": "App no navegador (HTML, CSS e módulos ES, sem dependências)",
-            "children": [
-              {
-                "id": "n-eb5fc31a",
-                "title": "Mapa: câmera, zoom, arraste e layout em colunas",
-                "children": []
-              },
-              {
-                "id": "n-a2e22f33",
-                "title": "Edição inline, ferramentas por ideia e autosave",
-                "children": []
-              },
-              {
-                "id": "n-1a199b84",
-                "title": "Modo texto e visualizador de imagens",
-                "children": []
-              }
-            ]
-          },
-          {
-            "id": "n-d1c98191",
-            "title": "Servidor local (server.mjs, Node sem pacotes)",
-            "children": [
-              {
-                "id": "n-08997317",
-                "title": "API REST de apresentações e upload de imagens",
-                "children": []
-              },
-              {
-                "id": "n-5d107e2d",
-                "title": "Arquivos estáticos sem cache",
-                "children": []
-              }
-            ],
-            "links": [
-              {
-                "url": "https://nodejs.org/api/http.html"
-              }
-            ]
-          },
-          {
-            "id": "n-119afe81",
-            "title": "Armazenamento em arquivos JSON versionáveis",
-            "children": [
-              {
-                "id": "n-7bf851ad",
-                "title": "presentations/<id>.json e pasta assets",
-                "children": []
-              }
-            ]
-          }
-        ],
-        "color": "#6fa3d6"
-      },
-      {
-        "id": "n-2f6d5708",
+        "id": "n-17bdc602",
         "title": "Fluxos",
         "children": [
           {
-            "id": "n-2af8f77c",
+            "id": "n-50a2537c",
             "title": "Exibir uma apresentação",
             "children": [
               {
-                "id": "n-a143029a",
+                "id": "n-32837b80",
                 "title": "Abrir o app e carregar a apresentação por ?p=",
                 "children": []
               },
               {
-                "id": "n-000515ab",
+                "id": "n-24b1938f",
                 "title": "Expandir ramos com animação de 420 ms",
                 "children": [],
                 "links": [
@@ -118,74 +29,242 @@
                 ]
               },
               {
-                "id": "n-fa21f9d0",
+                "id": "n-c32f6284",
                 "title": "Ampliar imagens em tela cheia",
                 "children": []
               }
             ]
           },
           {
-            "id": "n-600ca010",
+            "id": "n-e92765f0",
             "title": "Editar uma apresentação",
             "children": [
               {
-                "id": "n-421b9ac3",
+                "id": "n-dde99027",
                 "title": "Ativar o switch Editar",
                 "children": []
               },
               {
-                "id": "n-34e61184",
+                "id": "n-1d12c0dd",
                 "title": "Alterar texto, adicionar filho ou irmão, trocar imagem",
                 "children": []
               },
               {
-                "id": "n-4cb82b07",
+                "id": "n-34655304",
                 "title": "Autosave envia a árvore completa para a API",
                 "children": []
               }
             ]
           },
           {
-            "id": "n-3b5e9e70",
+            "id": "n-dbcf404e",
             "title": "Criar apresentação com a skill",
             "children": [
               {
-                "id": "n-fe3c8ffc",
+                "id": "n-5dd3e4ca",
                 "title": "Claude lê o contexto e escreve o outline",
                 "children": []
               },
               {
-                "id": "n-4ec1ad5e",
+                "id": "n-27a514bf",
                 "title": "rm.mjs valida o outline e envia imagens",
                 "children": []
               },
               {
-                "id": "n-d3a92926",
+                "id": "n-d74e84bc",
                 "title": "API grava o JSON e devolve a URL",
                 "children": []
+              },
+              {
+                "id": "n-c090058f",
+                "title": "Arquitetura",
+                "children": [
+                  {
+                    "id": "n-47c6b676",
+                    "title": "Diagramas do sistema",
+                    "children": [],
+                    "images": [
+                      {
+                        "src": "presentations/response-maps-visao-do-sistema/assets/d-mv8xqxpn.svg",
+                        "alt": "Diagrama: Diagramas do sistema",
+                        "kind": "diagram",
+                        "source": "flowchart LR\n    subgraph Browser[\"Navegador\"]\n        UI[\"app.js<br/>render e edição\"]\n        M[\"motion.js<br/>animações\"]\n        ST[\"store.js<br/>cliente da API\"]\n        UI --> M\n        UI --> ST\n    end\n    subgraph Local[\"Máquina local\"]\n        SRV[\"server.mjs<br/>API e estáticos\"]\n        FS[(\"presentations/<br/>JSON + assets\")]\n        SRV --> FS\n    end\n    SK[\"Skill response-maps<br/>rm.mjs\"] -->|\"POST / PUT\"| SRV\n    ST -->|\"GET / PUT / upload\"| SRV\n    GIT[(\"Git\")] -.versiona.-> FS\n"
+                      },
+                      {
+                        "src": "presentations/response-maps-visao-do-sistema/assets/d-mv8xqyjz.svg",
+                        "alt": "Diagrama: Diagramas do sistema",
+                        "kind": "diagram",
+                        "source": "sequenceDiagram\n    actor U as Usuário\n    participant A as App (navegador)\n    participant S as Servidor local\n    participant F as presentations/*.json\n    U->>A: Ativa o switch \"Editar\"\n    U->>A: Altera texto / adiciona ideia / envia imagem\n    A->>A: Atualiza a árvore em memória e redesenha\n    A->>S: PUT /api/presentations/:id (autosave, 500 ms)\n    S->>S: Valida estrutura (ids únicos, profundidade)\n    S->>F: Grava o JSON (arquivo temporário + rename)\n    S-->>A: ok\n    A-->>U: Status \"Salvo\"\n"
+                      }
+                    ],
+                    "links": [
+                      {
+                        "url": "https://mermaid.js.org/",
+                        "label": "Mermaid"
+                      },
+                      {
+                        "url": "https://mermaid.js.org/syntax/flowchart.html",
+                        "label": "Sintaxe de flowchart"
+                      }
+                    ],
+                    "subtitle": "jsaid",
+                    "color": "#d770b6"
+                  },
+                  {
+                    "id": "n-8ad2a6f6",
+                    "title": "App no navegador (HTML, CSS e módulos ES, sem dependências)",
+                    "children": [
+                      {
+                        "id": "n-6d94e953",
+                        "title": "Edição inline, ferramentas por ideia e autosave",
+                        "children": []
+                      },
+                      {
+                        "id": "n-4c4222dd",
+                        "title": "Modo texto e visualizador de imagens",
+                        "children": []
+                      }
+                    ],
+                    "images": [
+                      {
+                        "src": "presentations/response-maps-visao-do-sistema/assets/captura-de-tela-2026-10-14-185023-mv9qdy1v.png",
+                        "alt": "App no navegador (HTML, CSS e módulos ES, sem dependências)"
+                      }
+                    ],
+                    "color": "#6fa3d6",
+                    "linksColor": "#a39acb"
+                  },
+                  {
+                    "id": "n-09eb9dd3",
+                    "title": "Servidor local (server.mjs, Node sem pacotes)",
+                    "children": [
+                      {
+                        "id": "n-5edcfd5f",
+                        "title": "API REST de apresentações e upload de imagens",
+                        "children": []
+                      },
+                      {
+                        "id": "n-7ac826d0",
+                        "title": "Arquivos estáticos sem cache",
+                        "children": []
+                      }
+                    ],
+                    "subtitle": "Escuta só em 127.0.0.1; valida e grava cada apresentação de forma atômica",
+                    "links": [
+                      {
+                        "url": "https://nodejs.org/api/http.html"
+                      }
+                    ],
+                    "images": [
+                      {
+                        "src": "presentations/response-maps-visao-do-sistema/assets/captura-de-tela-2026-10-14-185023-mv9qejta.png",
+                        "alt": "Servidor local (server.mjs, Node sem pacotes)"
+                      }
+                    ],
+                    "color": "#6fa3d6",
+                    "linksColor": "#a39acb"
+                  },
+                  {
+                    "id": "n-8356f428",
+                    "title": "Armazenamento em arquivos JSON versionáveis",
+                    "children": [
+                      {
+                        "id": "n-67596d55",
+                        "title": "Mapa: câmera, zoom, arraste e layout em colunas",
+                        "children": [
+                          {
+                            "id": "n-9m4o74h",
+                            "title": "sasas",
+                            "children": []
+                          },
+                          {
+                            "id": "n-1jgvuo6",
+                            "title": "sadsad",
+                            "children": [
+                              {
+                                "id": "n-v0e1rrd",
+                                "title": "",
+                                "children": [
+                                  {
+                                    "id": "n-glf1lfb",
+                                    "title": "Nova ideia",
+                                    "children": [],
+                                    "images": [
+                                      {
+                                        "src": "presentations/response-maps-visao-do-sistema/assets/dragon-ball-background-86shnciw6a3m0j7s-mvbiuzi4.webp",
+                                        "alt": "Nova ideia"
+                                      },
+                                      {
+                                        "src": "presentations/response-maps-visao-do-sistema/assets/gnitxo9fwas71-mvbiv1u4.gif",
+                                        "alt": "Nova ideia"
+                                      },
+                                      {
+                                        "src": "presentations/response-maps-visao-do-sistema/assets/dragon-ball-background-r1jx4p23wia08q86-mvbiv3tk.jpg",
+                                        "alt": "Nova ideia"
+                                      },
+                                      {
+                                        "src": "presentations/response-maps-visao-do-sistema/assets/diagrama-mvbiw7e8.svg",
+                                        "alt": "Diagrama: Nova ideia",
+                                        "kind": "diagram",
+                                        "source": "flowchart TD\n  A[Início] --> B{Decisão}\n  B -->|Sim| C[Fim]\n  B -->|Não| A"
+                                      }
+                                    ]
+                                  }
+                                ],
+                                "images": [
+                                  {
+                                    "src": "presentations/response-maps-visao-do-sistema/assets/diagrama-mv9m7ivv.svg",
+                                    "alt": "Diagrama: Nova ideia",
+                                    "kind": "diagram",
+                                    "source": "flowchart TD\n  A[Início] --> B{Decisão}\n  B -->|Sim| C[Fim]\n  B -->|Não| A"
+                                  }
+                                ],
+                                "linksColor": "#a39acb"
+                              }
+                            ],
+                            "linksColor": "#a39acb"
+                          }
+                        ],
+                        "linksColor": "#a39acb"
+                      },
+                      {
+                        "id": "n-efaa8aa1",
+                        "title": "presentations/<id>.json e pasta assets",
+                        "children": []
+                      }
+                    ],
+                    "color": "#6fa3d6",
+                    "linksColor": "#a39acb"
+                  }
+                ],
+                "color": "#6569d7",
+                "subtitle": "Camadas do sistema e como elas conversam",
+                "linksColor": "#a39acb"
               }
-            ]
+            ],
+            "linksColor": "#d4a458"
           }
         ],
         "color": "#d4a458"
       },
       {
-        "id": "n-f79f1898",
+        "id": "n-df924854",
         "title": "Qualidade",
         "children": [
           {
-            "id": "n-3c1f850c",
+            "id": "n-965d99c8",
             "title": "Testes de modelo, navegador, cards, motion, edição e skill",
             "children": []
           },
           {
-            "id": "n-e91f3fb9",
+            "id": "n-0ee50e67",
             "title": "Validação independente por especificação",
             "children": []
           }
         ],
         "color": "#7fb59a"
       }
-    ]
+    ],
+    "linksColor": "#d76565"
   }
 }
