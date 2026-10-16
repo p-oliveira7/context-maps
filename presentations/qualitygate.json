@@ -23,10 +23,12 @@
                 "children": []
               }
             ],
-            "image": {
-              "src": "presentations/qualitygate/assets/gnitxo9fwas71-mv8nyz12.gif",
-              "alt": "sss"
-            }
+            "images": [
+              {
+                "src": "presentations/qualitygate/assets/gnitxo9fwas71-mv8nyz12.gif",
+                "alt": "sss"
+              }
+            ]
           }
         ]
       }

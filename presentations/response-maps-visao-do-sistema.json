@@ -82,7 +82,27 @@
                   {
                     "id": "n-47c6b676",
                     "title": "Diagramas do sistema",
-                    "children": [],
+                    "children": [
+                      {
+                        "id": "n-8ad2a6f6",
+                        "title": "App no navegador (HTML, CSS e módulos ES, sem dependências)",
+                        "children": [
+                          {
+                            "id": "n-4c4222dd",
+                            "title": "Modo texto e visualizador de imagens",
+                            "children": []
+                          }
+                        ],
+                        "images": [
+                          {
+                            "src": "presentations/response-maps-visao-do-sistema/assets/captura-de-tela-2026-10-14-185023-mv9qdy1v.png",
+                            "alt": "App no navegador (HTML, CSS e módulos ES, sem dependências)"
+                          }
+                        ],
+                        "color": "#6fa3d6",
+                        "linksColor": "#c76a61"
+                      }
+                    ],
                     "images": [
                       {
                         "src": "presentations/response-maps-visao-do-sistema/assets/d-mv8xqxpn.svg",
@@ -108,31 +128,8 @@
                       }
                     ],
                     "subtitle": "jsaid",
-                    "color": "#d770b6"
-                  },
-                  {
-                    "id": "n-8ad2a6f6",
-                    "title": "App no navegador (HTML, CSS e módulos ES, sem dependências)",
-                    "children": [
-                      {
-                        "id": "n-6d94e953",
-                        "title": "Edição inline, ferramentas por ideia e autosave",
-                        "children": []
-                      },
-                      {
-                        "id": "n-4c4222dd",
-                        "title": "Modo texto e visualizador de imagens",
-                        "children": []
-                      }
-                    ],
-                    "images": [
-                      {
-                        "src": "presentations/response-maps-visao-do-sistema/assets/captura-de-tela-2026-10-14-185023-mv9qdy1v.png",
-                        "alt": "App no navegador (HTML, CSS e módulos ES, sem dependências)"
-                      }
-                    ],
-                    "color": "#6fa3d6",
-                    "linksColor": "#a39acb"
+                    "color": "#d770b6",
+                    "linksColor": "#c76a61"
                   },
                   {
                     "id": "n-09eb9dd3",
@@ -141,7 +138,13 @@
                       {
                         "id": "n-5edcfd5f",
                         "title": "API REST de apresentações e upload de imagens",
-                        "children": []
+                        "children": [
+                          {
+                            "id": "n-6d94e953",
+                            "title": "Edição inline, ferramentas por ideia e autosave",
+                            "children": []
+                          }
+                        ]
                       },
                       {
                         "id": "n-7ac826d0",
