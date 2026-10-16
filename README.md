@@ -102,13 +102,15 @@ Turn on the **Edit** switch in the bottom bar.
 | Action | How |
 | --- | --- |
 | Edit text | Click the text; Enter confirms |
+| Edit menu | Hover a card and click the **✎ button** at its top-centre: a **wheel of actions** opens around it (it closes with **Esc**, ×, or by clicking outside) |
 | Add an idea | **+ Child**, **+ Sibling** (after), **+ Before** (sibling before) or **+ Parent** (wraps the idea in a new parent card); unlimited depth |
 | Images | **+ Image** (accepts several files) or **drag image files onto a card**; each file is **copied** into `presentations/<id>/assets/` and the original is left untouched; **×** removes one |
 | Diagrams | **+ Diagram** opens the Mermaid editor with live preview; **Edit** reopens it |
 | Title-less cards | Clear the title of a card that has an image/diagram or a subtitle: it then shows only that content (a subtitle-only card shows the subtitle permanently) |
 | Subtitle | Type in the "Subtitle" field under the title (clear it to remove); shown on hover in view mode |
 | Links | **+ Link** (http/https); chips with **×** to remove |
-| Line colour | Colour picker on any idea that has children (including the root): changes **only the lines that leave that card** towards its children; **Default colour** restores it |
+| Line colour | **Colour lines** in the wheel (any idea with children, including the root): pick a colour (palette, custom or default), then choose **Only direct children** (the lines leaving that card) or **The whole branch below** (that card and every card under it). The card itself, its children and the line arriving at it never change |
+| Move | Drag the **⋮⋮ handle** on the left of a card. The card and **everything below it** leave the map and follow the cursor as a small tree. Drop on another card (becomes its child; a leaf pulses and a dashed line shows the connection) or on its top/bottom edge (becomes a sibling). Hovering a **collapsed branch opens it by itself**, so you can walk through its sub-branches (it closes again when you leave). Hold the **middle mouse button** to pan the map while dragging, wheel to zoom, **Esc** to cancel; an **Undo** toast follows every move |
 | Delete | **Delete** (asks for confirmation when there are ideas below) |
 
 **Autosave** is on (status next to the name: *Saved / Saving… / Save error*). The menu in the top-left
@@ -212,7 +214,7 @@ Mermaid runs with `securityLevel: strict`.
 
 ```bash
 export PLAYWRIGHT_MODULE=file:///path/to/playwright-core/index.mjs   # absolute path
-node tests/edit.mjs      # EDIT-01..13  editing, diagrams, media, links (starts a temp server)
+node tests/edit.mjs      # EDIT-01..19  editing, diagrams, media, links (starts a temp server)
 node tests/skill.mjs     # SKILL-01..06 skill CLI (starts a temp server)
 node tests/browser.mjs   # MAP-01..09   navigation, zoom, text mode, mobile, full screen
 node tests/cards.mjs     # CARD-01..06  titles, root, keyboard, images

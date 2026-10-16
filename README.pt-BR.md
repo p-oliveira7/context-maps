@@ -102,13 +102,15 @@ Ative o switch **Editar** na barra inferior.
 | Ação | Como |
 | --- | --- |
 | Editar texto | Clique no texto; Enter confirma |
+| Menu de edição | Passe o mouse num card e clique no botão **✎** no topo, ao centro: abre uma **roda de ações** em volta dele (fecha com **Esc**, × ou clicando fora) |
 | Adicionar ideia | **+ Filho**, **+ Irmão** (depois), **+ Antes** (irmão antes) ou **+ Pai** (envolve a ideia num novo card pai); profundidade livre |
 | Imagens | **+ Imagem** (aceita vários arquivos) ou **arraste arquivos de imagem para o card**; cada arquivo é **copiado** para `presentations/<id>/assets/` e o original não é alterado; **×** remove uma |
 | Diagramas | **+ Diagrama** abre o editor Mermaid com pré-visualização ao vivo; **Editar** reabre |
 | Cards sem título | Apague o título de um card que tenha imagem/diagrama ou subtítulo: ele passa a mostrar só esse conteúdo (card só com subtítulo mostra o subtítulo o tempo todo) |
 | Subtítulo | Digite no campo "Subtítulo" abaixo do título (apague para remover); aparece no hover na exibição |
 | Links | **+ Link** (http/https); chips com **×** para remover |
-| Cor das ligações | Seletor de cor em qualquer ideia que tenha filhas (inclusive a raiz): muda **só as linhas que saem daquele card** em direção às filhas; **Cor padrão** restaura |
+| Cor das ligações | **Cor linhas** na roda (qualquer ideia com filhas, inclusive a raiz): escolha a cor (paleta, personalizada ou padrão) e depois **Só filhos diretos** (as linhas que saem daquele card) ou **Toda a ramificação abaixo** (aquele card e todos abaixo dele). O próprio card, as filhas e a linha que chega até ele nunca mudam |
+| Mover | Arraste a **alça ⋮⋮** à esquerda do card. O card e **tudo abaixo dele** saem do mapa e acompanham o cursor como uma pequena árvore. Solte sobre outro card (vira filho; folhas pulsam e uma linha tracejada mostra a conexão) ou na borda de cima/baixo (vira irmão). Pairar sobre um **ramo fechado o abre sozinho**, para você percorrer as ramificações (fecha de novo ao sair). Segure o **botão do meio do mouse** para mover o quadro durante o arraste, a roda dá zoom e **Esc** cancela; depois de cada movimento aparece **Desfazer** |
 | Excluir | **Excluir** (pede confirmação se houver ideias abaixo) |
 
 O **salvamento é automático** (o estado aparece ao lado do nome: *Salvo / Salvando… / Erro ao salvar*).

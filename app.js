@@ -1,4 +1,4 @@
-import {tree as seed,visibleNodes,allBranches,zoomAt,parentOf,newId,PALETTE} from './model.js?v=10';
+import {tree as seed,visibleNodes,allBranches,zoomAt,parentOf,findNode,newId,PALETTE} from './model.js?v=10';
 import {cancelMotion,snapshot,animateLayout,hoverEdge,updateEdges} from './motion.js?v=10';
 import * as store from './store.js?v=10';
 const $=s=>document.querySelector(s), viewport=$('#viewport'), world=$('#world');
@@ -178,30 +178,116 @@ function enableDrop(el,node){
 // Soltar um arquivo fora de um card não deve abrir o arquivo no navegador.
 for(const type of ['dragover','drop'])window.addEventListener(type,e=>{if(hasFiles(e))e.preventDefault();});
 
-function editTools(node,depth){
- const tools=document.createElement('div');tools.className='node-tools';
- const add=(label,aria,handler)=>{const b=document.createElement('button');b.type='button';b.textContent=label;b.setAttribute('aria-label',`${aria}: ${nameOf(node)}`);b.onclick=handler;tools.append(b);return b;};
- add('+ Filho','Adicionar filho',()=>addChild(node));
- if(depth>0){
-  add('+ Irmão','Adicionar irmão',()=>addSibling(node));
-  add('+ Antes','Inserir antes de',()=>addBefore(node));
-  add('+ Pai','Inserir pai de',()=>addParent(node));
+/* Cor das ligações: escolhe a cor e depois o alcance (só filhos diretos ou toda a ramificação abaixo) */
+const SWATCHES=[...PALETTE,'#ffffff','#8a8a8a'];
+let colorPanel=null;
+function closeColorPanel(){
+ if(!colorPanel)return;
+ const p=colorPanel;colorPanel=null;p.el.remove();
+ document.removeEventListener('pointerdown',p.onDown,true);document.removeEventListener('keydown',p.onKey,true);
+}
+function applyLinksColor(node,color,scope){
+ const set=n=>{if(color)n.linksColor=color;else delete n.linksColor;};
+ set(node); // linhas que saem deste card até os filhos diretos
+ if(scope==='all'){const walk=n=>n.children.forEach(c=>{if(c.children.length)set(c);walk(c);});walk(node);}
+ commit();render();
+}
+function openColorPanel(anchor,node){
+ closeColorPanel();
+ let chosen; // undefined = nada escolhido, null = padrão, string = cor
+ const direct=node.children.length,all=countBelow(node);
+ const el=document.createElement('div');el.id='color-panel';el.className='color-panel';el.setAttribute('role','dialog');el.setAttribute('aria-label',`Cor das ligações: ${nameOf(node)}`);
+ el.innerHTML=`<div class="cp-head"><strong>Cor das ligações</strong><button type="button" class="cp-close" aria-label="Fechar">×</button></div>
+  <div class="cp-step">1. Escolha a cor</div><div class="cp-swatches"></div>
+  <label class="cp-custom">Outra cor <input type="color" class="color-input" aria-label="Cor personalizada" value="#4f9d7a"></label>
+  <div class="cp-step">2. Aplicar em</div>
+  <div class="cp-actions">
+   <button type="button" data-scope="children" disabled><b>Só filhos diretos</b><span>${direct} ligaç${direct===1?'ão':'ões'} a partir deste card</span></button>
+   <button type="button" data-scope="all" disabled><b>Toda a ramificação abaixo</b><span>${all} ligaç${all===1?'ão':'ões'} neste card e em todos abaixo</span></button>
+  </div>`;
+ const swatches=el.querySelector('.cp-swatches'),custom=el.querySelector('.color-input'),actions=[...el.querySelectorAll('[data-scope]')];
+ const select=value=>{
+  chosen=value;
+  swatches.querySelectorAll('.cp-swatch').forEach(b=>b.setAttribute('aria-pressed',String((b.dataset.color||null)===value||(b.hasAttribute('data-default')&&value===null))));
+  actions.forEach(b=>b.disabled=false);
+ };
+ const def=document.createElement('button');def.type='button';def.className='cp-swatch cp-default';def.dataset.default='';def.textContent='↺';def.title='Cor padrão';def.setAttribute('aria-label','Cor padrão');def.setAttribute('aria-pressed','false');
+ def.onclick=()=>select(null);swatches.append(def);
+ for(const color of SWATCHES){
+  const b=document.createElement('button');b.type='button';b.className='cp-swatch';b.dataset.color=color;b.style.background=color;b.title=color;b.setAttribute('aria-label',`Cor ${color}`);b.setAttribute('aria-pressed','false');
+  b.onclick=()=>select(color);swatches.append(b);
  }
- const picker=document.createElement('input');picker.type='file';picker.accept='image/png,image/jpeg,image/webp,image/gif,image/svg+xml';picker.hidden=true;picker.multiple=true;
+ custom.addEventListener('input',()=>select(custom.value));
+ actions.forEach(b=>b.onclick=()=>{if(chosen===undefined)return;const scope=b.dataset.scope;closeColorPanel();applyLinksColor(node,chosen,scope);});
+ el.querySelector('.cp-close').onclick=closeColorPanel;
+ const left=Math.min(Math.max(anchor.left+anchor.width/2-150,12),window.innerWidth-312),top=Math.min(Math.max(anchor.bottom+10,12),window.innerHeight-330);
+ el.style.left=`${left}px`;el.style.top=`${top}px`;
+ document.body.append(el);
+ colorPanel={el,
+  onDown:e=>{if(!el.contains(e.target))closeColorPanel();},
+  onKey:e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();closeColorPanel();}}};
+ document.addEventListener('pointerdown',colorPanel.onDown,true);document.addEventListener('keydown',colorPanel.onKey,true);
+}
+
+/* Menu de edição: um botão (✎) no topo do card abre uma roda com as ações da ideia */
+let radial=null;
+function closeRadial(){
+ if(!radial)return;
+ const r=radial;radial=null;
+ r.el.remove();r.card.classList.remove('menu-open');r.fab.setAttribute('aria-expanded','false');
+ document.removeEventListener('pointerdown',r.onDown,true);document.removeEventListener('keydown',r.onKey,true);document.removeEventListener('wheel',r.onWheel,true);
+}
+function radialItems(node,depth,picker,anchor){
+ const items=[{icon:'↳',label:'Filho',aria:'Adicionar filho',run:()=>addChild(node)}];
+ if(depth>0)items.push(
+  {icon:'↧',label:'Irmão',aria:'Adicionar irmão',run:()=>addSibling(node)},
+  {icon:'↥',label:'Antes',aria:'Inserir antes de',run:()=>addBefore(node)},
+  {icon:'⇱',label:'Pai',aria:'Inserir pai de',run:()=>addParent(node)});
+ items.push(
+  {icon:'▣',label:'Imagem',aria:'Adicionar imagem',run:()=>picker.click()},
+  {icon:'◇',label:'Diagrama',aria:'Adicionar diagrama',run:()=>openDiagramEditor(node,null)},
+  {icon:'↗',label:'Link',aria:'Adicionar link',run:()=>addLink(node)});
+ if(node.children.length)items.push({icon:'◐',label:'Cor linhas',aria:'Cor das ligações',run:()=>openColorPanel(anchor,node)});
+ if(depth>0)items.push({icon:'✕',label:'Excluir',aria:'Excluir ideia',danger:true,run:()=>removeNode(node)});
+ return items;
+}
+function openRadial(fab,card,node,depth,picker){
+ closeRadial();
+ const items=radialItems(node,depth,picker,fab.getBoundingClientRect()),n=items.length;
+ const R=Math.max(86,Math.ceil(n*58/(2*Math.PI))),pad=R+46;
+ const fr=fab.getBoundingClientRect();
+ const cx=Math.min(Math.max(fr.left+fr.width/2,pad),window.innerWidth-pad);
+ const cy=Math.min(Math.max(fr.top+fr.height/2,pad),window.innerHeight-pad-70);
+ const el=document.createElement('div');el.id='radial-menu';el.className='radial-menu';el.setAttribute('role','menu');
+ el.style.left=`${cx}px`;el.style.top=`${cy}px`;
+ const center=document.createElement('button');center.type='button';center.className='radial-center';center.textContent='×';center.setAttribute('aria-label','Fechar menu de edição');
+ center.onclick=closeRadial;el.append(center);
+ items.forEach((item,k)=>{
+  const angle=-Math.PI/2+k*(2*Math.PI/n),dx=Math.cos(angle)*R,dy=Math.sin(angle)*R;
+  const b=document.createElement('button');b.type='button';b.className='radial-item'+(item.danger?' danger':'');b.setAttribute('role','menuitem');
+  b.setAttribute('aria-label',`${item.aria}: ${nameOf(node)}`);
+  b.innerHTML=`<span class="ri-icon" aria-hidden="true">${item.icon}</span><span class="ri-label">${item.label}</span>`;
+  b.style.setProperty('--dx',`${dx}px`);b.style.setProperty('--dy',`${dy}px`);b.style.transitionDelay=`${k*14}ms`;
+  b.onclick=e=>{e.stopPropagation();closeRadial();item.run();};
+  el.append(b);
+ });
+ document.body.append(el);
+ requestAnimationFrame(()=>el.classList.add('open'));
+ card.classList.add('menu-open');fab.setAttribute('aria-expanded','true');
+ radial={el,card,fab,
+  onDown:e=>{if(!el.contains(e.target)&&e.target!==fab)closeRadial();},
+  onKey:e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();closeRadial();fab.focus({preventScroll:true});}},
+  onWheel:()=>closeRadial()};
+ document.addEventListener('pointerdown',radial.onDown,true);document.addEventListener('keydown',radial.onKey,true);document.addEventListener('wheel',radial.onWheel,true);
+}
+function editControls(card,node,depth){
+ const picker=document.createElement('input');picker.type='file';picker.accept='image/png,image/jpeg,image/webp,image/gif,image/svg+xml';picker.multiple=true;picker.className='sr-input';picker.tabIndex=-1;
  picker.onchange=()=>{if(picker.files.length)addImages(node,[...picker.files]);};
- add('+ Imagem','Adicionar imagem',()=>picker.click()).title='Escolher arquivos (ou arraste imagens para o card)';tools.append(picker);
- add('+ Diagrama','Adicionar diagrama',()=>openDiagramEditor(node,null));
- add('+ Link','Adicionar link',()=>addLink(node));
- if(node.children.length){
-  // Cor das ligações com as filhas: muda só as linhas que saem deste card.
-  const first=colors.get(node.children[0].id),current=node.linksColor||first;
-  const color=document.createElement('input');color.type='color';color.value=/^#[0-9a-f]{6}$/i.test(current)?current:'#888888';color.className='color-input';
-  color.title='Cor das ligações com as filhas';color.setAttribute('aria-label',`Cor das ligações: ${nameOf(node)}`);
-  color.onchange=()=>{node.linksColor=color.value;commit();render();};tools.append(color);
-  if(node.linksColor)add('Cor padrão','Restaurar cor das ligações',()=>{delete node.linksColor;commit();render();});
- }
- if(depth>0)add('Excluir','Excluir ideia',()=>removeNode(node)).classList.add('danger');
- return tools;
+ card.append(picker);
+ const fab=document.createElement('button');fab.type='button';fab.className='edit-fab';fab.textContent='✎';
+ fab.title='Editar: abre a roda de ações';fab.setAttribute('aria-label',`Editar: ${nameOf(node)}`);fab.setAttribute('aria-haspopup','menu');fab.setAttribute('aria-expanded','false');
+ fab.onclick=e=>{e.stopPropagation();if(radial&&radial.card===card)closeRadial();else openRadial(fab,card,node,depth,picker);};
+ card.append(fab);
 }
 
 /* Diagramas (Mermaid carregado sob demanda; o SVG renderizado é salvo como imagem do nó) */
@@ -259,11 +345,176 @@ function openDiagramEditor(node,index=null){
  modal.hidden=false;document.addEventListener('keydown',onKey);ta.focus();update();
 }
 
+/* Mover cards: arraste a alça (⋮⋮). O card sai do mapa e o conjunto inteiro (ele + tudo abaixo) acompanha o cursor.
+   Soltar sobre um card = vira filho; na borda de cima/baixo = vira irmão. Ao pairar sobre um ramo fechado ele abre sozinho,
+   para você percorrer as ramificações. Botão do meio do mouse move o quadro durante o arraste; Esc cancela. */
+let moving=null, lastMove=null, toastTimer=0;
+const isInside=(root,id)=>root.id===id||root.children.some(c=>isInside(c,id));
+const countBelow=n=>n.children.reduce((a,c)=>a+1+countBelow(c),0);
+const ancestorIds=id=>{const out=new Set();let p=parentOf(tree,id);while(p){out.add(p.id);p=parentOf(tree,p.id);}return out;};
+const OPEN_DELAY=450, CLOSE_DELAY=700;
+const GRIP='<svg viewBox="0 0 10 16" aria-hidden="true"><g fill="currentColor"><circle cx="3" cy="3" r="1.3"/><circle cx="7" cy="3" r="1.3"/><circle cx="3" cy="8" r="1.3"/><circle cx="7" cy="8" r="1.3"/><circle cx="3" cy="13" r="1.3"/><circle cx="7" cy="13" r="1.3"/></g></svg>';
+function showToast(text,undo,ms=7000){
+ const toast=$('#toast');$('#toast-text').textContent=text;$('#toast-undo').hidden=!undo;toast.hidden=false;
+ clearTimeout(toastTimer);toastTimer=setTimeout(()=>{toast.hidden=true;},ms);
+}
+function hideToast(){clearTimeout(toastTimer);$('#toast').hidden=true;}
+function ghostTree(node){
+ const box=document.createElement('div');box.className='ghost-node';
+ const title=document.createElement('div');title.className='ghost-title';title.textContent=nameOf(node);box.append(title);
+ if(node.children.length){const kids=document.createElement('div');kids.className='ghost-kids';node.children.forEach(c=>kids.append(ghostTree(c)));box.append(kids);}
+ return box;
+}
+function placeGhost(x,y){
+ const g=moving.ghost;g.style.transform=`translate(${x+10}px,${y}px) translateY(-50%) scale(${moving.ghostScale})`;
+}
+function pickDrop(x,y,source){
+ const el=document.elementFromPoint(x,y)?.closest('.node');if(!el)return null;
+ const target=findNode(tree,el.dataset.id);if(!target)return null;
+ if(isInside(source,target.id))return {el,invalid:true};
+ const r=el.getBoundingClientRect(),rel=(y-r.top)/r.height,isRoot=target.id===tree.id;
+ return {el,target,zone:isRoot?'into':rel<.28?'before':rel>.72?'after':'into'};
+}
+function clearDropMarks(){
+ document.querySelectorAll('.drop-into,.drop-invalid,.drop-opening,.drop-leaf').forEach(el=>el.classList.remove('drop-into','drop-invalid','drop-opening','drop-leaf'));
+ $('#drop-line').hidden=true;$('#drop-link').hidden=true;
+}
+function markDrop(drop,x,y){
+ clearDropMarks();if(!drop)return;
+ if(drop.invalid){drop.el.classList.add('drop-invalid');return;}
+ if(drop.zone==='into'){
+  const r=drop.el.getBoundingClientRect(),hasKids=drop.target.children.length>0;
+  drop.el.classList.add('drop-into');
+  if(!hasKids)drop.el.classList.add('drop-leaf'); // pulsa: "vai conectar"
+  if(hasKids&&!expanded.has(drop.target.id))drop.el.classList.add('drop-opening'); // vai abrir as filhas
+  // linha tracejada animada do card alvo até o conjunto que está sendo carregado
+  const x1=r.right,y1=r.top+r.height/2,x2=x+10,y2=y,dx=Math.max(40,Math.abs(x2-x1)/2);
+  $('#drop-link path').setAttribute('d',`M${x1},${y1} C${x1+dx},${y1} ${x2-dx},${y2} ${x2},${y2}`);
+  $('#drop-link').hidden=false;
+  return;
+ }
+ const r=drop.el.getBoundingClientRect(),line=$('#drop-line');
+ line.style.left=`${r.left}px`;line.style.width=`${r.width}px`;line.style.top=`${(drop.zone==='before'?r.top:r.bottom)-2}px`;line.hidden=false;
+}
+function refreshDrop(){
+ if(!moving||!moving.active)return;
+ const {x,y}=moving.pointer;
+ moving.drop=pickDrop(x,y,moving.node);markDrop(moving.drop,x,y);
+ const drop=moving.drop,target=drop&&!drop.invalid?drop.target:null;
+ // pairar sobre um ramo fechado: abre as filhas dinamicamente
+ const wantsOpen=target&&drop.zone==='into'&&target.children.length&&!expanded.has(target.id);
+ if(wantsOpen){
+  if(moving.dwellId!==target.id){
+   clearTimeout(moving.dwellTimer);moving.dwellId=target.id;
+   moving.dwellTimer=setTimeout(()=>{
+    if(!moving||moving.dwellId!==target.id)return;
+    expanded.add(target.id);moving.autoOpened.add(target.id);moving.dwellId=null;render();refreshDrop();
+   },OPEN_DELAY);
+  }
+ }else{clearTimeout(moving.dwellTimer);moving.dwellId=null;}
+ // ramos abertos sozinhos que ficaram para trás fecham de novo
+ const keep=target?new Set([...ancestorIds(target.id),target.id]):new Set();
+ for(const id of moving.autoOpened){
+  if(keep.has(id)){clearTimeout(moving.closeTimers.get(id));moving.closeTimers.delete(id);continue;}
+  if(moving.closeTimers.has(id))continue;
+  moving.closeTimers.set(id,setTimeout(()=>{
+   if(!moving)return;
+   moving.closeTimers.delete(id);
+   const cur=moving.drop&&!moving.drop.invalid?moving.drop.target:null;
+   if(cur&&(cur.id===id||ancestorIds(cur.id).has(id)))return;
+   expanded.delete(id);moving.autoOpened.delete(id);render();refreshDrop();
+  },CLOSE_DELAY));
+ }
+}
+function endMoveSession(){
+ if(!moving)return;
+ clearTimeout(moving.dwellTimer);moving.closeTimers.forEach(t=>clearTimeout(t));
+ moving.ghost?.remove();clearDropMarks();hideToast();
+ document.body.classList.remove('is-moving');
+ document.removeEventListener('pointermove',onMoveDrag);document.removeEventListener('pointerup',onMoveEnd);document.removeEventListener('pointercancel',cancelMove);document.removeEventListener('keydown',onMoveKey);
+ document.removeEventListener('mousedown',blockMiddle,true);document.removeEventListener('auxclick',blockMiddle,true);
+}
+function cancelMove(){
+ if(!moving)return;
+ const {active,startExpanded}=moving;endMoveSession();moving=null;
+ if(active){expanded=startExpanded;render();}
+}
+function onMoveKey(e){if(e.key==='Escape'){e.preventDefault();cancelMove();}}
+function blockMiddle(e){if(e.button===1)e.preventDefault();} // evita o autoscroll do botão do meio
+function onMoveDrag(e){
+ if(!moving)return;
+ moving.pointer={x:e.clientX,y:e.clientY};
+ if(!moving.active){
+  if(Math.hypot(e.clientX-moving.x,e.clientY-moving.y)<5)return;
+  moving.active=true;document.body.classList.add('is-moving');
+  const ghost=document.createElement('div');ghost.className='drag-ghost';
+  const below=countBelow(moving.node);
+  ghost.append(ghostTree(moving.node));
+  if(below){const badge=document.createElement('div');badge.className='ghost-count';badge.textContent=`${below+1} ideias`;ghost.append(badge);}
+  document.body.append(ghost);moving.ghost=ghost;
+  const maxH=window.innerHeight*.7,maxW=window.innerWidth*.55;
+  moving.ghostScale=Math.min(1,maxH/ghost.offsetHeight,maxW/ghost.offsetWidth);
+  render(); // o conjunto "desplugou": sai do mapa e o layout se reorganiza
+  showToast('Botão do meio move o quadro · roda do mouse dá zoom · Esc cancela',false,60000);
+ }
+ if(e.buttons&4&&moving.lastX!==undefined){camera.x+=e.clientX-moving.lastX;camera.y+=e.clientY-moving.lastY;updateCamera();}
+ moving.lastX=e.clientX;moving.lastY=e.clientY;
+ placeGhost(e.clientX,e.clientY);
+ refreshDrop();
+}
+function onMoveEnd(e){
+ if(!moving)return;
+ const {active,node,startExpanded,autoOpened}=moving;
+ const drop=active?pickDrop(e.clientX,e.clientY,node):null;
+ endMoveSession();moving=null;
+ if(!(active&&drop&&!drop.invalid)){if(active){expanded=startExpanded;render();}return;}
+ // mantém abertos só os ancestrais do destino; o resto que abriu sozinho volta a fechar
+ const keep=new Set([...ancestorIds(drop.target.id),drop.target.id]);
+ for(const id of autoOpened)if(!keep.has(id))expanded.delete(id);
+ moveNode(node,drop,startExpanded);
+}
+function startMove(e,node,el){
+ if(e.button!==0||moving)return;
+ e.preventDefault();e.stopPropagation();
+ moving={node,el,x:e.clientX,y:e.clientY,pointer:{x:e.clientX,y:e.clientY},active:false,drop:null,ghost:null,ghostScale:1,startExpanded:new Set(expanded),autoOpened:new Set(),closeTimers:new Map(),dwellId:null,dwellTimer:0};
+ document.addEventListener('pointermove',onMoveDrag);document.addEventListener('pointerup',onMoveEnd);document.addEventListener('pointercancel',cancelMove);document.addEventListener('keydown',onMoveKey);
+ document.addEventListener('mousedown',blockMiddle,true);document.addEventListener('auxclick',blockMiddle,true);
+}
+function revealNode(id){
+ const el=document.querySelector(`[data-id="${id}"]`);if(!el)return;
+ el.classList.add('just-moved');setTimeout(()=>el.classList.remove('just-moved'),1400);
+ const r=el.getBoundingClientRect(),v=viewport.getBoundingClientRect();
+ if(r.left<v.left||r.right>v.right||r.top<v.top||r.bottom>v.bottom){
+  camera.x+=v.left+v.width/2-(r.left+r.width/2);camera.y+=v.top+v.height/2-(r.top+r.height/2);updateCamera();
+ }
+}
+function moveNode(source,drop,startExpanded){
+ const before={tree:JSON.stringify(tree),expanded:[...(startExpanded||expanded)]};
+ const oldParent=parentOf(tree,source.id);if(!oldParent)return;
+ oldParent.children.splice(oldParent.children.indexOf(source),1);
+ if(!oldParent.children.length)expanded.delete(oldParent.id);
+ if(drop.zone==='into'){drop.target.children.push(source);expanded.add(drop.target.id);}
+ else{
+  const parent=parentOf(tree,drop.target.id);
+  parent.children.splice(parent.children.indexOf(drop.target)+(drop.zone==='after'?1:0),0,source);
+ }
+ if(JSON.stringify(tree)===before.tree){render();return;} // soltou no mesmo lugar
+ lastMove=before;commit();render();revealNode(source.id);
+ const below=countBelow(source);
+ showToast(`“${nameOf(source)}”${below?` e mais ${below} ideia(s)`:''} movido`,true);
+}
+function undoMove(){
+ if(!lastMove)return;
+ tree=doc.tree=JSON.parse(lastMove.tree);expanded=new Set(lastMove.expanded);lastMove=null;
+ hideToast();commit();render();
+}
+
 /* Renderização */
 function render(){
  cancelMotion();
  const container=$('#nodes');container.replaceChildren();$('#connections').replaceChildren();
- const visible=visibleNodes(tree,expanded), elements=new Map(), depths=new Map();
+ const hidden=n=>!!(moving&&moving.active&&isInside(moving.node,n.id));
+ const visible=visibleNodes(tree,expanded).filter(n=>!hidden(n)), elements=new Map(), depths=new Map();
  colors=new Map();
  const assign=(node,depth,color)=>{depths.set(node.id,depth);colors.set(node.id,color);node.children.forEach((c,i)=>assign(c,depth+1,depth===0?(c.color||PALETTE[i%PALETTE.length]):color));};
  assign(tree,0,ROOT_COLOR);
@@ -310,14 +561,21 @@ function render(){
    if(links.length)row.append(editing?linkChips(node):linkBadge(node));
    el.append(row);
   }
-  if(editing){el.append(editTools(node,depth));enableDrop(el,node);}
+  if(editing){
+   editControls(el,node,depth);enableDrop(el,node);
+   if(!isRoot){
+    const grip=document.createElement('button');grip.type='button';grip.className='drag-handle';grip.innerHTML=GRIP;
+    grip.title='Arraste para mover este card e tudo abaixo dele';grip.setAttribute('aria-label',`Mover: ${nameOf(node)}`);
+    grip.addEventListener('pointerdown',e=>startMove(e,node,el));el.append(grip);
+   }
+  }
   container.append(el);elements.set(node.id,el);
  }
 
  // Layout em colunas por profundidade; cada pai fica centralizado em relação aos filhos visíveis.
  const colW=[];for(const node of visible){const d=depths.get(node.id);colW[d]=Math.max(colW[d]||0,elements.get(node.id).offsetWidth);}
  const colX=[0];for(let d=1;d<colW.length;d++)colX[d]=colX[d-1]+colW[d-1]+GAP;
- const kidsOf=n=>expanded.has(n.id)?n.children:[], heights=new Map();
+ const kidsOf=n=>expanded.has(n.id)?n.children.filter(c=>!hidden(c)):[], heights=new Map();
  const gapFor=n=>depths.get(n.id)===0?42:22;
  const measure=n=>{const kids=kidsOf(n),own=elements.get(n.id).offsetHeight;kids.forEach(measure);const group=kids.reduce((a,k)=>a+heights.get(k.id),0)+gapFor(n)*Math.max(0,kids.length-1);heights.set(n.id,Math.max(own,group));heights.set(`${n.id}:group`,group);return heights.get(n.id);};
  const total=measure(tree), positions=new Map();
@@ -404,6 +662,7 @@ $('#collapse').onclick=()=>{expanded=new Set([tree.id]);render();fit();};
 $('#fit').onclick=fit;$('#zoom-in').onclick=()=>zoom(1.2);$('#zoom-out').onclick=()=>zoom(1/1.2);
 $('#mode').onclick=()=>{reading=!reading;if(reading)buildReading();viewport.hidden=reading;$('#reading').hidden=!reading;for(const id of ['tree-controls','zoom-controls','edit-switch'])$('#'+id).hidden=reading;$('#mode-label').textContent=reading?'Mapa mental':'Modo texto';$('#mode').setAttribute('aria-pressed',String(reading));};
 $('#edit-switch').onclick=()=>setEditing(!editing);
+$('#toast-undo').onclick=undoMove;
 /* Tela cheia do navegador: o mapa continua igual, só ganha toda a tela */
 const fullscreenButton=$('#fullscreen');
 if(!document.fullscreenEnabled)fullscreenButton.hidden=true;
