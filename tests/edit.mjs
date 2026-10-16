@@ -198,6 +198,33 @@ try{
  await until(async()=>(await onDisk(id)).tree.linksColor===undefined,'raiz não restaurada');
  await setLinks('future','#00aa55','children'); // a cor do ramo 'future' é conferida mais adiante
 
+ // EDIT-22: reordenar imagens/diagramas do card (botões ↑ ↓ e arrastando a alça)
+ await page.locator('#fit').click();
+ await page.locator('[data-id="nature"] input[type=file]').setInputFiles([{name:'ordem-a.png',mimeType:'image/png',buffer:png},{name:'ordem-b.png',mimeType:'image/png',buffer:png}]);
+ const natureImgs=async()=>(await onDisk(id)).tree.children.find(k=>k.id==='nature').images.map(i=>i.src);
+ await until(async()=>(await natureImgs()).length>=3,'imagens para ordenar não salvas');
+ const order0=await natureImgs();
+ const items=()=>page.locator('[data-id="nature"] .image-item');
+ assert.equal(await items().nth(0).locator('[data-move="up"]').isDisabled(),true);   // primeira não sobe
+ assert.equal(await items().last().locator('[data-move="down"]').isDisabled(),true); // última não desce
+ await items().nth(0).locator('[data-move="down"]').click();
+ await until(async()=>{const o=await natureImgs();return o[0]===order0[1]&&o[1]===order0[0];},'↓ não reordenou');
+ await items().nth(order0.length-1).locator('[data-move="up"]').click();
+ await until(async()=>{const o=await natureImgs();return o[order0.length-2]===order0[order0.length-1];},'↑ não reordenou');
+ // arrastar a alça do primeiro para depois do último
+ const beforeDrag=await natureImgs();
+ await page.locator('#fit').click();
+ const first=items().nth(0),last=items().last(),lb=await last.boundingBox();
+ await first.hover();
+ await first.locator('.img-grip').dragTo(last,{targetPosition:{x:lb.width/2,y:lb.height*.9}});
+ await until(async()=>{const o=await natureImgs();return o.at(-1)===beforeDrag[0]&&o[0]===beforeDrag[1];},'arrastar não reordenou');
+ assert.equal((await natureImgs()).length,beforeDrag.length); // nada se perdeu
+ // o modo texto segue a nova ordem
+ await sw.click();await page.locator('#mode').click();
+ const readingSrcs=await page.locator('#reading h2').filter({hasText:'natureza'}).evaluate(h=>{const out=[];let n=h.nextElementSibling;while(n&&n.tagName==='IMG'){out.push(n.getAttribute('src'));n=n.nextElementSibling;}return out;});
+ assert.deepEqual(readingSrcs,await natureImgs());
+ await page.locator('#mode').click();await sw.click();
+
  // EDIT-17: arrastar e soltar imagens no card (cópia em assets, origem intacta)
  await page.locator('[data-id="community-2"]').scrollIntoViewIfNeeded();
  const dropFiles=(selector,files)=>page.evaluate(({selector,files})=>{
@@ -441,5 +468,5 @@ try{
 
  const traversal=await page.request.get(`${base}/presentations/..%2fserver.mjs`);assert.equal(traversal.status(),404); // segurança básica
  assert.equal((await page.request.get(`${base}/server.mjs`)).status(),404);
- assert.deepEqual(errors,[]);console.log('PASS EDIT-01..21');
+ assert.deepEqual(errors,[]);console.log('PASS EDIT-01..22');
 }finally{await browser.close();server.kill();await rm(dir,{recursive:true,force:true});}
