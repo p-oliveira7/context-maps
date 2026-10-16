@@ -75,5 +75,26 @@ try {
  await page.getByRole('button',{name:'Expandir tudo',exact:true}).click(); assert.equal(await count(),17); // continua interativo
  await fullscreen.click(); await page.waitForFunction(()=>!document.fullscreenElement);
  assert.equal(await fullscreen.getAttribute('aria-pressed'),'false');
- assert.deepEqual(errors,[]); console.log('PASS: MAP-01..09 browser scenarios, desktop + mobile');
+ // MAP-10: destaque no hover (cresce e a imagem fica maior), só na exibição e sem movimento reduzido
+ await page.setViewportSize({width:1280,height:720}); await page.reload(); await page.locator('.node').first().waitFor();
+ await page.getByRole('button',{name:'Expandir tudo',exact:true}).click();
+ const hoverCard=page.locator('[data-id="nature"]'), scaleOf=()=>hoverCard.evaluate(e=>new DOMMatrix(getComputedStyle(e).transform).a);
+ await page.mouse.move(2,300); await page.waitForTimeout(350); assert.equal(await scaleOf(),1);
+ const rootImg=page.locator('[data-id="root"] .image-button img'), widthOf=async()=>(await rootImg.boundingBox()).width;
+ const widthIdle=await widthOf();
+ await page.locator('[data-id="root"]').hover(); await page.waitForTimeout(450);
+ assert.ok(await widthOf()>widthIdle*1.05,'imagem deveria crescer no hover');
+ await hoverCard.hover(); await page.waitForTimeout(450);
+ assert.ok(await scaleOf()>1.04,'card deveria crescer no hover');
+ const glass=await hoverCard.evaluate(e=>{const cs=getComputedStyle(e);const m=cs.backgroundColor.match(/rgba?\(([^)]+)\)/)[1].split(',').map(Number);return {alpha:m.length>3?m[3]:1,filter:cs.backdropFilter||cs.webkitBackdropFilter};});
+ assert.ok(glass.alpha<1&&glass.alpha>0,`fundo do card deveria ser translúcido (alpha ${glass.alpha})`);
+ assert.match(glass.filter,/blur/); // desfoque (vidro fosco) em vez de fundo preto sólido
+ await page.mouse.move(2,300); await page.waitForTimeout(450); assert.equal(await scaleOf(),1); // volta ao normal
+ if(await page.locator('#edit-switch').isVisible()){ // em edição não cresce
+  await page.locator('#edit-switch').click(); await page.locator('[data-id="nature"]').hover(); await page.waitForTimeout(450);
+  assert.equal(await scaleOf(),1); await page.locator('#edit-switch').click();
+ }
+ await page.emulateMedia({reducedMotion:'reduce'}); await page.mouse.move(2,300); await hoverCard.hover(); await page.waitForTimeout(450);
+ assert.equal(await scaleOf(),1); await page.emulateMedia({reducedMotion:'no-preference'});
+ assert.deepEqual(errors,[]); console.log('PASS: MAP-01..10 browser scenarios, desktop + mobile');
 } finally {await browser.close();}

@@ -90,7 +90,7 @@ Open <http://127.0.0.1:4173>. On first run the server creates the demo presentat
 - **Click a title** (or Enter/Space) to expand or collapse a branch; the fan-style button beside the card works too.
   Opening a branch animates the cards for 420 ms and highlights the connection to the first child for 1 s
   (honours `prefers-reduced-motion`).
-- **Hovering** a card highlights the line that leads to it.
+- **Hovering** a card highlights the line that leads to it, and the card **grows slightly** (its image zooms too); disabled in edit mode and with reduced motion.
 - **Expand all / Collapse all**, **Full screen** (the browser's full-screen mode; the map keeps working exactly the same) and **Text mode** (linear reading of the whole map) live in the bottom bar.
 - **Images and diagrams** open full screen; with several items there are ‹ › arrows (or ← →) and a counter.
 - **Subtitles** (supporting text) appear in a small panel under the card **only while hovering it**.
@@ -216,7 +216,7 @@ Mermaid runs with `securityLevel: strict`.
 export PLAYWRIGHT_MODULE=file:///path/to/playwright-core/index.mjs   # absolute path
 node tests/edit.mjs      # EDIT-01..19  editing, diagrams, media, links (starts a temp server)
 node tests/skill.mjs     # SKILL-01..06 skill CLI (starts a temp server)
-node tests/browser.mjs   # MAP-01..09   navigation, zoom, text mode, mobile, full screen
+node tests/browser.mjs   # MAP-01..10   navigation, zoom, text mode, mobile, full screen
 node tests/cards.mjs     # CARD-01..06  titles, root, keyboard, images
 node tests/motion.mjs    # MOT-01..05   animations and reduced motion
 ```
