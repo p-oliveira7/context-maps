@@ -86,7 +86,7 @@ Abra <http://127.0.0.1:4173>. Na primeira execução o servidor cria a apresenta
 ## Usando o app
 
 ### Exibição
-- **Arrastar** o fundo move o mapa; **rolar** dá zoom; os botões − / + e ⌗ (enquadrar) ficam no canto.
+- **Arrastar** o fundo (ou segurar o **botão do meio do mouse** em qualquer lugar, até sobre cards) move o mapa; **rolar** dá zoom; os botões − / + e ⌗ (enquadrar) ficam no canto.
 - **Clique no título** (ou Enter/Espaço) expande ou recolhe um ramo; o botão em leque ao lado do card também.
   Abrir um ramo anima os cards por 420 ms e destaca por 1 s a conexão ao primeiro filho
   (respeita `prefers-reduced-motion`).
@@ -104,6 +104,7 @@ Ative o switch **Editar** na barra inferior.
 | Editar texto | Clique no texto; Enter confirma |
 | Menu de edição | Passe o mouse num card e clique no botão **✎** no topo, ao centro: abre uma **roda de ações** em volta dele (fecha com **Esc**, × ou clicando fora) |
 | Adicionar ideia | **+ Filho**, **+ Irmão** (depois), **+ Antes** (irmão antes) ou **+ Pai** (envolve a ideia num novo card pai); profundidade livre |
+| Reordenar mídias | Com 2+ imagens/diagramas no card: botões **↑ ↓** ou arraste a alça **⋮⋮** sobre outro item (uma linha verde mostra onde cai) |
 | Imagens | **+ Imagem** (aceita vários arquivos) ou **arraste arquivos de imagem para o card**; cada arquivo é **copiado** para `presentations/<id>/assets/` e o original não é alterado; **×** remove uma |
 | Diagramas | **+ Diagrama** abre o editor Mermaid com pré-visualização ao vivo; **Editar** reabre |
 | Cards sem título | Apague o título de um card que tenha imagem/diagrama ou subtítulo: ele passa a mostrar só esse conteúdo (card só com subtítulo mostra o subtítulo o tempo todo) |
@@ -214,9 +215,9 @@ Mermaid roda em `securityLevel: strict`.
 
 ```bash
 export PLAYWRIGHT_MODULE=file:///caminho/para/playwright-core/index.mjs   # caminho absoluto
-node tests/edit.mjs      # EDIT-01..13  edição, diagramas, mídias, links (sobe servidor temporário)
+node tests/edit.mjs      # EDIT-01..22  edição, diagramas, mídias, links (sobe servidor temporário)
 node tests/skill.mjs     # SKILL-01..06 CLI da skill (sobe servidor temporário)
-node tests/browser.mjs   # MAP-01..10   navegação, zoom, modo texto, mobile, tela cheia
+node tests/browser.mjs   # MAP-01..11   navegação, zoom, modo texto, mobile, tela cheia
 node tests/cards.mjs     # CARD-01..06  títulos, raiz, teclado, imagens
 node tests/motion.mjs    # MOT-01..05   animações e movimento reduzido
 ```

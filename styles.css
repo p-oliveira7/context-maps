@@ -287,3 +287,10 @@ body.is-editing .edit-fab{display:flex}
  .node,.node .image-button img{transition:none}
  body:not(.is-editing):not(.is-moving) .node:hover,body:not(.is-editing):not(.is-moving) .node:hover .image-button img{transform:none}
 }
+
+/* Reordenar imagens/diagramas do card */
+.image-tools .img-grip{cursor:grab;letter-spacing:-1px;font-size:.72rem}
+.image-tools button:disabled{opacity:.3;cursor:default}
+.image-item.is-reordering{opacity:.4}
+.image-item.drop-before{box-shadow:0 -4px 0 0 #4f9d7a}
+.image-item.drop-after{box-shadow:0 4px 0 0 #4f9d7a}

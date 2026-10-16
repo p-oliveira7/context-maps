@@ -96,5 +96,15 @@ try {
  }
  await page.emulateMedia({reducedMotion:'reduce'}); await page.mouse.move(2,300); await hoverCard.hover(); await page.waitForTimeout(450);
  assert.equal(await scaleOf(),1); await page.emulateMedia({reducedMotion:'no-preference'});
- assert.deepEqual(errors,[]); console.log('PASS: MAP-01..10 browser scenarios, desktop + mobile');
+ // MAP-11: botão do meio move o quadro (também sobre os cards) sem clicar nem arrastar texto
+ await page.setViewportSize({width:1280,height:720}); await page.reload(); await page.locator('.node').first().waitFor();
+ const camBefore=await matrix(); const cardPos=await page.locator('[data-id="nature"]').boundingBox();
+ await page.mouse.move(cardPos.x+cardPos.width/2,cardPos.y+cardPos.height/2);
+ await page.mouse.down({button:'middle'}); await page.mouse.move(cardPos.x+cardPos.width/2+120,cardPos.y+cardPos.height/2+60,{steps:8}); await page.mouse.up({button:'middle'});
+ const camAfter=await matrix();
+ assert.ok(Math.abs(camAfter.x-camBefore.x-120)<2&&Math.abs(camAfter.y-camBefore.y-60)<2,`quadro deveria acompanhar o botão do meio (${camAfter.x-camBefore.x},${camAfter.y-camBefore.y})`);
+ assert.equal(camAfter.scale,camBefore.scale);
+ assert.equal(await page.locator('.node').count(),5); // nenhum card abriu/fechou
+ assert.equal(await page.evaluate(()=>String(getSelection())),''); // nada selecionado
+ assert.deepEqual(errors,[]); console.log('PASS: MAP-01..11 browser scenarios, desktop + mobile');
 } finally {await browser.close();}

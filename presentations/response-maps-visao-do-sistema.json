@@ -178,7 +178,33 @@
                           {
                             "id": "n-9m4o74h",
                             "title": "sasas",
-                            "children": []
+                            "children": [
+                              {
+                                "id": "n-glf1lfb",
+                                "title": "Nova ideia",
+                                "children": [],
+                                "images": [
+                                  {
+                                    "src": "presentations/response-maps-visao-do-sistema/assets/gnitxo9fwas71-mvbiv1u4.gif",
+                                    "alt": "Nova ideia"
+                                  },
+                                  {
+                                    "src": "presentations/response-maps-visao-do-sistema/assets/dragon-ball-background-86shnciw6a3m0j7s-mvbiuzi4.webp",
+                                    "alt": "Nova ideia"
+                                  },
+                                  {
+                                    "src": "presentations/response-maps-visao-do-sistema/assets/diagrama-mvbiw7e8.svg",
+                                    "alt": "Diagrama: Nova ideia",
+                                    "kind": "diagram",
+                                    "source": "flowchart TD\n  A[Início] --> B{Decisão}\n  B -->|Sim| C[Fim]\n  B -->|Não| A"
+                                  },
+                                  {
+                                    "src": "presentations/response-maps-visao-do-sistema/assets/dragon-ball-background-r1jx4p23wia08q86-mvbiv3tk.jpg",
+                                    "alt": "Nova ideia"
+                                  }
+                                ]
+                              }
+                            ]
                           },
                           {
                             "id": "n-1jgvuo6",
@@ -187,33 +213,7 @@
                               {
                                 "id": "n-v0e1rrd",
                                 "title": "",
-                                "children": [
-                                  {
-                                    "id": "n-glf1lfb",
-                                    "title": "Nova ideia",
-                                    "children": [],
-                                    "images": [
-                                      {
-                                        "src": "presentations/response-maps-visao-do-sistema/assets/dragon-ball-background-86shnciw6a3m0j7s-mvbiuzi4.webp",
-                                        "alt": "Nova ideia"
-                                      },
-                                      {
-                                        "src": "presentations/response-maps-visao-do-sistema/assets/gnitxo9fwas71-mvbiv1u4.gif",
-                                        "alt": "Nova ideia"
-                                      },
-                                      {
-                                        "src": "presentations/response-maps-visao-do-sistema/assets/dragon-ball-background-r1jx4p23wia08q86-mvbiv3tk.jpg",
-                                        "alt": "Nova ideia"
-                                      },
-                                      {
-                                        "src": "presentations/response-maps-visao-do-sistema/assets/diagrama-mvbiw7e8.svg",
-                                        "alt": "Diagrama: Nova ideia",
-                                        "kind": "diagram",
-                                        "source": "flowchart TD\n  A[Início] --> B{Decisão}\n  B -->|Sim| C[Fim]\n  B -->|Não| A"
-                                      }
-                                    ]
-                                  }
-                                ],
+                                "children": [],
                                 "images": [
                                   {
                                     "src": "presentations/response-maps-visao-do-sistema/assets/diagrama-mv9m7ivv.svg",
