@@ -81,6 +81,8 @@ try{
  const extDoc=JSON.parse(await readFile(path.join(extra,'externo.json'),'utf8'));
  assert.equal(extDoc.id,'externo');assert.ok(JSON.stringify(extDoc).includes('externo/assets/'));assert.equal(JSON.stringify(extDoc).includes('presentations/'),false);
  assert.ok((await readFile(path.join(data,'..','nada-aqui.txt'),'utf8').catch(()=>'ok'))==='ok');
+ // --version imprime a versão do pacote
+ {const v=run(['--version']);assert.equal(v.status,0);assert.match(v.stdout,/^context-maps \d+\.\d+\.\d+\s*$/);assert.equal(run(['version']).stdout,v.stdout);}
  // idioma das mensagens (RM_LANG)
  const badEn=run(['validate','--outline','bad.md'],{RM_LANG:'en'});assert.match(badEn.stdout,/characters/);
  const againEn=run(['create','--outline','mapa.md','--id','fluxo-login'],{RM_LANG:'en',MMDC:shim});assert.match(againEn.stderr,/already exists/);

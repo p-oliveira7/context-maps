@@ -13,7 +13,7 @@
 
 **Português (BR)** · [English](README.md)
 
-[Começando](#começando) · [Recursos](#recursos) · [Skill](#skill-para-agentes) · [Formato](#formato-dos-dados) · [API](#api-do-servidor) · [Testes](#testes)
+[Começando](#começando) · [Recursos](#recursos) · [Skill](#skill-para-agentes) · [Formato](#formato-dos-dados) · [API](#api-do-servidor) · [Testes](#testes) · [Changelog](CHANGELOG.md)
 
 </div>
 

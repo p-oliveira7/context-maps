@@ -1,9 +1,11 @@
 import {tree as seed,visibleNodes,allBranches,zoomAt,parentOf,findNode,newId,PALETTE} from './model.js?v=16';
 import {cancelMotion,snapshot,animateLayout,hoverEdge,updateEdges} from './motion.js?v=16';
 import * as store from './store.js?v=17';
-import {t,applyStatic,lang} from './i18n.js?v=1';
+import {t,applyStatic} from './i18n.js?v=1';
+import {VERSION} from './version.js?v=1';
 applyStatic();
 const $=s=>document.querySelector(s), viewport=$('#viewport'), world=$('#world');
+$('#doc-version').textContent=`Context Maps v${VERSION}`;
 const ROOT_COLOR='#a7a7b8', GAP=64;
 let doc={id:null,title:seed.title,roots:[seed]}, roots=doc.roots, expanded=new Set(['root']), camera={x:0,y:0,scale:1}, reading=false, editing=false, bounds={x:0,y:0,width:1,height:1};
 let colors=new Map(), saveTimer=0, saving=Promise.resolve();

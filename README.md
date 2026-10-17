@@ -13,7 +13,7 @@
 
 **English** · [Português (BR)](README.pt-BR.md)
 
-[Getting started](#getting-started) · [Features](#features) · [Agent skill](#agent-skill) · [Data format](#data-format) · [API](#server-api) · [Tests](#tests)
+[Getting started](#getting-started) · [Features](#features) · [Agent skill](#agent-skill) · [Data format](#data-format) · [API](#server-api) · [Tests](#tests) · [Changelog](CHANGELOG.md)
 
 </div>
 
