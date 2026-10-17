@@ -96,10 +96,10 @@ try{
  await page.locator('[data-id="community"] .toggle').click();
  await act('community-1','Adicionar diagrama');
  const modal=page.locator('#diagram-editor');await modal.waitFor();
- await page.locator('#diagram-preview svg').waitFor({timeout:30000});
+ await page.locator('#diagram-preview img').waitFor({timeout:30000});
  assert.equal(await page.locator('#diagram-apply').isEnabled(),true);
  await page.locator('#diagram-source').fill('flowchart LR\n  X[Entrada] --> Y[Saída]');
- await page.locator('#diagram-preview svg').filter({hasText:'Entrada'}).waitFor({timeout:30000});
+ await page.waitForFunction(()=>decodeURIComponent(document.querySelector('#diagram-preview img')?.src||'').includes('Entrada'),null,{timeout:30000});
  await page.locator('#diagram-source').fill('flowchart LR\n  X[ --> ');
  await page.locator('#diagram-error:not(:empty)').waitFor({timeout:30000});
  assert.equal(await page.locator('#diagram-apply').isDisabled(),true);
@@ -119,7 +119,7 @@ try{
  await page.locator('[data-id="community-1"] input[type=file]').setInputFiles([{name:'a.png',mimeType:'image/png',buffer:png},{name:'b.png',mimeType:'image/png',buffer:png}]);
  await until(async()=>(await onDisk(id)).tree.children[2].children[0].images.length===3,'duas imagens não adicionadas');
  await act('community-1','Adicionar diagrama');
- await page.locator('#diagram-preview svg').waitFor({timeout:30000});
+ await page.locator('#diagram-preview img').waitFor({timeout:30000});
  await page.locator('#diagram-apply:enabled').click();await modal.waitFor({state:'hidden'});
  await until(async()=>(await onDisk(id)).tree.children[2].children[0].images.length===4,'segundo diagrama não salvo');
  assert.deepEqual((await onDisk(id)).tree.children[2].children[0].images.map(i=>i.kind||'image'),['diagram','image','image','diagram']);
