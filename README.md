@@ -83,6 +83,10 @@ Open <http://127.0.0.1:4173>. On first run the server creates the demo presentat
 
 ---
 
+## Example presentation
+
+`presentations/cidades-para-pessoas.json` ships with the repository and shows **every feature** in one place: a city map, a **"Guia de recursos"** root with one branch per feature (hover subtitles, single/multiple images, Mermaid diagrams, image + diagram together, one or several links, title-less cards, line colours for direct children or a whole branch) and a third, independent **root card** with a free position. Open it, expand everything and try *Edit* mode.
+
 ## Using the app
 
 ### View mode
@@ -90,6 +94,7 @@ Open <http://127.0.0.1:4173>. On first run the server creates the demo presentat
 - **Click a title** (or Enter/Space) to expand or collapse a branch; the fan-style button beside the card works too.
   Opening a branch animates the cards for 420 ms and highlights the connection to the first child for 1 s
   (honours `prefers-reduced-motion`).
+- **Several root cards** never overlap: when an open tree would cover another, the one that was **below (or to the right)** moves aside (with the usual opening animation), so the original order is kept, and it returns to its saved position when collapsed.
 - **Hovering** a card highlights the line that leads to it, and the card **grows slightly** (its image zooms too); disabled in edit mode and with reduced motion.
 - **Expand all / Collapse all**, **Full screen** (the browser's full-screen mode; the map keeps working exactly the same) and **Text mode** (linear reading of the whole map) live in the bottom bar.
 - **Images and diagrams** open full screen; with several items there are ‹ › arrows (or ← →) and a counter.
@@ -102,6 +107,8 @@ Turn on the **Edit** switch in the bottom bar.
 | Action | How |
 | --- | --- |
 | Edit text | Click the text; Enter confirms |
+| Root cards | **Root card** (bottom bar, edit mode) adds another starting point anywhere on the map; a presentation can have several. Drag a root by its **⋮⋮** handle to place it freely, or onto another card to connect it as a child. Dropping any card on **empty space** turns it (with everything below) into a new root (**Make root** in the wheel does the same); **Delete** works on roots while at least one remains |
+| Presentation name | **Double-click** the name in the top-left menu to rename it (separate from the text of the root cards). Names are unique: a name already in use is refused with a message (and *new/copy* add " (2)", " (3)"…) |
 | Edit menu | Hover a card and click the **✎ button** at its top-centre: a **wheel of actions** opens around it (it closes with **Esc**, ×, or by clicking outside) |
 | Add an idea | **+ Child**, **+ Sibling** (after), **+ Before** (sibling before) or **+ Parent** (wraps the idea in a new parent card); unlimited depth |
 | Images | **+ Image** (accepts several files) or **drag image files onto a card**; each file is **copied** into `presentations/<id>/assets/` and the original is left untouched; **×** removes one |
@@ -112,6 +119,8 @@ Turn on the **Edit** switch in the bottom bar.
 | Line colour | **Colour lines** in the wheel (any idea with children, including the root): pick a colour (palette, custom or default), then choose **Only direct children** (the lines leaving that card) or **The whole branch below** (that card and every card under it). The card itself, its children and the line arriving at it never change |
 | Move | Drag the **⋮⋮ handle** on the left of a card. The card and **everything below it** leave the map and follow the cursor as a small tree. Drop on another card (becomes its child; a leaf pulses and a dashed line shows the connection) or on its top/bottom edge (becomes a sibling). Hovering a **collapsed branch opens it by itself**, so you can walk through its sub-branches (it closes again when you leave). Hold the **middle mouse button** to pan the map while dragging, wheel to zoom, **Esc** to cancel; an **Undo** toast follows every move |
 | Delete | **Delete** (asks for confirmation when there are ideas below) |
+
+**Save as…** and **Save a copy…** (in the presentation menu, or **Ctrl+Shift+S**) create another presentation from the current one with a name you type: the file and its images are copied to `presentations/<name>/`, so you can keep versions and avoid losses. *Save as* opens the copy; *Save a copy* keeps you where you are. Repeated names get a numeric suffix.
 
 **Autosave** is on (status next to the name: *Saved / Saving… / Save error*). The menu in the top-left
 corner switches, creates or deletes presentations.
@@ -166,9 +175,11 @@ The heavy lifting lives in a Node CLI (`rm.mjs`), so any agent with terminal acc
 ```json
 {
   "id": "my-flow",
-  "tree": {
+  "title": "Presentation name",
+  "roots": [{
     "id": "root",
-    "title": "Presentation title",
+    "title": "First root card",
+    "x": 0, "y": 0,
     "children": [
       {
         "id": "n-1a2b3c4d",
@@ -184,7 +195,7 @@ The heavy lifting lives in a Node CLI (`rm.mjs`), so any agent with terminal acc
         "children": []
       }
     ]
-  }
+  }]
 }
 ```
 
@@ -199,7 +210,8 @@ Listens on `127.0.0.1` only. Every route answers JSON with `Cache-Control: no-st
 | `GET /api/presentations` | List (`id`, `title`, `updatedAt`) |
 | `POST /api/presentations` | Create (`{title, id?}`) |
 | `GET /api/presentations/:id` | Read |
-| `PUT /api/presentations/:id` | Save the tree (validates unique ids, depth ≤ 40, ≤ 50 media/links per node) |
+| `PUT /api/presentations/:id` | Save `{title, roots}` (the old `{tree}` is still accepted; validates validates unique ids, depth ≤ 40, ≤ 50 media/links per node) |
+| `POST /api/presentations/:id/copy` | Copy a presentation under a new name (`{title}`), including its images |
 | `DELETE /api/presentations/:id` | Remove the file and its images |
 | `POST /api/presentations/:id/assets?name=…` | Upload an image (png, jpg, webp, gif, svg; up to 15 MB) |
 

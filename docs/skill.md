@@ -143,7 +143,7 @@ Sample `create` report:
 
 | Element | Rule |
 | --- | --- |
-| `# Title` | First line; becomes the root and the presentation name |
+| `# Title` | First line: first root card and presentation name; more `# Title` lines add independent root cards |
 | `- item` | One idea; **indentation** (2 spaces or a tab) defines the hierarchy |
 | `{color=#rrggbb}` | Branch colour; only effective at the first level |
 | `{links=#rrggbb}` | Colour of the lines from that idea to its children |

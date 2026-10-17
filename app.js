@@ -1,13 +1,24 @@
-import {tree as seed,visibleNodes,allBranches,zoomAt,parentOf,findNode,newId,PALETTE} from './model.js?v=10';
-import {cancelMotion,snapshot,animateLayout,hoverEdge,updateEdges} from './motion.js?v=10';
-import * as store from './store.js?v=10';
+import {tree as seed,visibleNodes,allBranches,zoomAt,parentOf,findNode,newId,PALETTE} from './model.js?v=14';
+import {cancelMotion,snapshot,animateLayout,hoverEdge,updateEdges} from './motion.js?v=14';
+import * as store from './store.js?v=14';
 const $=s=>document.querySelector(s), viewport=$('#viewport'), world=$('#world');
 const ROOT_COLOR='#a7a7b8', GAP=64;
-let doc={id:null,tree:seed}, tree=seed, expanded=new Set(['root']), camera={x:0,y:0,scale:1}, reading=false, editing=false, bounds={width:1,height:1};
+let doc={id:null,title:seed.title,roots:[seed]}, roots=doc.roots, expanded=new Set(['root']), camera={x:0,y:0,scale:1}, reading=false, editing=false, bounds={x:0,y:0,width:1,height:1};
 let colors=new Map(), saveTimer=0, saving=Promise.resolve();
+/* Uma apresentação tem um nome (doc.title) e um ou mais cards raiz (roots), cada um com sua árvore e posição livre (x, y). */
+const isRootNode=n=>roots.includes(n);
+const findAny=id=>{for(const r of roots){const n=findNode(r,id);if(n)return n;}return null;};
+const parentAny=id=>{for(const r of roots){const p=parentOf(r,id);if(p)return p;}return null;};
+function normalizeDoc(raw){ // aceita o formato antigo ({tree}) e o novo ({title, roots})
+ const list=Array.isArray(raw.roots)&&raw.roots.length?raw.roots:[raw.tree];
+ list.forEach(migrate);
+ return {id:raw.id,title:(raw.title&&raw.title.trim())||list[0].title,roots:list};
+}
+function useDoc(next){doc=next;roots=next.roots;expanded=new Set(roots.map(r=>r.id));}
+function showDocTitle(){$('#doc-title').textContent=doc.title;document.title=`${doc.title} · Context Maps`;}
 
 function updateCamera(){world.style.transform=`translate(${camera.x}px, ${camera.y}px) scale(${camera.scale})`;$('#zoom-level').textContent=`${Math.round(camera.scale*100)}%`;}
-function fit(){const side=40,top=40,bottom=100,availH=viewport.clientHeight-top-bottom;camera.scale=Math.max(.1,Math.min(1,(viewport.clientWidth-side*2)/bounds.width,availH/bounds.height));camera.x=(viewport.clientWidth-bounds.width*camera.scale)/2;camera.y=top+(availH-bounds.height*camera.scale)/2;updateCamera();}
+function fit(){const side=40,top=40,bottom=100,availH=viewport.clientHeight-top-bottom;camera.scale=Math.max(.1,Math.min(1,(viewport.clientWidth-side*2)/bounds.width,availH/bounds.height));camera.x=(viewport.clientWidth-bounds.width*camera.scale)/2-bounds.x*camera.scale;camera.y=top+(availH-bounds.height*camera.scale)/2-bounds.y*camera.scale;updateCamera();}
 function zoom(factor,p={x:viewport.clientWidth/2,y:viewport.clientHeight/2}){camera=zoomAt(camera,factor,p);updateCamera();}
 
 /* Imagens e diagramas: cada ideia pode ter várias (node.images) */
@@ -33,7 +44,7 @@ function stepGallery(delta){const n=gallery.images.length;if(n<2)return;gallery.
 function imageButton(node,image,index){
  const button=document.createElement('button');button.className='image-button';
  const many=imagesOf(node).length>1,suffix=many?` (${index+1})`:'';
- button.setAttribute('aria-label',node.id===tree.id&&index===0?'Ampliar ilustração':`Ampliar imagem: ${nameOf(node)}${suffix}`);button.append(imageFor(image));
+ button.setAttribute('aria-label',node===roots[0]&&index===0?'Ampliar ilustração':`Ampliar imagem: ${nameOf(node)}${suffix}`);button.append(imageFor(image));
  if(image.kind==='diagram')button.classList.add('is-diagram');
  button.onclick=()=>openImage(node,index);return button;
 }
@@ -152,7 +163,7 @@ function commit(){
 }
 function flush(){
  clearTimeout(saveTimer);saveTimer=0;if(!doc.id)return saving;
- const snapshotDoc={id:doc.id,tree:JSON.parse(JSON.stringify(tree))};
+ const snapshotDoc={id:doc.id,title:doc.title,roots:JSON.parse(JSON.stringify(roots))};
  setStatus('Salvando…','saving');
  saving=saving.then(()=>store.save(snapshotDoc)).then(()=>{if(!saveTimer)setStatus('Salvo','saved');},()=>setStatus('Erro ao salvar','error'));
  return saving;
@@ -169,27 +180,40 @@ function addChild(node){
  const child={id:newId(),title:'Nova ideia',children:[]};node.children.push(child);expanded.add(node.id);commit();render();focusText(child.id);
 }
 function addSibling(node){
- const parent=parentOf(tree,node.id);if(!parent)return;
+ const parent=parentAny(node.id);if(!parent)return;
  const sibling={id:newId(),title:'Nova ideia',children:[]};parent.children.splice(parent.children.indexOf(node)+1,0,sibling);commit();render();focusText(sibling.id);
 }
 function addBefore(node){
- const parent=parentOf(tree,node.id);if(!parent)return;
+ const parent=parentAny(node.id);if(!parent)return;
  const sibling={id:newId(),title:'Nova ideia',children:[]};parent.children.splice(parent.children.indexOf(node),0,sibling);commit();render();focusText(sibling.id);
 }
 function addParent(node){
- const parent=parentOf(tree,node.id);if(!parent)return;
+ const parent=parentAny(node.id);if(!parent)return;
  const wrapper={id:newId(),title:'Nova ideia',children:[node]};
  if(node.color){wrapper.color=node.color;delete node.color;}
  parent.children[parent.children.indexOf(node)]=wrapper;
  expanded.add(wrapper.id);commit();render();focusText(wrapper.id);
 }
 function removeNode(node){
- const parent=parentOf(tree,node.id);if(!parent)return;
+ const parent=parentAny(node.id);
+ if(!parent&&roots.length<2)return; // a última raiz não pode ser excluída
  const count=(n)=>1+n.children.reduce((a,c)=>a+count(c),0);
  if(node.children.length&&!confirm(`Excluir "${nameOf(node)}" e ${count(node)-1} ideia(s) abaixo dela?`))return;
- parent.children.splice(parent.children.indexOf(node),1);
- if(!parent.children.length)expanded.delete(parent.id);
+ if(parent){parent.children.splice(parent.children.indexOf(node),1);if(!parent.children.length)expanded.delete(parent.id);}
+ else roots.splice(roots.indexOf(node),1);
  commit();render();
+}
+/* Cards raiz: pontos de partida independentes, com posição livre no mapa */
+const freeSpot=()=>({x:Math.round(bounds.x),y:Math.round(bounds.y+bounds.height+120)}); // abaixo de tudo o que já existe, sem sobrepor
+function addRoot(){
+ const c=freeSpot(),root={id:newId(),title:'Novo card raiz',children:[],x:c.x,y:c.y};
+ roots.push(root);expanded.add(root.id);commit();render();revealNode(root.id);focusText(root.id);
+}
+function detachNode(node,at){ // vira um card raiz (leva as filhas junto)
+ const parent=parentAny(node.id);if(!parent)return;
+ parent.children.splice(parent.children.indexOf(node),1);if(!parent.children.length)expanded.delete(parent.id);
+ const c=at||freeSpot();node.x=c.x;node.y=c.y;delete node.color;
+ roots.push(node);expanded.add(node.id);
 }
 async function addImages(node,files){
  try{
@@ -279,13 +303,14 @@ function radialItems(node,depth,picker,anchor){
  if(depth>0)items.push(
   {icon:'↧',label:'Irmão',aria:'Adicionar irmão',run:()=>addSibling(node)},
   {icon:'↥',label:'Antes',aria:'Inserir antes de',run:()=>addBefore(node)},
-  {icon:'⇱',label:'Pai',aria:'Inserir pai de',run:()=>addParent(node)});
+  {icon:'⇱',label:'Pai',aria:'Inserir pai de',run:()=>addParent(node)},
+  {icon:'⎋',label:'Virar raiz',aria:'Transformar em card raiz',run:()=>{const before=snapshotForUndo();detachNode(node);lastMove=before;commit();render();revealNode(node.id);showToast(`“${nameOf(node)}” virou um card raiz`,true);}});
  items.push(
   {icon:'▣',label:'Imagem',aria:'Adicionar imagem',run:()=>picker.click()},
   {icon:'◇',label:'Diagrama',aria:'Adicionar diagrama',run:()=>openDiagramEditor(node,null)},
   {icon:'↗',label:'Link',aria:'Adicionar link',run:()=>addLink(node)});
  if(node.children.length)items.push({icon:'◐',label:'Cor linhas',aria:'Cor das ligações',run:()=>openColorPanel(anchor,node)});
- if(depth>0)items.push({icon:'✕',label:'Excluir',aria:'Excluir ideia',danger:true,run:()=>removeNode(node)});
+ if(depth>0||roots.length>1)items.push({icon:'✕',label:'Excluir',aria:'Excluir ideia',danger:true,run:()=>removeNode(node)});
  return items;
 }
 function openRadial(fab,card,node,depth,picker){
@@ -388,7 +413,8 @@ function openDiagramEditor(node,index=null){
 let moving=null, lastMove=null, toastTimer=0;
 const isInside=(root,id)=>root.id===id||root.children.some(c=>isInside(c,id));
 const countBelow=n=>n.children.reduce((a,c)=>a+1+countBelow(c),0);
-const ancestorIds=id=>{const out=new Set();let p=parentOf(tree,id);while(p){out.add(p.id);p=parentOf(tree,p.id);}return out;};
+const ancestorIds=id=>{const out=new Set();let p=parentAny(id);while(p){out.add(p.id);p=parentAny(p.id);}return out;};
+const snapshotForUndo=()=>({tree:JSON.stringify(roots),expanded:[...expanded]});
 const OPEN_DELAY=450, CLOSE_DELAY=700;
 const GRIP='<svg viewBox="0 0 10 16" aria-hidden="true"><g fill="currentColor"><circle cx="3" cy="3" r="1.3"/><circle cx="7" cy="3" r="1.3"/><circle cx="3" cy="8" r="1.3"/><circle cx="7" cy="8" r="1.3"/><circle cx="3" cy="13" r="1.3"/><circle cx="7" cy="13" r="1.3"/></g></svg>';
 function showToast(text,undo,ms=7000){
@@ -407,9 +433,9 @@ function placeGhost(x,y){
 }
 function pickDrop(x,y,source){
  const el=document.elementFromPoint(x,y)?.closest('.node');if(!el)return null;
- const target=findNode(tree,el.dataset.id);if(!target)return null;
+ const target=findAny(el.dataset.id);if(!target)return null;
  if(isInside(source,target.id))return {el,invalid:true};
- const r=el.getBoundingClientRect(),rel=(y-r.top)/r.height,isRoot=target.id===tree.id;
+ const r=el.getBoundingClientRect(),rel=(y-r.top)/r.height,isRoot=isRootNode(target);
  return {el,target,zone:isRoot?'into':rel<.28?'before':rel>.72?'after':'into'};
 }
 function clearDropMarks(){
@@ -438,6 +464,8 @@ function refreshDrop(){
  const {x,y}=moving.pointer;
  moving.drop=pickDrop(x,y,moving.node);markDrop(moving.drop,x,y);
  const drop=moving.drop,target=drop&&!drop.invalid?drop.target:null;
+ const free=!drop&&!!document.elementFromPoint(x,y)?.closest('#viewport');
+ moving.ghost.classList.toggle('ghost-free',free);moving.ghost.dataset.free=isRootNode(moving.node)?'soltar aqui: reposicionar':'soltar aqui: novo card raiz';
  // pairar sobre um ramo fechado: abre as filhas dinamicamente
  const wantsOpen=target&&drop.zone==='into'&&target.children.length&&!expanded.has(target.id);
  if(wantsOpen){
@@ -503,12 +531,22 @@ function onMoveEnd(e){
  if(!moving)return;
  const {active,node,startExpanded,autoOpened}=moving;
  const drop=active?pickDrop(e.clientX,e.clientY,node):null;
+ const overMap=active&&!drop&&!!document.elementFromPoint(e.clientX,e.clientY)?.closest('#viewport');
  endMoveSession();moving=null;
+ if(overMap){placeAtPointer(node,e.clientX,e.clientY,startExpanded);return;}
  if(!(active&&drop&&!drop.invalid)){if(active){expanded=startExpanded;render();}return;}
  // mantém abertos só os ancestrais do destino; o resto que abriu sozinho volta a fechar
  const keep=new Set([...ancestorIds(drop.target.id),drop.target.id]);
  for(const id of autoOpened)if(!keep.has(id))expanded.delete(id);
  moveNode(node,drop,startExpanded);
+}
+function placeAtPointer(node,clientX,clientY,startExpanded){
+ const v=viewport.getBoundingClientRect(),at={x:Math.round((clientX-v.left-camera.x)/camera.scale),y:Math.round((clientY-v.top-camera.y)/camera.scale)-30};
+ const before={tree:JSON.stringify(roots),expanded:[...(startExpanded||expanded)]};
+ if(isRootNode(node)){node.x=at.x;node.y=at.y;}else detachNode(node,at);
+ if(JSON.stringify(roots)===before.tree){render();return;}
+ lastMove=before;commit();render();revealNode(node.id);
+ showToast(isRootNode(node)&&roots.length>1&&roots.indexOf(node)>0?`“${nameOf(node)}” é agora um card raiz`:`“${nameOf(node)}” reposicionado`,true);
 }
 function startMove(e,node,el){
  if(e.button!==0||moving)return;
@@ -526,23 +564,23 @@ function revealNode(id){
  }
 }
 function moveNode(source,drop,startExpanded){
- const before={tree:JSON.stringify(tree),expanded:[...(startExpanded||expanded)]};
- const oldParent=parentOf(tree,source.id);if(!oldParent)return;
- oldParent.children.splice(oldParent.children.indexOf(source),1);
- if(!oldParent.children.length)expanded.delete(oldParent.id);
+ const before={tree:JSON.stringify(roots),expanded:[...(startExpanded||expanded)]};
+ const oldParent=parentAny(source.id);
+ if(oldParent){oldParent.children.splice(oldParent.children.indexOf(source),1);if(!oldParent.children.length)expanded.delete(oldParent.id);}
+ else{roots.splice(roots.indexOf(source),1);delete source.x;delete source.y;} // uma raiz passa a ser filha de outro card
  if(drop.zone==='into'){drop.target.children.push(source);expanded.add(drop.target.id);}
  else{
-  const parent=parentOf(tree,drop.target.id);
+  const parent=parentAny(drop.target.id);
   parent.children.splice(parent.children.indexOf(drop.target)+(drop.zone==='after'?1:0),0,source);
  }
- if(JSON.stringify(tree)===before.tree){render();return;} // soltou no mesmo lugar
+ if(JSON.stringify(roots)===before.tree){render();return;} // soltou no mesmo lugar
  lastMove=before;commit();render();revealNode(source.id);
  const below=countBelow(source);
  showToast(`“${nameOf(source)}”${below?` e mais ${below} ideia(s)`:''} movido`,true);
 }
 function undoMove(){
  if(!lastMove)return;
- tree=doc.tree=JSON.parse(lastMove.tree);expanded=new Set(lastMove.expanded);lastMove=null;
+ roots=doc.roots=JSON.parse(lastMove.tree);expanded=new Set(lastMove.expanded);lastMove=null;
  hideToast();commit();render();
 }
 
@@ -551,10 +589,10 @@ function render(){
  cancelMotion();
  const container=$('#nodes');container.replaceChildren();$('#connections').replaceChildren();
  const hidden=n=>!!(moving&&moving.active&&isInside(moving.node,n.id));
- const visible=visibleNodes(tree,expanded).filter(n=>!hidden(n)), elements=new Map(), depths=new Map();
+ const visible=roots.flatMap(r=>visibleNodes(r,expanded)).filter(n=>!hidden(n)), elements=new Map(), depths=new Map();
  colors=new Map();
  const assign=(node,depth,color)=>{depths.set(node.id,depth);colors.set(node.id,color);node.children.forEach((c,i)=>assign(c,depth+1,depth===0?(c.color||PALETTE[i%PALETTE.length]):color));};
- assign(tree,0,ROOT_COLOR);
+ roots.forEach(root=>assign(root,0,ROOT_COLOR));
  for(const node of visible){
   const depth=depths.get(node.id),isRoot=depth===0;
   const el=document.createElement('section');el.className=`node ${isRoot?'root':node.children.length?'branch':'leaf'}`;el.dataset.id=node.id;el.style.setProperty('--branch',colors.get(node.id));
@@ -600,34 +638,68 @@ function render(){
   }
   if(editing){
    editControls(el,node,depth);enableDrop(el,node);
-   if(!isRoot){
+   if(!isRoot||roots.length>1){
     const grip=document.createElement('button');grip.type='button';grip.className='drag-handle';grip.innerHTML=GRIP;
-    grip.title='Arraste para mover este card e tudo abaixo dele';grip.setAttribute('aria-label',`Mover: ${nameOf(node)}`);
+    grip.title=isRoot?'Arraste para reposicionar ou conectar a outro card':'Arraste para mover este card e tudo abaixo dele (solte no espaço vazio para criar uma nova raiz)';grip.setAttribute('aria-label',`Mover: ${nameOf(node)}`);
     grip.addEventListener('pointerdown',e=>startMove(e,node,el));el.append(grip);
    }
   }
   container.append(el);elements.set(node.id,el);
  }
 
- // Layout em colunas por profundidade; cada pai fica centralizado em relação aos filhos visíveis.
- const colW=[];for(const node of visible){const d=depths.get(node.id);colW[d]=Math.max(colW[d]||0,elements.get(node.id).offsetWidth);}
- const colX=[0];for(let d=1;d<colW.length;d++)colX[d]=colX[d-1]+colW[d-1]+GAP;
- const kidsOf=n=>expanded.has(n.id)?n.children.filter(c=>!hidden(c)):[], heights=new Map();
+
+ // Layout de cada árvore (colunas por profundidade; cada pai centralizado nas filhas visíveis) e posição livre de cada raiz.
+ const kidsOf=n=>expanded.has(n.id)?n.children.filter(c=>!hidden(c)):[];
  const gapFor=n=>depths.get(n.id)===0?42:22;
- const measure=n=>{const kids=kidsOf(n),own=elements.get(n.id).offsetHeight;kids.forEach(measure);const group=kids.reduce((a,k)=>a+heights.get(k.id),0)+gapFor(n)*Math.max(0,kids.length-1);heights.set(n.id,Math.max(own,group));heights.set(`${n.id}:group`,group);return heights.get(n.id);};
- const total=measure(tree), positions=new Map();
- const place=(n,top)=>{
-  const kids=kidsOf(n),own=elements.get(n.id).offsetHeight,height=heights.get(n.id),group=heights.get(`${n.id}:group`);
-  positions.set(n.id,{x:colX[depths.get(n.id)],y:top+(height-own)/2});
-  let ky=top+(height-group)/2;for(const k of kids){place(k,ky);ky+=heights.get(k.id)+gapFor(n);}
+ const layoutTree=root=>{
+  const nodes=visibleNodes(root,expanded).filter(n=>!hidden(n)),heights=new Map(),local=new Map();
+  const colW=[];for(const n of nodes){const d=depths.get(n.id);colW[d]=Math.max(colW[d]||0,elements.get(n.id).offsetWidth);}
+  const colX=[0];for(let d=1;d<colW.length;d++)colX[d]=colX[d-1]+colW[d-1]+GAP;
+  const measure=n=>{const kids=kidsOf(n),own=elements.get(n.id).offsetHeight;kids.forEach(measure);const group=kids.reduce((a,k)=>a+heights.get(k.id),0)+gapFor(n)*Math.max(0,kids.length-1);heights.set(n.id,Math.max(own,group));heights.set(`${n.id}:group`,group);return heights.get(n.id);};
+  const total=measure(root);
+  const place=(n,top)=>{
+   const kids=kidsOf(n),own=elements.get(n.id).offsetHeight,height=heights.get(n.id),group=heights.get(`${n.id}:group`);
+   local.set(n.id,{x:colX[depths.get(n.id)],y:top+(height-own)/2});
+   let ky=top+(height-group)/2;for(const k of kids){place(k,ky);ky+=heights.get(k.id)+gapFor(n);}
+  };
+  place(root,0);
+  return {local,total,rootY:local.get(root.id).y};
  };
- place(tree,0);
+ const positions=new Map(),trees=[];let stackBottom=0;
+ for(const root of roots){
+  if(!elements.has(root.id))continue;
+  const L=layoutTree(root),manual=Number.isFinite(root.x)&&Number.isFinite(root.y);
+  const ox=manual?root.x:0,oy=manual?root.y-L.rootY:stackBottom; // sem posição salva: empilha abaixo das anteriores
+  let w=0;for(const [id,p] of L.local){const el=elements.get(id);w=Math.max(w,p.x+el.offsetWidth+(el.querySelector('.toggle')?40:0));}
+  trees.push({L,ox,oy,w,h:L.total,dx:0,dy:0,ax:ox,ay:oy+L.rootY}); // ax, ay: onde está o card raiz (âncora) na posição salva
+  stackBottom=Math.max(stackBottom,oy+L.total+120);
+ }
+ // Se árvores abertas se sobrepõem, uma delas se afasta (só visualmente, nada é salvo) e volta à origem ao recolher.
+ // A ordem original entre os cards raiz é preservada: quem estava abaixo (ou à direita) continua abaixo (ou à direita) e é quem se afasta.
+ const MARGIN=80,hits=(a,b)=>a.x<b.x+b.w+MARGIN&&b.x<a.x+a.w+MARGIN&&a.y<b.y+b.h+MARGIN&&b.y<a.y+a.h+MARGIN;
+ const boxOf=T=>({x:T.ox+T.dx,y:T.oy+T.dy,w:T.w,h:T.h});
+ for(let guard=0;guard<200;guard++){
+  let moved=false;
+  search:for(let i=0;i<trees.length;i++)for(let j=i+1;j<trees.length;j++){
+   const A=trees[i],B=trees[j],a=boxOf(A),b=boxOf(B);
+   if(!hits(a,b))continue;
+   const dyAnchor=B.ay-A.ay,dxAnchor=B.ax-A.ax;
+   if(Math.abs(dyAnchor)>=Math.abs(dxAnchor)){ // relação vertical: o que estava abaixo continua abaixo
+    const [first,second]=dyAnchor>=0?[a,B]:[b,A];second.dy+=first.y+first.h+MARGIN-boxOf(second).y;
+   }else{ // relação horizontal: o que estava à direita continua à direita
+    const [first,second]=dxAnchor>=0?[a,B]:[b,A];second.dx+=first.x+first.w+MARGIN-boxOf(second).x;
+   }
+   moved=true;break search;
+  }
+  if(!moved)break;
+ }
+ for(const T of trees)for(const [id,p] of T.L.local)positions.set(id,{x:p.x+T.ox+T.dx,y:p.y+T.oy+T.dy});
  for(const [id,p] of positions){const el=elements.get(id);el.style.left=`${p.x}px`;el.style.top=`${p.y}px`;}
  for(const el of elements.values())el.style.setProperty('--base-h',`${el.offsetHeight}px`);
 
  function connect(parent,child,color){
   const ns='http://www.w3.org/2000/svg',path=document.createElementNS(ns,'path');path.dataset.parent=parent.id;path.dataset.child=child.id;path.style.color=color;
-  if(parent.id===tree.id){
+  if(depths.get(parent.id)===0){
    const grad=document.createElementNS(ns,'linearGradient');grad.id=`fade-${child.id}`;grad.setAttribute('gradientUnits','userSpaceOnUse');
    for(const [offset,opacity] of [['0%','.04'],['100%','1']]){const stop=document.createElementNS(ns,'stop');stop.setAttribute('offset',offset);stop.setAttribute('stop-color',color);stop.setAttribute('stop-opacity',opacity);grad.append(stop);}
    $('#connections').append(grad);path.setAttribute('stroke',`url(#fade-${child.id})`);
@@ -636,7 +708,11 @@ function render(){
  }
  for(const node of visible)for(const kid of kidsOf(node))connect(node,kid,node.linksColor||colors.get(kid.id));
  updateEdges();
- bounds={width:Math.max(...[...positions].map(([id,p])=>p.x+elements.get(id).offsetWidth+(elements.get(id).querySelector('.toggle')?40:0))),height:total};
+ if(positions.size){
+  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  for(const [id,p] of positions){const el=elements.get(id);minX=Math.min(minX,p.x);minY=Math.min(minY,p.y);maxX=Math.max(maxX,p.x+el.offsetWidth+(el.querySelector('.toggle')?40:0));maxY=Math.max(maxY,p.y+el.offsetHeight);}
+  bounds={x:minX,y:minY,width:Math.max(1,maxX-minX),height:Math.max(1,maxY-minY)};
+ }
  updateCamera();
 }
 
@@ -650,7 +726,7 @@ function buildReading(){
   if(linksOf(node).length){const row=document.createElement('div');row.className='reading-links';linksOf(node).forEach(l=>row.append(anchorFor(l,'reading-link')));article.append(row);}
   node.children.forEach(c=>walk(c,depth+1));
  };
- walk(tree,0);
+ roots.forEach(root=>walk(root,0));
 }
 
 /* Apresentações */
@@ -664,21 +740,33 @@ async function refreshMenu(){
   b.onclick=()=>{closeMenu();if(item.id!==doc.id)openDoc(item.id);};menu.append(b);
  }
 }
-function closeMenu(){$('#doc-menu').hidden=true;$('#doc-button').setAttribute('aria-expanded','false');}
+let menuTicket=0;
+function closeMenu(){menuTicket++;$('#doc-menu').hidden=true;$('#doc-button').setAttribute('aria-expanded','false');}
 async function openDoc(id){
  await flush();
- doc=await store.load(id);migrate(doc.tree);tree=doc.tree;expanded=new Set([tree.id]);
+ useDoc(normalizeDoc(await store.load(id)));
  history.replaceState(null,'',`?p=${encodeURIComponent(id)}`);
- $('#doc-title').textContent=tree.title;document.title=`${tree.title} · Context Maps`;
+ showDocTitle();
  setStatus('Salvo','saved');render();fit();
 }
 async function newDoc(){
  const title=prompt('Nome da nova apresentação','Nova apresentação');if(!title)return;
  const created=await store.create(title);await openDoc(created.id);if(!editing)setEditing(true);
 }
+async function saveCopy(switchTo){
+ if(!doc.id)return;
+ const title=prompt(switchTo?'Salvar como — nome da nova apresentação':'Salvar uma cópia — nome da cópia',`${doc.title} (cópia)`);
+ if(!title||!title.trim())return;
+ try{
+  await flush(); // garante que tudo que está na tela já foi gravado antes de copiar
+  const created=await store.copy(doc.id,title.trim());
+  if(switchTo){await openDoc(created.id);showToast(`Agora você está em “${created.title}” (presentations/${created.id}.json)`,false,6000);}
+  else showToast(`Cópia “${created.title}” salva em presentations/${created.id}.json — você continua nesta apresentação`,false,6000);
+ }catch{setStatus('Erro ao salvar a cópia','error');}
+}
 async function deleteDoc(){
- if(!confirm(`Excluir a apresentação "${tree.title}"? O arquivo será removido da pasta presentations.`))return;
- await store.remove(doc.id);doc={id:null,tree};
+ if(!confirm(`Excluir a apresentação "${doc.title}"? O arquivo será removido da pasta presentations.`))return;
+ await store.remove(doc.id);doc={...doc,id:null};
  const list=await store.list();
  if(list.length)await openDoc(list[0].id);else{const created=await store.create('Nova apresentação');await openDoc(created.id);}
 }
@@ -688,17 +776,48 @@ async function initStore(){
  const wanted=new URLSearchParams(location.search).get('p');
  const id=list.some(i=>i.id===wanted)?wanted:list[0]?.id;
  if(!id)return false;
- doc=await store.load(id);migrate(doc.tree);tree=doc.tree;expanded=new Set([tree.id]);
- document.body.classList.add('has-store');$('#doc-title').textContent=tree.title;document.title=`${tree.title} · Context Maps`;setStatus('Salvo','saved');
+ useDoc(normalizeDoc(await store.load(id)));
+ document.body.classList.add('has-store');showDocTitle();setStatus('Salvo','saved');
  return true;
 }
 
 /* Controles */
-$('#expand').onclick=()=>{expanded=allBranches(tree);render();fit();};
-$('#collapse').onclick=()=>{expanded=new Set([tree.id]);render();fit();};
+$('#expand').onclick=()=>{expanded=roots.reduce((set,r)=>new Set([...set,...allBranches(r)]),new Set());render();fit();};
+$('#collapse').onclick=()=>{expanded=new Set(roots.map(r=>r.id));render();fit();};
 $('#fit').onclick=fit;$('#zoom-in').onclick=()=>zoom(1.2);$('#zoom-out').onclick=()=>zoom(1/1.2);
-$('#mode').onclick=()=>{reading=!reading;if(reading)buildReading();viewport.hidden=reading;$('#reading').hidden=!reading;for(const id of ['tree-controls','zoom-controls','edit-switch'])$('#'+id).hidden=reading;$('#mode-label').textContent=reading?'Mapa mental':'Modo texto';$('#mode').setAttribute('aria-pressed',String(reading));};
+$('#mode').onclick=()=>{reading=!reading;if(reading)buildReading();viewport.hidden=reading;$('#reading').hidden=!reading;for(const id of ['tree-controls','zoom-controls','edit-switch','add-root'])$('#'+id).hidden=reading;$('#mode-label').textContent=reading?'Mapa mental':'Modo texto';$('#mode').setAttribute('aria-pressed',String(reading));};
 $('#edit-switch').onclick=()=>setEditing(!editing);
+$('#add-root').onclick=addRoot;
+/* Nome da apresentação (separado do texto dos cards raiz): duplo clique no menu do topo */
+function editDocTitle(){
+ if(!doc.id||$('.doc-title-input'))return;
+ closeMenu();
+ const button=$('#doc-button'),input=document.createElement('input');input.className='doc-title-input';input.value=doc.title;input.setAttribute('aria-label','Nome da apresentação');input.maxLength=120;
+ input.style.width=`${Math.max(button.offsetWidth,200)}px`;input.style.height=`${button.offsetHeight}px`;
+ const note=document.createElement('div');note.className='doc-title-error';note.setAttribute('role','alert');note.hidden=true;
+ $('#doc-bar').append(input,note);input.focus();input.select();
+ let done=false,busy=false;
+ const close=()=>{done=true;input.remove();note.remove();};
+ const finish=async mode=>{ // mode: 'enter' | 'blur' | 'cancel'
+  if(done||busy)return;
+  const value=input.value.trim();
+  if(mode==='cancel'||!value||value===doc.title){close();return;}
+  busy=true;
+  let clash=false;
+  try{clash=(await store.list()).some(item=>item.id!==doc.id&&String(item.title).trim().toLowerCase()===value.toLowerCase());}catch{}
+  busy=false;
+  if(done)return;
+  if(clash){
+   if(mode==='enter'){note.textContent='Já existe uma apresentação com esse nome. Escolha outro.';note.hidden=false;input.classList.add('is-invalid');input.focus();return;}
+   close();showToast(`Já existe uma apresentação chamada “${value}”; o nome “${doc.title}” foi mantido`,false,5000);return;
+  }
+  close();doc.title=value;showDocTitle();commit();
+ };
+ input.addEventListener('input',()=>{note.hidden=true;input.classList.remove('is-invalid');});
+ input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();finish('enter');}else if(e.key==='Escape'){e.preventDefault();e.stopPropagation();finish('cancel');}});
+ input.addEventListener('blur',()=>finish('blur'));
+}
+$('#doc-button').addEventListener('dblclick',editDocTitle);
 $('#toast-undo').onclick=undoMove;
 /* Tela cheia do navegador: o mapa continua igual, só ganha toda a tela */
 const fullscreenButton=$('#fullscreen');
@@ -713,8 +832,15 @@ document.addEventListener('fullscreenchange',()=>{
  $('#fullscreen-label').textContent=on?'Sair da tela cheia':'Tela cheia';
  fullscreenButton.title=on?'Sair da tela cheia':'Tela cheia';
 });
-$('#doc-button').onclick=async()=>{const menu=$('#doc-menu');if(menu.hidden){await refreshMenu();menu.hidden=false;$('#doc-button').setAttribute('aria-expanded','true');}else closeMenu();};
+$('#doc-button').onclick=async()=>{ // fechar/editar invalida uma abertura que ainda está carregando a lista
+ const menu=$('#doc-menu');
+ if(menu.hidden){const ticket=++menuTicket;await refreshMenu();if(ticket!==menuTicket)return;menu.hidden=false;$('#doc-button').setAttribute('aria-expanded','true');}
+ else closeMenu();
+};
 $('#doc-new').onclick=()=>{closeMenu();newDoc();};
+$('#doc-saveas').onclick=()=>{closeMenu();saveCopy(true);};
+$('#doc-copy').onclick=()=>{closeMenu();saveCopy(false);};
+document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.shiftKey&&e.key.toLowerCase()==='s'&&doc.id){e.preventDefault();saveCopy(true);}});
 $('#doc-delete').onclick=()=>{closeMenu();deleteDoc();};
 document.addEventListener('pointerdown',e=>{if(!e.target.closest('#doc-bar'))closeMenu();if(!e.target.closest('.node-badges'))closeLinkMenus();});
 window.addEventListener('beforeunload',()=>{if(doc.id&&saveTimer)flush();});
@@ -734,5 +860,5 @@ viewport.addEventListener('pointerup',stopDrag);viewport.addEventListener('point
 window.addEventListener('resize',()=>{if(!reading)fit();});
 
 await initStore();
-migrate(tree);
+roots.forEach(migrate);
 render();fit();

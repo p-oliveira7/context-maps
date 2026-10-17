@@ -28,7 +28,7 @@ button:focus-visible{outline:2px solid #e4c583;outline-offset:3px}
 .node-badge:hover{filter:brightness(1.25)}
 
 /* Botão de expandir/recolher: aparece ao passar o mouse; recolhido fica sempre visível */
-.toggle{position:absolute;left:100%;top:50%;transform:translateY(-50%);width:56px;height:40px;padding:0;z-index:5;opacity:0;transition:opacity .15s,scale .25s cubic-bezier(.34,1.56,.64,1)}
+.toggle{position:absolute;left:100%;top:50%;transform:translateY(-50%);width:46px;height:40px;padding:0;z-index:5;opacity:0;transition:opacity .15s,scale .25s cubic-bezier(.34,1.56,.64,1)}
 .toggle-stack{position:absolute;left:10px;top:4px;width:32px;height:32px}
 .toggle-stack i,.toggle-stack b{position:absolute;inset:0;border-radius:50%;transition:transform .3s cubic-bezier(.22,1,.36,1),background .18s,opacity .2s}
 .toggle-stack i{border:2px solid color-mix(in srgb,var(--branch) 55%,transparent);background:#0d0d0e}
@@ -199,7 +199,7 @@ body.is-editing .node [contenteditable]:empty::before{content:attr(data-placehol
 .node.drop-target{outline:2px dashed #4f9d7a;outline-offset:6px;border-radius:12px;background:#4f9d7a14}
 
 /* Mover cards arrastando a alça */
-.drag-handle{position:absolute;left:-24px;top:50%;transform:translateY(-50%);width:24px;height:36px;display:none;align-items:center;justify-content:center;color:#ffffff80;border-radius:8px;cursor:grab;touch-action:none;opacity:0;transition:opacity .15s,background .15s}
+.drag-handle{z-index:6;position:absolute;left:-24px;top:50%;transform:translateY(-50%);width:24px;height:36px;display:none;align-items:center;justify-content:center;color:#ffffff80;border-radius:8px;cursor:grab;touch-action:none;opacity:0;transition:opacity .15s,background .15s}
 .drag-handle svg{width:9px;height:15px}
 body.is-editing .drag-handle{display:flex}
 .node:hover .drag-handle,.drag-handle:focus-visible{opacity:1}
@@ -294,3 +294,15 @@ body.is-editing .edit-fab{display:flex}
 .image-item.is-reordering{opacity:.4}
 .image-item.drop-before{box-shadow:0 -4px 0 0 #4f9d7a}
 .image-item.drop-after{box-shadow:0 4px 0 0 #4f9d7a}
+
+/* Vários cards raiz */
+#add-root{display:none}
+body.is-editing #add-root{display:inline-flex}
+.doc-title-input{position:absolute;left:0;top:0;z-index:5;padding:0 .8rem;border:1px solid #4f9d7a;border-radius:14px;background:#161616;color:#fff;font:inherit;font-size:.75rem;font-weight:500;outline:none;box-shadow:0 0 0 3px #4f9d7a33}
+.drag-ghost.ghost-free::after{content:attr(data-free);display:block;margin-top:2px;padding-left:.3rem;font-size:11px;color:#8fd1b0}
+.drag-ghost.ghost-free{border-color:#8fd1b0}
+
+/* Nome de apresentação repetido */
+.doc-title-input.is-invalid{border-color:#e57373;box-shadow:0 0 0 3px #e5737333}
+.doc-title-error{position:absolute;left:0;top:calc(100% + 6px);z-index:6;padding:.35rem .7rem;border-radius:10px;background:#3a1d1d;border:1px solid #e5737380;color:#ffb4ab;font-size:.72rem;white-space:nowrap}
+.doc-title-error[hidden]{display:none}

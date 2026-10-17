@@ -81,7 +81,7 @@ export function parseOutline(text){
  const lines=text.replace(/^﻿/,'').replace(/\r\n/g,'\n').split('\n');
  let title=null;const rootExtras={};
  const root={id:'root',title:'',children:[],_meta:rootExtras};
- const stack=[{indent:-1,node:root}];
+ let stack=[{indent:-1,node:root}];const roots=[root];
  const pull=(raw,node,lineNo)=>{
   let s=raw;
   node._media=[...s.matchAll(RE_MEDIA)].map(m=>({kind:m[1]==='img'?'image':m[1]==='link'?'link':m[1]==='subtitle'?'subtitle':'diagram',file:m[2].trim(),alt:(m[3]||'').trim(),raw:m[2]+(m[3]!==undefined?'|'+m[3]:'')}));
@@ -96,6 +96,9 @@ export function parseOutline(text){
   if(!line.trim()||line.trim().startsWith('<!--'))return;
   const h=line.match(/^#\s+(.*)$/);
   if(h&&title===null){title=h[1];pull(title,root,i+1);return;}
+  if(h){ // outro "# Título": novo card raiz (ponto de partida independente)
+   const extra={id:nodeId(),title:'',children:[]};pull(h[1],extra,i+1);roots.push(extra);stack=[{indent:-1,node:extra}];return;
+  }
   const b=line.match(/^([ \t]*)[-*]\s+(.*)$/);
   if(!b){warnings.push(t('warnIgnored',i+1));return;}
   const indent=b[1].replace(/\t/g,'  ').length;
@@ -105,12 +108,16 @@ export function parseOutline(text){
   parent.children.push(node);stack.push({indent,node});
  });
  if(!root.title)warnings.push(t('warnNoTitle'));
- return {root,warnings};
+ return {root,roots,warnings};
 }
 function stats(root){
  let count=0,depth=0,widest=0;
  const walk=(n,d)=>{count++;depth=Math.max(depth,d);widest=Math.max(widest,n.children.length);n.children.forEach(c=>walk(c,d+1));};
  walk(root,0);return {count,depth,widest};
+}
+function lintAll(roots){
+ const parts=roots.map(lint);
+ return {warnings:parts.flatMap(p=>p.warnings),count:parts.reduce((a,p)=>a+p.count,0),depth:Math.max(...parts.map(p=>p.depth)),widest:Math.max(...parts.map(p=>p.widest))};
 }
 function lint(root){
  const w=[],s=stats(root);
@@ -196,31 +203,30 @@ const commands={
  },
  async validate(args){
   const file=args.outline||args._[0];if(!file)die(t('usageValidate'));
-  const {root,warnings}=parseOutline(await readFile(file,'utf8'));
-  const l=lint(root);
-  console.log(JSON.stringify({title:root.title,nodes:l.count,depth:l.depth,widest:l.widest,warnings:[...warnings,...l.warnings]},null,2));
+  const {root,roots,warnings}=parseOutline(await readFile(file,'utf8'));
+  const l=lintAll(roots);
+  console.log(JSON.stringify({title:root.title,roots:roots.length,nodes:l.count,depth:l.depth,widest:l.widest,warnings:[...warnings,...l.warnings]},null,2));
   process.exit(warnings.length||l.warnings.length?3:0);
  },
  async create(args){
   const file=args.outline||args._[0];if(!file)die(t('usageCreate'));
   const text=await readFile(file,'utf8');
-  const {root,warnings}=parseOutline(text);
-  if(args.title&&args.title!==true)root.title=args.title;
-  if(!root.title)die(t('needTitle'));
-  const l=lint(root);
+  const {root,roots,warnings}=parseOutline(text);
+  if(!root.title&&!(args.title&&args.title!==true))die(t('needTitle'));
+  const docTitle=args.title&&args.title!==true?args.title:root.title;
+  const l=lintAll(roots);
   let id=args.id&&args.id!==true?args.id:null,created;
   if(id){
    const list=await api('/api/presentations');
-   if(!list.some(p=>p.id===id)){created=await api('/api/presentations',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({title:root.title,id})});id=created.id;}
+   if(!list.some(p=>p.id===id)){created=await api('/api/presentations',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({title:docTitle,id})});id=created.id;}
    else if(!args.replace)die(t('idExists',id));
   }else{
-   created=await api('/api/presentations',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({title:root.title})});id=created.id;
+   created=await api('/api/presentations',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({title:docTitle})});id=created.id;
   }
   const report={images:0,diagrams:0,skipped:[]};
-  await attach(id,root,path.dirname(path.resolve(file)),report);
-  const tree=clean(root);
-  await api(`/api/presentations/${id}`,{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({tree})});
-  console.log(JSON.stringify({id,url:`${BASE}/?p=${id}`,file:`presentations/${id}.json`,nodes:l.count,depth:l.depth,images:report.images,diagrams:report.diagrams,links:report.links||0,warnings:[...warnings,...l.warnings],skipped:report.skipped},null,2));
+  for(const r of roots)await attach(id,r,path.dirname(path.resolve(file)),report);
+  await api(`/api/presentations/${id}`,{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({title:docTitle,roots:roots.map(clean)})});
+  console.log(JSON.stringify({id,url:`${BASE}/?p=${id}`,file:`presentations/${id}.json`,roots:roots.length,nodes:l.count,depth:l.depth,images:report.images,diagrams:report.diagrams,links:report.links||0,warnings:[...warnings,...l.warnings],skipped:report.skipped},null,2));
  },
  async upload(args){
   const [id,file]=args._;if(!id||!file)die(t('usageUpload'));

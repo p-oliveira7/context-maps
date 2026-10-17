@@ -6,9 +6,11 @@
 ```json
 {
   "id": "meu-fluxo",
-  "tree": {
+  "title": "Nome da apresentação",
+  "roots": [{
     "id": "root",
     "title": "Título",
+    "x": 0, "y": 0,
     "children": [
       {
         "id": "n-1a2b3c4d",
@@ -21,10 +23,11 @@
         "children": []
       }
     ]
-  }
+  }]
 }
 ```
 - `title` pode ser string vazia quando o nó tem `images` ou `subtitle` (o card mostra só esse conteúdo); a raiz sempre precisa de título.
+- `title` (nível superior) é o nome da apresentação; cada item de `roots` é um card inicial independente (um arquivo antigo com um único `tree` ainda é lido). `x`,`y` (só nas raízes, opcionais) posicionam a raiz livremente; raízes sem eles são empilhadas automaticamente.
 - `id` de cada nó: string única (a skill gera `n-<hex>`; a raiz é `root`).
 - `color`: opcional, só nos filhos diretos da raiz (os demais herdam).
 - `linksColor`: opcional, cor das linhas que saem deste nó em direção às filhas (qualquer nó com filhas, inclusive a raiz); não afeta o nó, as filhas nem a linha que chega até ele.
