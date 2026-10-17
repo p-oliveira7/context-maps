@@ -1,66 +1,77 @@
-# Context Maps
+<div align="center">
+
+<img src="docs/images/banner.svg" alt="Context Maps — mapas mentais montados a partir de contexto" width="100%">
+
+<br>
+
+[![Node](https://img.shields.io/badge/node-%E2%89%A518-5fa04e?logo=node.js&logoColor=white)](#começando)
+[![Dependências](https://img.shields.io/badge/depend%C3%AAncias%20de%20runtime-0-2ea44f)](#começando)
+[![Local primeiro](https://img.shields.io/badge/local--first-127.0.0.1-blue)](#segurança)
+[![Skill](https://img.shields.io/badge/skill%20para%20agentes-Claude%20%C2%B7%20Codex%20%C2%B7%20Cursor-8a63d2)](#skill-para-agentes)
+[![Mermaid](https://img.shields.io/badge/diagramas-Mermaid-ff3670)](#imagens-diagramas-e-links)
 
 **Português (BR)** · [English](README.md)
 
-**Mapas mentais montados a partir de contexto.** Um app local para visualizar e editar apresentações em
-formato de mapa mental, mais uma *skill* para agentes (Claude, Codex, Cursor) que lê o contexto de uma
-aplicação — código, specs, fluxos, decisões — e publica o mapa pronto, com imagens, diagramas e links.
+[Começando](#começando) · [Recursos](#recursos) · [Skill](#skill-para-agentes) · [Formato](#formato-dos-dados) · [API](#api-do-servidor) · [Testes](#testes)
+
+</div>
+
+---
+
+**Context Maps** é um app local para visualizar e editar apresentações em formato de mapa mental, mais uma
+*skill* para agentes (Claude, Codex, Cursor) que lê o contexto de uma aplicação — código, specs, fluxos,
+decisões — e publica o mapa pronto, com imagens, diagramas e links.
 
 > Sem backend externo, sem CDN, sem dependências de runtime. Tudo roda em `127.0.0.1` e cada
 > apresentação é um arquivo JSON que você versiona com Git.
 
----
+<p align="center">
+  <img src="docs/images/01-overview.png" alt="Uma apresentação com três cards raiz, aberta na visão geral" width="920">
+</p>
 
-## A ideia
+## Sumário
+
+- [Por que Context Maps](#por-que-context-maps)
+- [Como as peças se encaixam](#como-as-peças-se-encaixam)
+- [Começando](#começando)
+- [Recursos](#recursos) — [navegar](#navegar-e-ler) · [editar](#editar) · [diagramas](#imagens-diagramas-e-links) · [salvar como](#salvar-como-e-pastas)
+- [Skill para agentes](#skill-para-agentes)
+- [Formato dos dados](#formato-dos-dados) · [API do servidor](#api-do-servidor) · [Segurança](#segurança)
+- [Testes](#testes) · [Regenerando as imagens](#regenerando-as-imagens)
+- [Limitações conhecidas](#limitações-conhecidas) · [Terceiros](#terceiros) · [Origem](#origem)
+
+## Por que Context Maps
 
 Explicar um sistema costuma exigir três coisas que vivem em lugares diferentes: **o texto** (README,
 specs), **os diagramas** (fluxos, arquitetura) e **as evidências** (prints, links). Um mapa mental junta
 as três numa só superfície navegável: você começa pela visão geral e abre os ramos conforme a conversa.
 
-O Context Maps nasce da combinação de duas peças:
+| | |
+| --- | --- |
+| **Versionamento de graça** | Cada apresentação é um JSON pequeno: `git diff` mostra exatamente que ideia mudou. |
+| **Sem conta, sem nuvem** | O conteúdo da sua arquitetura não sai da sua máquina. |
+| **Legível por agentes** | O formato é pequeno e documentado ([`schema.md`](skills/context-maps/schema.md)); um CLI valida e publica outlines. |
+| **Revisável e reproduzível** | Edite à mão no app ou peça à skill para regerar ou ampliar o mapa quando o sistema mudar. |
 
-1. **Um visualizador/editor local** de mapas mentais, rápido e sem dependências, onde as apresentações são
-   arquivos simples dentro do repositório.
-2. **Uma skill para agentes** que transforma contexto em apresentação. Em vez de montar o mapa à mão, você
-   pede — *"monte um mapa do fluxo de checkout desta aplicação"* — e o agente lê o projeto, escreve a
-   estrutura, anexa diagramas e links, valida e entrega uma URL para abrir e ajustar no modo de edição.
+## Como as peças se encaixam
 
-O resultado é revisável (é um JSON no Git), editável (modo de edição no app) e reproduzível (a skill pode
-regerar ou ampliar o mapa quando o sistema muda).
-
-### Por que arquivos JSON locais?
-
-- **Versionamento de graça:** `git diff` mostra exatamente que ideia mudou.
-- **Sem conta, sem nuvem:** o conteúdo da sua arquitetura não sai da sua máquina.
-- **Legível por agentes:** o formato é pequeno e documentado ([`schema.md`](skills/context-maps/schema.md)).
-
----
-
-## Visão geral
+```mermaid
+flowchart LR
+    ctx["Contexto<br/>código · specs · README"] --> agent["Agente + skill"]
+    agent -- outline --> cli["rm.mjs<br/>validate · create"]
+    cli --> srv["server.mjs<br/>127.0.0.1"]
+    app["App no navegador<br/>exibir · editar · diagramas"] <-- "GET / PUT / upload" --> srv
+    srv --> files[("presentations/&lt;id&gt;.json<br/>+ assets/")]
+    files --> git[["Git"]]
+```
 
 | Peça | O que é | Onde |
 | --- | --- | --- |
 | **App** | Visualizador e editor de mapas (HTML/CSS/ES modules) | `index.html`, `app.js`, `motion.js`, `model.js`, `store.js`, `styles.css` |
 | **Servidor local** | Node sem pacotes: serve o app e grava as apresentações | `server.mjs` |
 | **Apresentações** | Um JSON por mapa + pasta de imagens | `presentations/<id>.json`, `presentations/<id>/assets/` |
-| **Skill** | Procedimento + CLI para agentes montarem mapas | `skills/context-maps/` |
-| **Guia da skill** | Documentação detalhada da skill | [`docs/skill.pt-BR.md`](docs/skill.pt-BR.md) |
+| **Skill** | Procedimento + CLI para agentes montarem mapas | `skills/context-maps/` ([guia](docs/skill.pt-BR.md)) |
 | **Testes** | Modelo, navegador, cards, movimento, edição e skill | `tests/` |
-
-```
- contexto (código, specs, README)        ┌──────────────────────────────┐
-        │                                │  app no navegador            │
-        ▼                                │  exibir · editar · diagramas │
- agente + skill ──outline──▶ rm.mjs ──▶  └──────────────▲───────────────┘
-                                │                       │ GET/PUT/upload
-                                ▼                       │
-                        server.mjs (127.0.0.1) ─────────┘
-                                │
-                                ▼
-                  presentations/<id>.json  ──▶  Git
-```
-
----
 
 ## Começando
 
@@ -70,8 +81,7 @@ Requisitos: **Node 18+** (testado em Node 24). Nenhum `npm install` é necessár
 node server.mjs          # ou: npm start
 ```
 
-Abra <http://127.0.0.1:4173>. Na primeira execução o servidor cria a apresentação de demonstração em
-`presentations/`. Variáveis opcionais:
+Abra <http://127.0.0.1:4173>. Na primeira execução o servidor cria a apresentação de demonstração em `presentations/`.
 
 | Variável | Padrão | Uso |
 | --- | --- | --- |
@@ -82,58 +92,105 @@ Abra <http://127.0.0.1:4173>. Na primeira execução o servidor cria a apresenta
 > Sem o servidor (por exemplo `python -m http.server`), o app abre **somente em exibição**, com o mapa
 > de demonstração embutido. Não abra o `index.html` por `file://` (usa módulos ES).
 
----
+`presentations/cidades-para-pessoas.json` acompanha o repositório e mostra **todos os recursos** num só
+lugar: abra, expanda tudo e ligue o modo *Editar*.
 
-## Apresentação de exemplo
+## Recursos
 
-`presentations/cidades-para-pessoas.json` acompanha o repositório e mostra **todos os recursos** num só lugar: um mapa da cidade, uma raiz **"Guia de recursos"** com um ramo por recurso (subtítulo no hover, uma ou várias imagens, diagramas Mermaid, imagem + diagrama juntos, um ou vários links, cards sem título, cor das ligações para filhos diretos ou para a ramificação toda) e uma terceira **raiz independente** com posição livre. Abra, expanda tudo e experimente o modo *Editar*.
+### Navegar e ler
 
-## Usando o app
+<p align="center">
+  <img src="docs/images/02-hover-subtitle.png" alt="Passar o mouse num card o aumenta e mostra o subtítulo" width="820"><br>
+  <sub>Passar o mouse num card destaca a linha que chega até ele, o aumenta um pouco e revela o subtítulo.</sub>
+</p>
 
-### Exibição
-- **Arrastar** o fundo (ou segurar o **botão do meio do mouse** em qualquer lugar, até sobre cards) move o mapa; **rolar** dá zoom; os botões − / + e ⌗ (enquadrar) ficam no canto.
-- **Clique no título** (ou Enter/Espaço) expande ou recolhe um ramo; o botão em leque ao lado do card também.
-  Abrir um ramo anima os cards por 420 ms e destaca por 1 s a conexão ao primeiro filho
-  (respeita `prefers-reduced-motion`).
-- **Vários cards raiz** nunca se sobrepõem: quando uma árvore aberta cobriria outra, quem estava **abaixo (ou à direita)** se afasta (com a animação de abrir), então a ordem original é mantida, e volta à posição salva ao recolher.
-- **Passar o mouse** num card destaca a linha que chega até ele, e o card **cresce um pouco** (a imagem também ganha zoom); desativado na edição e com movimento reduzido.
-- **Expandir tudo / Recolher tudo**, **Tela cheia** (modo de tela cheia do navegador; o mapa funciona exatamente igual) e **Modo texto** (leitura linear do mapa inteiro) na barra inferior.
+- **Mover** arrastando o fundo (ou segurando o **botão do meio do mouse** em qualquer lugar); **rolar** dá zoom; os botões − / + e ⌗ (enquadrar) ficam no canto.
+- **Clique no título** (ou Enter/Espaço) expande ou recolhe um ramo. Abrir anima os cards por 420 ms e destaca a conexão ao primeiro filho (respeita `prefers-reduced-motion`).
+- **Vários cards raiz** nunca se sobrepõem: quando uma árvore aberta cobriria outra, quem estava **abaixo (ou à direita)** se afasta, então a ordem original é mantida, e volta à posição salva ao recolher.
+- **Expandir tudo / Recolher tudo**, **Tela cheia** e **Modo texto** (leitura linear do mapa inteiro) ficam na barra inferior.
+- **Subtítulos** aparecem num pequeno painel sob o card **somente ao passar o mouse**.
+
+<p align="center">
+  <img src="docs/images/09-text-mode.png" alt="Modo texto: o mapa inteiro como um roteiro linear" width="820"><br>
+  <sub>O modo texto transforma o mapa num roteiro linear, bom para ler, buscar e compartilhar.</sub>
+</p>
+
+### Imagens, diagramas e links
+
+<p align="center">
+  <img src="docs/images/03-media-links.png" alt="Cards com uma imagem, várias imagens, imagem e diagrama juntos e links" width="920"><br>
+  <sub>Um card pode ter várias imagens e diagramas ao mesmo tempo, além de um ou mais links.</sub>
+</p>
+
 - **Imagens e diagramas** abrem em tela cheia; com várias mídias há setas ‹ › (ou ← →) e contador.
-- **Subtítulos** (texto de apoio) aparecem num pequeno painel sob o card **somente ao passar o mouse**.
 - **Links** aparecem como selo "🔗 N link(s)" abaixo do card: um link abre direto, vários abrem uma lista.
+- **Diagramas** são [Mermaid](https://mermaid.js.org/), editados no app com pré-visualização ao vivo.
 
-### Edição
-Ative o switch **Editar** na barra inferior.
+<p align="center">
+  <img src="docs/images/07-diagram-editor.png" alt="O editor de diagramas Mermaid com pré-visualização ao vivo" width="820"><br>
+  <sub>O editor Mermaid: código à esquerda, pré-visualização ao vivo à direita.</sub>
+</p>
+
+### Editar
+
+Ative o switch **Editar** na barra inferior. Passe o mouse num card e clique no botão **✎** no topo, ao
+centro: abre uma **roda de ações** em volta dele (fecha com **Esc**, × ou clicando fora).
+
+<p align="center">
+  <img src="docs/images/04-edit-wheel.png" alt="A roda de ações de edição em volta de um card" width="820">
+</p>
 
 | Ação | Como |
 | --- | --- |
 | Editar texto | Clique no texto; Enter confirma |
-| Cards raiz | **Card raiz** (barra inferior, modo edição) adiciona outro ponto de partida em qualquer lugar do mapa; uma apresentação pode ter vários. Arraste uma raiz pela alça **⋮⋮** para posicioná-la livremente, ou sobre outro card para conectá-la como filha. Soltar qualquer card no **espaço vazio** o transforma (com tudo abaixo) em uma nova raiz (**Virar raiz** na roda faz o mesmo); **Excluir** funciona nas raízes enquanto sobrar ao menos uma |
-| Nome da apresentação | **Duplo clique** no nome, no menu do canto superior esquerdo, para renomear (separado do texto dos cards raiz). Os nomes são únicos: um nome já usado é recusado com um aviso (e *nova/cópia* acrescentam " (2)", " (3)"…) |
-| Menu de edição | Passe o mouse num card e clique no botão **✎** no topo, ao centro: abre uma **roda de ações** em volta dele (fecha com **Esc**, × ou clicando fora) |
 | Adicionar ideia | **+ Filho**, **+ Irmão** (depois), **+ Antes** (irmão antes) ou **+ Pai** (envolve a ideia num novo card pai); profundidade livre |
-| Reordenar mídias | Com 2+ imagens/diagramas no card: botões **↑ ↓** ou arraste a alça **⋮⋮** sobre outro item (uma linha verde mostra onde cai) |
-| Imagens | **+ Imagem** (aceita vários arquivos) ou **arraste arquivos de imagem para o card**; cada arquivo é **copiado** para `presentations/<id>/assets/` e o original não é alterado; **×** remove uma |
-| Diagramas | **+ Diagrama** abre o editor Mermaid com pré-visualização ao vivo; **Editar** reabre |
-| Cards sem título | Apague o título de um card que tenha imagem/diagrama ou subtítulo: ele passa a mostrar só esse conteúdo (card só com subtítulo mostra o subtítulo o tempo todo) |
-| Subtítulo | Digite no campo "Subtítulo" abaixo do título (apague para remover); aparece no hover na exibição |
-| Links | **+ Link** (http/https); chips com **×** para remover |
-| Cor das ligações | **Cor linhas** na roda (qualquer ideia com filhas, inclusive a raiz): escolha a cor (paleta, personalizada ou padrão) e depois **Só filhos diretos** (as linhas que saem daquele card) ou **Toda a ramificação abaixo** (aquele card e todos abaixo dele). O próprio card, as filhas e a linha que chega até ele nunca mudam |
-| Mover | Arraste a **alça ⋮⋮** à esquerda do card. O card e **tudo abaixo dele** saem do mapa e acompanham o cursor como uma pequena árvore. Solte sobre outro card (vira filho; folhas pulsam e uma linha tracejada mostra a conexão) ou na borda de cima/baixo (vira irmão). Pairar sobre um **ramo fechado o abre sozinho**, para você percorrer as ramificações (fecha de novo ao sair). Segure o **botão do meio do mouse** para mover o quadro durante o arraste, a roda dá zoom e **Esc** cancela; depois de cada movimento aparece **Desfazer** |
+| Cards raiz | **Card raiz** (barra inferior) adiciona outro ponto de partida em qualquer lugar do mapa. Arraste uma raiz pela alça **⋮⋮** para posicioná-la livremente. **Virar raiz** na roda (ou soltar qualquer card no espaço vazio) transforma um ramo numa nova raiz |
+| Nome da apresentação | **Duplo clique** no nome, no menu do canto superior esquerdo, para renomear (separado do texto dos cards raiz). Os nomes são únicos: um nome repetido é recusado, e *nova/cópia* acrescentam " (2)", " (3)"… |
+| Imagens | **+ Imagem** (vários arquivos) ou **arraste arquivos de imagem para o card**; cada arquivo é **copiado** para `presentations/<id>/assets/` e o original não é alterado; **×** remove uma |
+| Reordenar mídias | Com 2+ imagens/diagramas no card: **↑ ↓** ou arraste a alça **⋮⋮** (uma linha verde mostra onde cai) |
+| Diagramas | **+ Diagrama** abre o editor Mermaid; **Editar** reabre |
+| Cards sem título | Apague o título de um card que tenha imagem/diagrama ou subtítulo: ele passa a mostrar só esse conteúdo |
+| Subtítulo · Links | Digite no campo "Subtítulo" abaixo do título; **+ Link** aceita http/https, com chips e **×** para remover |
 | Excluir | **Excluir** (pede confirmação se houver ideias abaixo) |
 
-**Salvar como…** e **Salvar uma cópia…** (no menu de apresentações, ou **Ctrl+Shift+S**) abrem uma janela onde você escolhe o **nome**, a **pasta** e o que acontece depois:
+O **salvamento é automático** (o estado aparece ao lado do nome: *Salvo / Salvando… / Erro ao salvar*).
 
-- **Pasta:** a biblioteca do app (`presentations/`), qualquer pasta registrada antes, ou **Outra pasta…** — digite o caminho completo ou clique em **Escolher…** (abre a janela nativa de pastas na sua máquina). A pasta é criada se preciso, lembrada em `.context-maps.json` (não versionado) e listada no menu com um título próprio, então você pode **abrir e editar apresentações no próprio lugar**, por exemplo dentro do repositório de outro projeto. **Adicionar pasta…** no menu registra uma pasta que já tem apresentações; o **×** ao lado da pasta só a tira da lista (nenhum arquivo é apagado).
-- **Depois de salvar:** *Abrir a nova apresentação* (padrão do *Salvar como*) ou *Continuar nesta* (padrão do *Salvar uma cópia*). O arquivo e as imagens são copiados juntos; os nomes continuam únicos (um nome repetido ganha " (2)").
+#### Mover ideias arrastando
+
+<p align="center">
+  <img src="docs/images/06-drag-move.png" alt="Arrastando um ramo: o card e sua subárvore acompanham o cursor" width="920">
+</p>
+
+Arraste a **alça ⋮⋮** à esquerda do card. O card e **tudo abaixo dele** saem do mapa e acompanham o cursor
+como uma pequena árvore. Solte sobre outro card (vira filho) ou na borda de cima/baixo (vira irmão). Pairar
+sobre um **ramo fechado o abre sozinho**, para você percorrer as ramificações. Segure o **botão do meio do
+mouse** para mover o quadro durante o arraste, a roda dá zoom e **Esc** cancela; depois de cada movimento
+aparece **Desfazer**.
+
+#### Cor das ligações
+
+<p align="center">
+  <img src="docs/images/05-line-colors.png" alt="O painel de cor das ligações com os dois alcances" width="820">
+</p>
+
+**Cor linhas** (na roda, em qualquer ideia com filhas) abre uma paleta. Escolha **Só filhos diretos** (as
+linhas que saem daquele card) ou **Toda a ramificação abaixo**. O próprio card, as filhas e a linha que
+chega até ele nunca mudam.
+
+### Salvar como e pastas
+
+<p align="center">
+  <img src="docs/images/08-save-as.png" alt="A janela Salvar como: nome, pasta e o que fazer depois" width="640">
+</p>
+
+**Salvar como…** e **Salvar uma cópia…** (no menu de apresentações, ou **Ctrl+Shift+S**) abrem uma janela
+onde você escolhe o **nome**, a **pasta** e o que acontece depois:
+
+- **Pasta:** a biblioteca do app (`presentations/`), qualquer pasta registrada antes, ou **Outra pasta…** — digite o caminho completo ou clique em **Escolher…** (abre a janela nativa de pastas). A pasta é criada se preciso, lembrada em `.context-maps.json` (não versionado) e listada no menu, então você pode **abrir e editar apresentações no próprio lugar**, por exemplo dentro do repositório de outro projeto. **Adicionar pasta…** registra uma pasta que já tem apresentações; o **×** ao lado da pasta só a tira da lista (nenhum arquivo é apagado).
+- **Depois de salvar:** *Abrir a nova apresentação* (padrão do *Salvar como*) ou *Continuar nesta* (padrão do *Salvar uma cópia*). O arquivo e as imagens são copiados juntos; os nomes continuam únicos.
 - Em pastas extras, os caminhos das imagens são gravados **relativos ao arquivo** (`<nome>/assets/…`), então a pasta inteira é portátil.
 
-O **salvamento é automático** (o estado aparece ao lado do nome: *Salvo / Salvando… / Erro ao salvar*).
-O menu no canto superior esquerdo troca, cria ou exclui apresentações.
-
----
-
-## Usando a skill
+## Skill para agentes
 
 A skill transforma contexto em mapa. Resumo do fluxo (detalhes em [`docs/skill.pt-BR.md`](docs/skill.pt-BR.md)):
 
@@ -155,11 +212,25 @@ A skill transforma contexto em mapa. Resumo do fluxo (detalhes em [`docs/skill.p
    node skills/context-maps/scripts/rm.mjs validate --outline mapa.md
    node skills/context-maps/scripts/rm.mjs create   --outline mapa.md --id fluxo-login
    ```
-5. Recebe a URL (`http://127.0.0.1:4173/?p=fluxo-login`), o arquivo gerado e um relatório (nós, mídias,
-   itens pulados).
+5. Recebe a URL (`http://127.0.0.1:4173/?p=fluxo-login`), o arquivo gerado e um relatório (nós, mídias, itens pulados).
 
 Exemplos de pedidos: *"mapa da arquitetura deste repositório"*, *"mapa dos fluxos de pagamento com os
 diagramas do `docs/`"*, *"transforme esta especificação em um mapa para a reunião de amanhã"*.
+
+**Cola rápida do outline**
+
+| Marcador | Efeito |
+| --- | --- |
+| `# Título` | Um card raiz (várias linhas `#` criam várias raízes) |
+| `- Título` (indentado) | Um card filho; a indentação define a profundidade |
+| `[img:caminho\|alt]` | Anexa uma imagem local |
+| `[mermaid:arquivo.mmd]` | Renderiza um arquivo Mermaid como diagrama (exige `mmdc`) |
+| `[link:url\|rótulo]` | Adiciona um link |
+| `[subtitle:texto]` | Texto de apoio exibido ao passar o mouse |
+| `{color=#hex}` · `{links=#hex}` | Cor do card · cor das linhas que saem do card |
+
+Opções do CLI: `--id`, `--title`, `--replace`, `--dir <pasta>` (cria em outra pasta). As mensagens seguem
+`RM_LANG=en|pt`; `MMDC` / `MMDC_BROWSER` apontam para o mermaid-cli e seu navegador.
 
 ### Compatibilidade com agentes
 
@@ -170,11 +241,7 @@ diagramas do `docs/`"*, *"transforme esta especificação em um mapa para a reun
 | **Cursor** | `.cursor/rules/context-maps.mdc` e `AGENTS.md` | Preparado; não testado |
 
 O trabalho pesado fica em um CLI Node (`rm.mjs`), então qualquer agente com acesso ao terminal consegue usar.
-
-> As instruções para agentes (`SKILL.md`, `schema.md`, `AGENTS.md`) estão em inglês, com cópias em português
-> (`SKILL.pt-BR.md`, `schema.pt-BR.md`). As mensagens do CLI seguem `RM_LANG=en|pt` (padrão: idioma do sistema).
-
----
+As instruções para agentes (`SKILL.md`, `schema.md`, `AGENTS.md`) estão em inglês, com cópias em português (`*.pt-BR.md`).
 
 ## Formato dos dados
 
@@ -205,7 +272,8 @@ O trabalho pesado fica em um CLI Node (`rm.mjs`), então qualquer agente com ace
 }
 ```
 
-Referência completa e boas práticas de modelagem: [`skills/context-maps/schema.md`](skills/context-maps/schema.md).
+Referência completa e boas práticas de modelagem: [`skills/context-maps/schema.pt-BR.md`](skills/context-maps/schema.pt-BR.md).
+O formato antigo `{id, tree}` ainda é lido e migrado ao salvar.
 
 ## API do servidor
 
@@ -216,17 +284,18 @@ Escuta apenas em `127.0.0.1`. Todas as rotas respondem JSON e `Cache-Control: no
 | `GET /api/presentations` | Lista (`id`, `title`, `updatedAt`) |
 | `POST /api/presentations` | Cria (`{title, id?, dir?}`; `dir` = qualquer pasta absoluta) |
 | `GET /api/presentations/:id` | Lê |
-| `PUT /api/presentations/:id` | Salva `{title, roots}` (o antigo `{tree}` ainda é aceito; valida ids únicos, profundidade ≤ 40, mídias/links ≤ 50 por nó) |
-| `POST /api/presentations/:id/copy` | Copia a apresentação com um novo nome (`{title, dir?}`), incluindo as imagens, para a biblioteca ou outra pasta |
+| `PUT /api/presentations/:id` | Salva `{title, roots}` (valida ids únicos, profundidade ≤ 40, mídias/links ≤ 50 por nó) |
+| `POST /api/presentations/:id/copy` | Copia com um novo nome (`{title, dir?}`), incluindo as imagens, para a biblioteca ou outra pasta |
 | `GET/POST /api/libraries`, `DELETE /api/libraries/:key` | Lista, adiciona ou esquece pastas extras |
 | `POST /api/pick-folder` | Abre o seletor de pastas do sistema e devolve o caminho escolhido |
 | `DELETE /api/presentations/:id` | Remove o arquivo e as imagens |
 | `POST /api/presentations/:id/assets?name=…` | Envia imagem (png, jpg, webp, gif, svg; até 15 MB) |
 
-Segurança básica: toda requisição que altera algo precisa do cabeçalho `x-context-maps: 1` (outras páginas web não conseguem enviá-lo ao seu servidor local), o `Host` precisa ser local, sem acesso a arquivos fora da pasta do app/`presentations/`, só links http/https, e o
-Mermaid roda em `securityLevel: strict`.
+### Segurança
 
----
+Toda requisição que altera algo precisa do cabeçalho `x-context-maps: 1` (outras páginas web não conseguem
+enviá-lo ao seu servidor local) e o `Host` precisa ser local. Não há acesso a arquivos fora da pasta do app e
+das bibliotecas registradas, só links http/https são aceitos e o Mermaid roda em `securityLevel: strict`.
 
 ## Testes
 
@@ -234,23 +303,29 @@ Mermaid roda em `securityLevel: strict`.
 
 ```bash
 export PLAYWRIGHT_MODULE=file:///caminho/para/playwright-core/index.mjs   # caminho absoluto
-node tests/edit.mjs      # EDIT-01..26  edição, diagramas, mídias, links (sobe servidor temporário)
-node tests/skill.mjs     # SKILL-01..06 CLI da skill (sobe servidor temporário)
+node tests/edit.mjs      # EDIT-01..26  edição, diagramas, mídias, links, pastas (sobe servidor temporário)
+node tests/skill.mjs     # SKILL-01..07 CLI da skill (sobe servidor temporário)
 node tests/browser.mjs   # MAP-01..11   navegação, zoom, modo texto, mobile, tela cheia
 node tests/cards.mjs     # CARD-01..06  títulos, raiz, teclado, imagens
 node tests/motion.mjs    # MOT-01..05   animações e movimento reduzido
 ```
 
 `browser`, `cards` e `motion` esperam um servidor ativo (`PREVIEW_URL`, padrão `http://127.0.0.1:4173`)
-**com os dados de demonstração**: rode-os contra um servidor com `PRESENTATIONS_DIR` vazio ou temporário
-para não depender das suas apresentações. `BROWSER_EXECUTABLE` escolhe o Chrome/Chromium.
+**com os dados de demonstração**: rode-os contra um servidor com `PRESENTATIONS_DIR` vazio ou temporário.
+`BROWSER_EXECUTABLE` escolhe o Chrome/Chromium.
 
----
+### Regenerando as imagens
+
+As imagens em `docs/images/` vêm da apresentação de exemplo e são reproduzíveis. O script copia
+`presentations/` para uma pasta temporária, então seus arquivos não são tocados:
+
+```bash
+PLAYWRIGHT_MODULE=file:///caminho/para/playwright-core/index.mjs node docs/screenshots.mjs
+```
 
 ## Limitações conhecidas
 
 - **Sem ligações cruzadas** entre ideias (a estrutura é uma árvore). Ciclos viram texto ou diagrama.
-- **Reordenar** ideias ou mídias por arrastar ainda não existe.
 - **Diagramas via CLI** exigem `mmdc` (mermaid-cli); no editor do app o Mermaid já vem embutido.
 - URLs remotas de imagem **não são baixadas** pela skill (use arquivos locais).
 - Mobile: arrastar com um dedo e botões de zoom; pinch não implementado.

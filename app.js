@@ -1,6 +1,6 @@
-import {tree as seed,visibleNodes,allBranches,zoomAt,parentOf,findNode,newId,PALETTE} from './model.js?v=15';
-import {cancelMotion,snapshot,animateLayout,hoverEdge,updateEdges} from './motion.js?v=15';
-import * as store from './store.js?v=15';
+import {tree as seed,visibleNodes,allBranches,zoomAt,parentOf,findNode,newId,PALETTE} from './model.js?v=16';
+import {cancelMotion,snapshot,animateLayout,hoverEdge,updateEdges} from './motion.js?v=16';
+import * as store from './store.js?v=16';
 const $=s=>document.querySelector(s), viewport=$('#viewport'), world=$('#world');
 const ROOT_COLOR='#a7a7b8', GAP=64;
 let doc={id:null,title:seed.title,roots:[seed]}, roots=doc.roots, expanded=new Set(['root']), camera={x:0,y:0,scale:1}, reading=false, editing=false, bounds={x:0,y:0,width:1,height:1};
@@ -382,6 +382,8 @@ async function renderDiagram(source){
 function openDiagramEditor(node,index=null){
  const modal=$('#diagram-editor'),ta=$('#diagram-source'),preview=$('#diagram-preview'),error=$('#diagram-error'),apply=$('#diagram-apply');
  const opener=document.activeElement;
+ // A pré-visualização é uma <img> (como o card): o CSS do app não vaza para o SVG do Mermaid e o que se vê é o que será salvo.
+ const showPreview=markup=>{const img=document.createElement('img');img.alt='Pré-visualização do diagrama';img.src=`data:image/svg+xml;charset=utf-8,${encodeURIComponent(markup)}`;preview.replaceChildren(img);};
  let svg=null,timer=0,seq=0;
  const current=index===null?null:node.images?.[index];
  ta.value=current?.kind==='diagram'&&current.source?current.source:DEFAULT_DIAGRAM;
@@ -389,7 +391,7 @@ function openDiagramEditor(node,index=null){
  const onKey=e=>{if(e.key==='Escape'){e.preventDefault();close();}};
  const update=async()=>{
   const mine=++seq;
-  try{const out=await renderDiagram(ta.value);if(mine!==seq)return;svg=out;preview.innerHTML=out;error.textContent='';apply.disabled=false;}
+  try{const out=await renderDiagram(ta.value);if(mine!==seq)return;svg=out;showPreview(out);error.textContent='';apply.disabled=false;}
   catch(e){if(mine!==seq)return;svg=null;apply.disabled=true;error.textContent=String(e.message||e).split('\n').slice(0,3).join(' ');}
  };
  ta.oninput=()=>{apply.disabled=true;clearTimeout(timer);timer=setTimeout(update,350);};
