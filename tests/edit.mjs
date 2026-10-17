@@ -850,6 +850,66 @@ try{
   await page.request.delete(`${base}/api/presentations/${made.id}`);
   await page.goto(`${base}/`);await page.locator('.node').first().waitFor();
  }
+ // EDIT-30: busca de ideias, duplicar, copiar e colar (inclusive entre apresentações)
+ {
+  const a=await (await page.request.post(`${base}/api/presentations`,{data:{title:'Busca A'}})).json();
+  const b=await (await page.request.post(`${base}/api/presentations`,{data:{title:'Busca B'}})).json();
+  const up=await (await page.request.post(`${base}/api/presentations/${a.id}/assets?name=fruta.png`,{data:png})).json();
+  const tree=[{id:'r',title:'Alvo',children:[
+   {id:'m',title:'Maçã',subtitle:'fruta vermelha',children:[{id:'f',title:'Folha',images:[{src:up.src,alt:'Folha'}],children:[]}]},
+   {id:'b',title:'Banana',children:[{id:'c',title:'Casca',children:[]}]}]}];
+  assert.equal((await page.request.put(`${base}/api/presentations/${a.id}`,{data:{title:'Busca A',roots:tree}})).status(),200);
+  await page.goto(`${base}/?p=${a.id}`);await page.locator('.node').first().waitFor();
+  const inView=async id=>{const bb=await page.locator(`[data-id="${id}"]`).boundingBox(),vp=page.viewportSize();return !!bb&&bb.x>=0&&bb.y>=0&&bb.x+bb.width<=vp.width&&bb.y+bb.height<=vp.height;};
+  // busca na exibição: Ctrl+K, sem diferenciar acentos, vai até a ideia
+  await page.keyboard.press('Control+k');await page.locator('#search-panel').waitFor();
+  await page.keyboard.type('maca');
+  assert.deepEqual(await page.locator('#search-results li span').allTextContents(),['Maçã']);
+  await page.keyboard.press('Enter');
+  assert.equal(await page.locator('#search-panel').isVisible(),false);assert.equal(await inView('m'),true);
+  // a barra "/" abre; a ideia escondida num ramo fechado aparece com o caminho e é aberta ao escolher
+  await page.evaluate(()=>document.activeElement?.blur());
+  assert.equal(await page.locator('[data-id="c"]').count(),0); // fechada
+  await page.keyboard.press('/');await page.keyboard.type('casca');
+  assert.match(await page.locator('#search-results li small').textContent(),/Alvo › Banana/);
+  await page.locator('#search-results li').first().click();
+  await page.locator('[data-id="c"]').waitFor();assert.equal(await inView('c'),true);
+  await page.keyboard.press('/');await page.keyboard.type('zzzz');
+  await page.locator('#search-empty').waitFor({state:'visible'});assert.equal(await page.locator('#search-results li').count(),0);
+  await page.keyboard.press('Escape');assert.equal(await page.locator('#search-panel').isVisible(),false);
+  await page.locator('#search-btn').click();await page.keyboard.type('vermelha'); // também acha pelo subtítulo
+  assert.deepEqual(await page.locator('#search-results li span').allTextContents(),['Maçã']);
+  await page.keyboard.press('Escape');
+  // duplicar (com tudo abaixo) e desfazer
+  await page.locator('#edit-switch').click();await page.locator('#expand').click();
+  await act('b','Duplicar ideia');
+  await until(async()=>(await page.locator('.node p',{hasText:/^Banana$/}).count())===2,'Banana não foi duplicada');
+  await until(async()=>(await page.locator('.node p',{hasText:/^Casca$/}).count())===2,'os filhos deveriam vir junto');
+  const ids=await page.locator('.node').evaluateAll(els=>els.map(e=>e.dataset.id));assert.equal(new Set(ids).size,ids.length); // ids novos
+  await page.evaluate(()=>document.activeElement?.blur());await page.keyboard.press('Control+z');
+  await until(async()=>(await page.locator('.node p',{hasText:/^Banana$/}).count())===1,'desfazer deveria remover a cópia');
+  // copiar uma ideia e colar como filha de outra (o item Colar só existe depois de copiar)
+  await act('c','Copiar ideia');
+  await page.evaluate(()=>{document.querySelector('#toast').hidden=true;});
+  await openMenu('m');
+  assert.equal(await page.locator('#radial-menu [aria-label^="Colar a ideia"]').count(),1);
+  await page.locator('#radial-menu [aria-label^="Colar a ideia"]').click();
+  await until(async()=>(await page.locator('.node p',{hasText:/^Casca$/}).count())===2,'a ideia colada não apareceu');
+  await until(async()=>(await onDisk(a.id)).roots[0].children[0].children.length===2,'a ideia colada não foi gravada');
+  const disk=await onDisk(a.id);assert.equal(disk.roots[0].children[0].children.length,2);assert.equal(disk.roots[0].children[0].children[1].title,'Casca');
+  assert.notEqual(disk.roots[0].children[0].children[1].id,'c');
+  // colar em outra apresentação copia as imagens para ela
+  await act('f','Copiar ideia');
+  await page.goto(`${base}/?p=${b.id}`);await page.locator('.node').first().waitFor();await page.locator('#edit-switch').click();
+  await openMenu('root');
+  await page.locator('#radial-menu [aria-label^="Colar a ideia"]').click();
+  await until(async()=>{const d=await onDisk(b.id);return d.roots[0].children.length===1;},'colagem entre apresentações não gravada');
+  const pasted=(await onDisk(b.id)).roots[0].children[0];
+  assert.equal(pasted.title,'Folha');assert.equal(pasted.images[0].src.startsWith(`presentations/${b.id}/assets/`),true);
+  assert.equal((await page.request.get(`${base}/${pasted.images[0].src}`)).status(),200);
+  for(const gone of [a.id,b.id])await page.request.delete(`${base}/api/presentations/${gone}`);
+  await page.goto(`${base}/`);await page.locator('.node').first().waitFor();
+ }
  // EDIT-27: idioma da interface segue o do navegador (inglês por padrão; pt-BR no Brasil) e ?lang= força um deles
  {
   const open=async(locale,query='')=>{const ctx=await browser.newContext({locale,viewport:{width:1280,height:800},extraHTTPHeaders:{'x-context-maps':'1'}});const pg=await ctx.newPage();await pg.goto(`${base}/${query}`);await pg.locator('.node').first().waitFor();return {ctx,pg};};
@@ -883,5 +943,5 @@ try{
   assert.equal((await other.pg.locator('#edit-switch').textContent()).trim(),'Edit');
   await other.ctx.close();
  }
- assert.deepEqual(errors,[]);console.log('PASS EDIT-01..29');
+ assert.deepEqual(errors,[]);console.log('PASS EDIT-01..30');
 }finally{await browser.close();server.kill();await rm(dir,{recursive:true,force:true});await rm(configDir,{recursive:true,force:true});}

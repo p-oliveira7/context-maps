@@ -113,6 +113,7 @@ lugar: abra, expanda tudo e ligue o modo *Editar*.
 - **Vários cards raiz** nunca se sobrepõem: quando uma árvore aberta cobriria outra, quem estava **abaixo (ou à direita)** se afasta, então a ordem original é mantida, e volta à posição salva ao recolher.
 - **Expandir tudo / Recolher tudo**, **Tela cheia** e **Modo texto** (leitura linear do mapa inteiro) ficam na barra inferior.
 - **Subtítulos** aparecem num pequeno painel sob o card **somente ao passar o mouse**.
+- **Busca** (🔍 na barra inferior, **Ctrl+K** ou **/**) acha ideias pelo título ou subtítulo, sem diferenciar maiúsculas nem acentos; ao escolher um resultado, os ramos que o escondem se abrem e o mapa centraliza nele.
 
 <p align="center">
   <img src="docs/images/09-text-mode.png" alt="Modo texto: o mapa inteiro como um roteiro linear" width="820"><br>
@@ -155,6 +156,7 @@ centro: abre uma **roda de ações** em volta dele (fecha com **Esc**, × ou cli
 | Diagramas | **+ Diagrama** abre o editor Mermaid; **Editar** reabre |
 | Cards sem título | Apague o título de um card que tenha imagem/diagrama ou subtítulo: ele passa a mostrar só esse conteúdo |
 | Subtítulo · Links | Digite no campo "Subtítulo" abaixo do título; **+ Link** aceita http/https, com chips e **×** para remover |
+| Duplicar · Copiar · Colar | Na roda: **Duplicar** clona uma ideia com tudo abaixo ao lado da original; **Copiar** a guarda e **Colar** (aparece depois de copiar) a adiciona como filha de outra ideia — inclusive em outra apresentação, copiando as imagens |
 | Desfazer / refazer | Botões **↶ ↷** na barra inferior, ou **Ctrl+Z** / **Ctrl+Shift+Z** (**Ctrl+Y**). Vale para qualquer edição, até 100 passos; digitar num campo conta como um passo só |
 | Excluir | **Excluir** (pede confirmação se houver ideias abaixo) |
 
@@ -322,7 +324,7 @@ node tests/edit.mjs                     # ou rode uma suíte só
 
 | Suíte | Cobre |
 | --- | --- |
-| `edit` EDIT-01..29 | edição, diagramas, mídias, links, pastas, idioma, exportação, importação |
+| `edit` EDIT-01..30 | edição, diagramas, mídias, links, pastas, idioma, exportação, importação |
 | `skill` SKILL-01..08 | CLI da skill |
 | `browser` MAP-01..11 | navegação, zoom, modo texto, mobile, tela cheia |
 | `cards` CARD-01..06 | títulos, raiz, teclado, imagens |

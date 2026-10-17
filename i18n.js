@@ -17,7 +17,7 @@ const dict={
  en:{
   pageTitle:'Context Maps',viewport:'Interactive map: drag the background to navigate',
   docNew:'+ New presentation',docAddFolder:'Add folder…',docSaveAs:'Save as…',docCopy:'Save a copy…',docDelete:'Delete this presentation',exportHtml:'Export as HTML…',exportZip:'Export as ZIP…',importFile:'Import…',imported:t=>`Imported “${t}”`,importError:'Could not import the file.',
-  undo:'Undo',redo:'Redo',undoTitle:'Undo (Ctrl+Z)',redoTitle:'Redo (Ctrl+Shift+Z)',zoomOut:'Zoom out',zoomIn:'Zoom in',fit:'Fit map',toolbar:'Map controls',edit:'Edit',
+  undo:'Undo',search:'Search',searchTitle:'Search ideas (Ctrl+K)',searchPlaceholder:'Search ideas…',searchEmpty:'No ideas found',searchResults:n=>`${n} results`,duplicate:'Duplicate',copy:'Copy',paste:'Paste',duplicateIdea:'Duplicate idea (with everything below)',copyIdea:'Copy idea (with everything below)',pasteIdea:'Paste the copied idea as a child',copied:n=>`“${n}” copied`,pasted:n=>`“${n}” pasted`,redo:'Redo',undoTitle:'Undo (Ctrl+Z)',redoTitle:'Redo (Ctrl+Shift+Z)',zoomOut:'Zoom out',zoomIn:'Zoom in',fit:'Fit map',toolbar:'Map controls',edit:'Edit',
   addRootLabel:'Add root card',addRootTitle:'Add a new root card (independent starting point)',rootCard:'Root card',
   expandAll:'Expand all',collapseAll:'Collapse all',fullscreen:'Full screen',exitFullscreen:'Exit full screen',textMode:'Text mode',mindMap:'Mind map',
   lightbox:'Enlarged image',closeImage:'Close image',prevImage:'Previous image',nextImage:'Next image',close:'Close',
@@ -65,7 +65,7 @@ const dict={
  pt:{
   pageTitle:'Context Maps',viewport:'Mapa interativo: arraste o fundo para navegar',
   docNew:'+ Nova apresentação',docAddFolder:'Adicionar pasta…',docSaveAs:'Salvar como…',docCopy:'Salvar uma cópia…',docDelete:'Excluir esta apresentação',exportHtml:'Exportar como HTML…',exportZip:'Exportar como ZIP…',importFile:'Importar…',imported:t=>`“${t}” importada`,importError:'Não foi possível importar o arquivo.',
-  undo:'Desfazer',redo:'Refazer',undoTitle:'Desfazer (Ctrl+Z)',redoTitle:'Refazer (Ctrl+Shift+Z)',zoomOut:'Diminuir zoom',zoomIn:'Aumentar zoom',fit:'Enquadrar mapa',toolbar:'Controles do mapa',edit:'Editar',
+  undo:'Desfazer',search:'Buscar',searchTitle:'Buscar ideias (Ctrl+K)',searchPlaceholder:'Buscar ideias…',searchEmpty:'Nenhuma ideia encontrada',searchResults:n=>`${n} resultados`,duplicate:'Duplicar',copy:'Copiar',paste:'Colar',duplicateIdea:'Duplicar ideia (com tudo abaixo)',copyIdea:'Copiar ideia (com tudo abaixo)',pasteIdea:'Colar a ideia copiada como filha',copied:n=>`“${n}” copiada`,pasted:n=>`“${n}” colada`,redo:'Refazer',undoTitle:'Desfazer (Ctrl+Z)',redoTitle:'Refazer (Ctrl+Shift+Z)',zoomOut:'Diminuir zoom',zoomIn:'Aumentar zoom',fit:'Enquadrar mapa',toolbar:'Controles do mapa',edit:'Editar',
   addRootLabel:'Adicionar card raiz',addRootTitle:'Adicionar um novo card raiz (ponto de partida independente)',rootCard:'Card raiz',
   expandAll:'Expandir tudo',collapseAll:'Recolher tudo',fullscreen:'Tela cheia',exitFullscreen:'Sair da tela cheia',textMode:'Modo texto',mindMap:'Mapa mental',
   lightbox:'Imagem ampliada',closeImage:'Fechar imagem',prevImage:'Imagem anterior',nextImage:'Próxima imagem',close:'Fechar',

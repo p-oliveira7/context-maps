@@ -8,6 +8,8 @@ How to cut a release: [`docs/releasing.md`](docs/releasing.md).
 ## [Unreleased]
 
 ### Added
+- **Search**: a toolbar button, **Ctrl/Cmd+K** or **/** opens a search over titles and subtitles (accent- and case-insensitive); choosing a result opens the branches that hide it and centres the map on it.
+- **Duplicate, Copy and Paste** in the action wheel: duplicate an idea with everything below it, or copy it and paste it as a child of another idea, including into another presentation (its images are copied too).
 - **Agent integration checks** in `npm test`: `SKILL.md` front matter, `AGENTS.md` and the Cursor rule point to files that exist, and every CLI command is documented and implemented. The skill guides now include a 5-minute manual checklist to verify an agent (Codex, Cursor) end to end.
 - **`update` command in the skill CLI** (`rm.mjs update --id <slug> --outline f.md [--prune] [--dry-run]`): merges an updated outline into an existing presentation, matching ideas by title and keeping ids, colours, positions and manual edits; adds new ideas, follows the outline order and is idempotent.
 - **Undo and redo for every edit** (up to 100 steps per presentation): buttons in the toolbar and Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z or Ctrl/Cmd+Y. Typing in the same field counts as one step; inside a text field the shortcut keeps its native text undo. The "Undo" notice after moving a card now uses this history.

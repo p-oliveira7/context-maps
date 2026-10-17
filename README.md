@@ -113,6 +113,7 @@ place: open it, expand everything and switch on *Edit* mode.
 - **Several root cards** never overlap: when an open tree would cover another, the one that was **below (or to the right)** moves aside, so the original order is kept, and it returns to its saved position when collapsed.
 - **Expand all / Collapse all**, **Full screen** and **Text mode** (linear reading of the whole map) live in the bottom bar.
 - **Subtitles** show in a small panel under the card **only while hovering it**.
+- **Search** (🔍 in the bottom bar, **Ctrl+K** or **/**) finds ideas by title or subtitle, ignoring case and accents; picking a result opens the branches that hide it and centres the map on it.
 
 <p align="center">
   <img src="docs/images/09-text-mode.png" alt="Text mode: the whole map as a linear outline" width="820"><br>
@@ -155,6 +156,7 @@ a **wheel of actions** opens around it (it closes with **Esc**, ×, or by clicki
 | Diagrams | **+ Diagram** opens the Mermaid editor; **Edit** reopens it |
 | Title-less cards | Clear the title of a card that has an image/diagram or a subtitle: it then shows only that content |
 | Subtitle · Links | Type in the "Subtitle" field under the title; **+ Link** accepts http/https, with chips and **×** to remove |
+| Duplicate · Copy · Paste | In the wheel: **Duplicate** clones an idea with everything below it next to the original; **Copy** keeps it, and **Paste** (shown after copying) adds it as a child of another idea — also in another presentation, copying its images |
 | Undo / redo | **↶ ↷** buttons in the bottom bar, or **Ctrl+Z** / **Ctrl+Shift+Z** (**Ctrl+Y**). Works for every edit, up to 100 steps; typing in one field is a single step |
 | Delete | **Delete** (asks for confirmation when there are ideas below) |
 
@@ -322,7 +324,7 @@ node tests/edit.mjs                     # or run a single suite
 
 | Suite | Covers |
 | --- | --- |
-| `edit` EDIT-01..29 | editing, diagrams, media, links, folders, language, export, import |
+| `edit` EDIT-01..30 | editing, diagrams, media, links, folders, language, export, import |
 | `skill` SKILL-01..08 | skill CLI |
 | `browser` MAP-01..11 | navigation, zoom, text mode, mobile, full screen |
 | `cards` CARD-01..06 | titles, root, keyboard, images |
