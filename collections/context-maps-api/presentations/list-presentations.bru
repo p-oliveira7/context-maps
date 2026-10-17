@@ -1,0 +1,15 @@
+meta {
+  name: List presentations
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{host}}/api/presentations
+  body: none
+  auth: none
+}
+
+docs {
+  Returns id, title and updatedAt of every presentation.
+}

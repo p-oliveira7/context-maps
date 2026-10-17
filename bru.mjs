@@ -69,7 +69,7 @@ export function toModel(blocks){
 }
 
 export function fromModel(m){
- const blocks=[],dictBlock=(name,entries)=>{if(entries)blocks.push({name,kind:'dict',entries});},textBlock=(name,t)=>{if(t!==undefined&&t!==null)blocks.push({name,kind:'text',text:String(t)});};
+ const blocks=[],dictBlock=(name,entries)=>{if(entries&&entries.length)blocks.push({name,kind:'dict',entries});},textBlock=(name,t)=>{if(t!==undefined&&t!==null)blocks.push({name,kind:'text',text:String(t)});};
  const meta=[{name:'name',value:m.name||'',enabled:true},{name:'type',value:m.type||'http',enabled:true}];
  if(Number.isFinite(m.seq))meta.push({name:'seq',value:String(m.seq),enabled:true});
  dictBlock('meta',meta);

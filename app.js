@@ -3,6 +3,7 @@ import {cancelMotion,snapshot,animateLayout,hoverEdge,updateEdges,onEdges} from 
 import * as store from './store.js?v=17';
 import {t,applyStatic} from './i18n.js?v=1';
 import {VERSION} from './version.js?v=1';
+import {initApiClient,openApiPanel,closeApiPanel,isApiOpen} from './api-client.js?v=1';
 applyStatic();
 const $=s=>document.querySelector(s), viewport=$('#viewport'), world=$('#world');
 $('#doc-version').textContent=`Context Maps v${VERSION}`;
@@ -1066,6 +1067,8 @@ searchInput.addEventListener('keydown',e=>{
  else if(e.key==='Enter'){e.preventDefault();chooseSearch(searchIndex);}
  else if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();if(searchHits.length){searchIndex=(searchIndex+(e.key==='ArrowDown'?1:-1)+searchHits.length)%searchHits.length;renderSearch();searchList.children[searchIndex]?.scrollIntoView({block:'nearest'});}}
 });
+initApiClient({toast:message=>showToast(message,false,5000),onClose:()=>$('#api-btn').setAttribute('aria-expanded','false')});
+$('#api-btn').onclick=()=>{if(isApiOpen()){closeApiPanel();}else{openApiPanel();$('#api-btn').setAttribute('aria-expanded','true');}};
 $('#search-btn').onclick=()=>searchPanel.hidden?openSearch():closeSearch();
 document.addEventListener('pointerdown',e=>{if(!searchPanel.hidden&&!e.target.closest('#search-panel,#search-btn'))closeSearch(false);});
 document.addEventListener('keydown',e=>{
@@ -1142,7 +1145,7 @@ window.addEventListener('pointerup',endTouch,true);window.addEventListener('poin
 $('#expand').onclick=()=>{expanded=roots.reduce((set,r)=>new Set([...set,...allBranches(r)]),new Set());render();fit();};
 $('#collapse').onclick=()=>{expanded=new Set(roots.map(r=>r.id));render();fit();};
 $('#fit').onclick=fit;$('#zoom-in').onclick=()=>zoom(1.2);$('#zoom-out').onclick=()=>zoom(1/1.2);
-$('#mode').onclick=()=>{reading=!reading;if(reading)buildReading();viewport.hidden=reading;$('#reading').hidden=!reading;for(const id of ['tree-controls','zoom-controls','edit-switch','add-root','history-controls','search-btn'])$('#'+id).hidden=reading;$('#mode-label').textContent=reading?t('mindMap'):t('textMode');$('#mode').setAttribute('aria-pressed',String(reading));};
+$('#mode').onclick=()=>{reading=!reading;if(reading)closeApiPanel();if(reading)buildReading();viewport.hidden=reading;$('#reading').hidden=!reading;for(const id of ['tree-controls','zoom-controls','edit-switch','add-root','history-controls','search-btn','api-btn'])$('#'+id).hidden=reading;$('#mode-label').textContent=reading?t('mindMap'):t('textMode');$('#mode').setAttribute('aria-pressed',String(reading));};
 $('#edit-switch').onclick=()=>setEditing(!editing);
 $('#add-root').onclick=addRoot;
 /* Nome da apresentação (separado do texto dos cards raiz): duplo clique no menu do topo */

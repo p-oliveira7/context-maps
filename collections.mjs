@@ -60,6 +60,11 @@ export function createCollections({dir,writeJson}){
   void root;
   return items.sort(bySeq);
  }
+ async function defaults(id){ // cabeçalhos e variáveis de collection.bru, aplicados a todas as requests
+  const file=path.join(collDir(id),'collection.bru');
+  if(!existsSync(file))return {headers:[],vars:[]};
+  const m=await metaOf(file);return {headers:m.headers||[],vars:m.varsPre||[]};
+ }
  async function environments(id){
   const folder=path.join(collDir(id),'environments');
   if(!existsSync(folder))return [];
@@ -181,5 +186,5 @@ export function createCollections({dir,writeJson}){
   await writeJson(path.join(root,'bruno.json'),{...config,name:title});
   return {id,name:title,files};
  }
- return {list,tree,environments,readEnv,writeEnv,createCollection,createItem,readRequest,writeRequest,renameItem,removeItem,reorder,removeEnv,removeCollection,exportZip,importZip,readName,collDir,secretsOf};
+ return {list,tree,defaults,environments,readEnv,writeEnv,createCollection,createItem,readRequest,writeRequest,renameItem,removeItem,reorder,removeEnv,removeCollection,exportZip,importZip,readName,collDir,secretsOf};
 }
