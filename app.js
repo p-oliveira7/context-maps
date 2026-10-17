@@ -1,6 +1,6 @@
-import {tree as seed,visibleNodes,allBranches,zoomAt,parentOf,findNode,newId,PALETTE} from './model.js?v=10';
-import {cancelMotion,snapshot,animateLayout,hoverEdge,updateEdges} from './motion.js?v=10';
-import * as store from './store.js?v=10';
+import {tree as seed,visibleNodes,allBranches,zoomAt,parentOf,findNode,newId,PALETTE} from './model.js?v=11';
+import {cancelMotion,snapshot,animateLayout,hoverEdge,updateEdges} from './motion.js?v=11';
+import * as store from './store.js?v=11';
 const $=s=>document.querySelector(s), viewport=$('#viewport'), world=$('#world');
 const ROOT_COLOR='#a7a7b8', GAP=64;
 let doc={id:null,tree:seed}, tree=seed, expanded=new Set(['root']), camera={x:0,y:0,scale:1}, reading=false, editing=false, bounds={width:1,height:1};
@@ -676,6 +676,17 @@ async function newDoc(){
  const title=prompt('Nome da nova apresentação','Nova apresentação');if(!title)return;
  const created=await store.create(title);await openDoc(created.id);if(!editing)setEditing(true);
 }
+async function saveCopy(switchTo){
+ if(!doc.id)return;
+ const title=prompt(switchTo?'Salvar como — nome da nova apresentação':'Salvar uma cópia — nome da cópia',`${tree.title} (cópia)`);
+ if(!title||!title.trim())return;
+ try{
+  await flush(); // garante que tudo que está na tela já foi gravado antes de copiar
+  const created=await store.copy(doc.id,title.trim());
+  if(switchTo){await openDoc(created.id);showToast(`Agora você está em “${created.tree.title}” (presentations/${created.id}.json)`,false,6000);}
+  else showToast(`Cópia “${created.tree.title}” salva em presentations/${created.id}.json — você continua nesta apresentação`,false,6000);
+ }catch{setStatus('Erro ao salvar a cópia','error');}
+}
 async function deleteDoc(){
  if(!confirm(`Excluir a apresentação "${tree.title}"? O arquivo será removido da pasta presentations.`))return;
  await store.remove(doc.id);doc={id:null,tree};
@@ -715,6 +726,9 @@ document.addEventListener('fullscreenchange',()=>{
 });
 $('#doc-button').onclick=async()=>{const menu=$('#doc-menu');if(menu.hidden){await refreshMenu();menu.hidden=false;$('#doc-button').setAttribute('aria-expanded','true');}else closeMenu();};
 $('#doc-new').onclick=()=>{closeMenu();newDoc();};
+$('#doc-saveas').onclick=()=>{closeMenu();saveCopy(true);};
+$('#doc-copy').onclick=()=>{closeMenu();saveCopy(false);};
+document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.shiftKey&&e.key.toLowerCase()==='s'&&doc.id){e.preventDefault();saveCopy(true);}});
 $('#doc-delete').onclick=()=>{closeMenu();deleteDoc();};
 document.addEventListener('pointerdown',e=>{if(!e.target.closest('#doc-bar'))closeMenu();if(!e.target.closest('.node-badges'))closeLinkMenus();});
 window.addEventListener('beforeunload',()=>{if(doc.id&&saveTimer)flush();});

@@ -1,6 +1,6 @@
 // Servidor local sem dependências: serve o app e guarda as apresentações em arquivos JSON versionáveis.
 import {createServer} from 'node:http';
-import {readFile,writeFile,rename,readdir,stat,mkdir,rm} from 'node:fs/promises';
+import {readFile,writeFile,rename,readdir,stat,mkdir,rm,cp} from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -76,6 +76,25 @@ async function api(req,res,url){
   const base=slug(path.basename(raw,ext)),name=`${base}-${Date.now().toString(36)}${ext}`;
   await writeFile(path.join(dir,name),await readBody(req,MAX_IMAGE));
   return send(res,201,{src:`presentations/${id}/assets/${name}`});
+ }
+ if(parts[2]==='copy'){ // "Salvar como": copia a apresentação (e as imagens) com um nome definido pelo usuário
+  if(req.method!=='POST')return fail(res,405,'Método não permitido');
+  if(!existsSync(file))return fail(res,404,'Apresentação inexistente');
+  const body=JSON.parse((await readBody(req,MAX_JSON)).toString()||'{}');
+  const title=String(body.title||'').trim();
+  if(!title)return fail(res,400,'Informe um nome para a cópia');
+  let base=slug(title),next=base,n=2;while(existsSync(fileOf(next)))next=`${base}-${n++}`;
+  const source=JSON.parse(await readFile(file,'utf8'));
+  const from=`presentations/${id}/assets/`,to=`presentations/${next}/assets/`;
+  const retarget=node=>{
+   for(const media of [...(node.images||[]),...(node.image?[node.image]:[])])if(typeof media.src==='string'&&media.src.startsWith(from))media.src=to+media.src.slice(from.length);
+   node.children.forEach(retarget);
+  };
+  retarget(source.tree);source.tree.title=title;
+  const assets=path.join(dataDir,id,'assets');
+  if(existsSync(assets))await cp(assets,path.join(dataDir,next,'assets'),{recursive:true});
+  const doc={id:next,tree:source.tree};await writeJson(fileOf(next),doc);
+  return send(res,201,doc);
  }
  if(req.method==='GET'){if(!existsSync(file))return fail(res,404,'Apresentação inexistente');return send(res,200,await readFile(file,'utf8'));}
  if(req.method==='PUT'){

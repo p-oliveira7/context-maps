@@ -113,6 +113,8 @@ Turn on the **Edit** switch in the bottom bar.
 | Move | Drag the **⋮⋮ handle** on the left of a card. The card and **everything below it** leave the map and follow the cursor as a small tree. Drop on another card (becomes its child; a leaf pulses and a dashed line shows the connection) or on its top/bottom edge (becomes a sibling). Hovering a **collapsed branch opens it by itself**, so you can walk through its sub-branches (it closes again when you leave). Hold the **middle mouse button** to pan the map while dragging, wheel to zoom, **Esc** to cancel; an **Undo** toast follows every move |
 | Delete | **Delete** (asks for confirmation when there are ideas below) |
 
+**Save as…** and **Save a copy…** (in the presentation menu, or **Ctrl+Shift+S**) create another presentation from the current one with a name you type: the file and its images are copied to `presentations/<name>/`, so you can keep versions and avoid losses. *Save as* opens the copy; *Save a copy* keeps you where you are. Repeated names get a numeric suffix.
+
 **Autosave** is on (status next to the name: *Saved / Saving… / Save error*). The menu in the top-left
 corner switches, creates or deletes presentations.
 
@@ -200,6 +202,7 @@ Listens on `127.0.0.1` only. Every route answers JSON with `Cache-Control: no-st
 | `POST /api/presentations` | Create (`{title, id?}`) |
 | `GET /api/presentations/:id` | Read |
 | `PUT /api/presentations/:id` | Save the tree (validates unique ids, depth ≤ 40, ≤ 50 media/links per node) |
+| `POST /api/presentations/:id/copy` | Copy a presentation under a new name (`{title}`), including its images |
 | `DELETE /api/presentations/:id` | Remove the file and its images |
 | `POST /api/presentations/:id/assets?name=…` | Upload an image (png, jpg, webp, gif, svg; up to 15 MB) |
 

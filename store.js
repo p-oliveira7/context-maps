@@ -11,6 +11,7 @@ export async function available(){
 export const list=()=>json(base);
 export const load=id=>json(`${base}/${id}`);
 export const create=title=>json(base,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({title})});
+export const copy=(id,title)=>json(`${base}/${id}/copy`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({title})});
 export const save=doc=>json(`${base}/${doc.id}`,{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({tree:doc.tree}),keepalive:true});
 export const remove=id=>json(`${base}/${id}`,{method:'DELETE'});
 export async function upload(id,file){

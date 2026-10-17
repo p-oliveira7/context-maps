@@ -114,6 +114,8 @@ Ative o switch **Editar** na barra inferior.
 | Mover | Arraste a **alça ⋮⋮** à esquerda do card. O card e **tudo abaixo dele** saem do mapa e acompanham o cursor como uma pequena árvore. Solte sobre outro card (vira filho; folhas pulsam e uma linha tracejada mostra a conexão) ou na borda de cima/baixo (vira irmão). Pairar sobre um **ramo fechado o abre sozinho**, para você percorrer as ramificações (fecha de novo ao sair). Segure o **botão do meio do mouse** para mover o quadro durante o arraste, a roda dá zoom e **Esc** cancela; depois de cada movimento aparece **Desfazer** |
 | Excluir | **Excluir** (pede confirmação se houver ideias abaixo) |
 
+**Salvar como…** e **Salvar uma cópia…** (no menu de apresentações, ou **Ctrl+Shift+S**) criam outra apresentação a partir da atual com o nome que você digitar: o arquivo e as imagens são copiados para `presentations/<nome>/`, para você guardar versões e evitar perdas. *Salvar como* abre a cópia; *Salvar uma cópia* mantém você onde está. Nomes repetidos ganham um sufixo numérico.
+
 O **salvamento é automático** (o estado aparece ao lado do nome: *Salvo / Salvando… / Erro ao salvar*).
 O menu no canto superior esquerdo troca, cria ou exclui apresentações.
 
@@ -201,6 +203,7 @@ Escuta apenas em `127.0.0.1`. Todas as rotas respondem JSON e `Cache-Control: no
 | `POST /api/presentations` | Cria (`{title, id?}`) |
 | `GET /api/presentations/:id` | Lê |
 | `PUT /api/presentations/:id` | Salva a árvore (valida ids únicos, profundidade ≤ 40, mídias/links ≤ 50 por nó) |
+| `POST /api/presentations/:id/copy` | Copia a apresentação com um novo nome (`{title}`), incluindo as imagens |
 | `DELETE /api/presentations/:id` | Remove o arquivo e as imagens |
 | `POST /api/presentations/:id/assets?name=…` | Envia imagem (png, jpg, webp, gif, svg; até 15 MB) |
 

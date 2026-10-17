@@ -462,11 +462,40 @@ try{
  await until(async()=>(await page.locator('#doc-title').textContent())==='E se a cidade fosse feita para as pessoas?','troca de apresentação');
  assert.equal((await onDisk(id)).tree.children[0].title,'Mobilidade urbana');
 
+ // EDIT-23: salvar uma cópia / salvar como com nome definido pelo usuário
+ const originalTitle=await page.locator('#doc-title').textContent();
+ const originalDisk=JSON.stringify((await onDisk('cidades-para-pessoas')).tree);
+ promptAnswer='Backup do mapa';
+ await page.locator('#doc-button').click();await page.locator('#doc-copy').click(); // copia e continua na atual
+ await until(async()=>(await readdir(dir)).includes('backup-do-mapa.json'),'cópia não criada');
+ assert.equal(await page.locator('#doc-title').textContent(),originalTitle); // continua na original
+ const backup=await onDisk('backup-do-mapa');
+ assert.equal(backup.tree.title,'Backup do mapa');
+ const mediaOf=n=>[...(n.images||[]),...n.children.flatMap(mediaOf)];
+ const backupMedia=mediaOf(backup.tree).filter(m=>m.src.startsWith('presentations/'));
+ assert.ok(backupMedia.length>0);
+ for(const m of backupMedia){assert.match(m.src,/^presentations\/backup-do-mapa\/assets\//);assert.equal((await page.request.get(`${base}/${m.src}`)).status(),200);} // imagens copiadas
+ promptAnswer='Versão 2';
+ await page.locator('#doc-button').click();await page.locator('#doc-saveas').click(); // copia e abre a nova
+ await until(async()=>(await page.locator('#doc-title').textContent())==='Versão 2','não abriu a nova apresentação');
+ assert.ok((await readdir(dir)).includes('versao-2.json')); // acentos e espaços viram um nome de arquivo seguro
+ await page.locator('[data-id="root"] h1').fill('Versão 2 editada'); // editar a cópia não altera as outras
+ await until(async()=>(await onDisk('versao-2')).tree.title==='Versão 2 editada','edição da cópia não salva');
+ assert.equal(JSON.stringify((await onDisk('cidades-para-pessoas')).tree),originalDisk);
+ assert.equal((await onDisk('backup-do-mapa')).tree.title,'Backup do mapa');
+ promptAnswer='Versão 2';
+ await page.locator('#doc-button').click();await page.locator('#doc-copy').click(); // nome repetido ganha sufixo
+ await until(async()=>(await readdir(dir)).includes('versao-2-2.json'),'nome repetido não recebeu sufixo');
+ for(const copyId of ['backup-do-mapa','versao-2','versao-2-2'])await page.request.delete(`${base}/api/presentations/${copyId}`);
+ await page.locator('#doc-button').click();await page.locator('#doc-list button[data-id="cidades-para-pessoas"]').click();
+ await until(async()=>(await page.locator('#doc-title').textContent())===originalTitle,'não voltou à apresentação original');
+ promptAnswer='Minha apresentação';
+
  await page.locator('#doc-button').click();await page.locator('#doc-delete').click(); // EDIT-10: excluir apresentação
  await until(async()=>!(await readdir(dir)).includes('cidades-para-pessoas.json'),'arquivo não removido');
  await until(async()=>(await page.locator('#doc-title').textContent())==='Minha apresentação','apresentação restante não aberta');
 
  const traversal=await page.request.get(`${base}/presentations/..%2fserver.mjs`);assert.equal(traversal.status(),404); // segurança básica
  assert.equal((await page.request.get(`${base}/server.mjs`)).status(),404);
- assert.deepEqual(errors,[]);console.log('PASS EDIT-01..22');
+ assert.deepEqual(errors,[]);console.log('PASS EDIT-01..23');
 }finally{await browser.close();server.kill();await rm(dir,{recursive:true,force:true});}
