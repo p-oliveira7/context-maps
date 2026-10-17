@@ -28,6 +28,11 @@ publishes the finished map with images, diagrams and links.
 > presentation is a JSON file you version with Git.
 
 <p align="center">
+  <img src="docs/images/demo.gif" alt="Demo: an agent asks the skill for a map, the skill validates and creates it, and the map is explored, searched and edited in the app" width="900"><br>
+  <sub>From a request to a map: the skill builds it (real commands), then you explore, search and edit it.</sub>
+</p>
+
+<p align="center">
   <img src="docs/images/01-overview.png" alt="A presentation with three root cards, open on the overview" width="920">
 </p>
 
@@ -113,6 +118,9 @@ place: open it, expand everything and switch on *Edit* mode.
 - **Several root cards** never overlap: when an open tree would cover another, the one that was **below (or to the right)** moves aside, so the original order is kept, and it returns to its saved position when collapsed.
 - **Expand all / Collapse all**, **Full screen** and **Text mode** (linear reading of the whole map) live in the bottom bar.
 - **Subtitles** show in a small panel under the card **only while hovering it**.
+- **Keyboard:** Tab reaches every card; in view mode **→** opens a branch or enters it, **←** collapses or goes to the parent, **↑ ↓** move between siblings, **Enter/Space** toggle. The map is exposed to screen readers as a tree.
+- **Touch:** one finger pans, **two fingers pinch to zoom** (and pan).
+- **Search** (🔍 in the bottom bar, **Ctrl+K** or **/**) finds ideas by title or subtitle, ignoring case and accents; picking a result opens the branches that hide it and centres the map on it.
 
 <p align="center">
   <img src="docs/images/09-text-mode.png" alt="Text mode: the whole map as a linear outline" width="820"><br>
@@ -155,6 +163,9 @@ a **wheel of actions** opens around it (it closes with **Esc**, ×, or by clicki
 | Diagrams | **+ Diagram** opens the Mermaid editor; **Edit** reopens it |
 | Title-less cards | Clear the title of a card that has an image/diagram or a subtitle: it then shows only that content |
 | Subtitle · Links | Type in the "Subtitle" field under the title; **+ Link** accepts http/https, with chips and **×** to remove |
+| Duplicate · Copy · Paste | In the wheel: **Duplicate** clones an idea with everything below it next to the original; **Copy** keeps it, and **Paste** (shown after copying) adds it as a child of another idea — also in another presentation, copying its images |
+| Relate ideas | **Relate** in the wheel, then click another idea: a dotted line joins them (both directions), a badge shows how many ideas are related and jumps to each one. Click the same pair again to remove it |
+| Undo / redo | **↶ ↷** buttons in the bottom bar, or **Ctrl+Z** / **Ctrl+Shift+Z** (**Ctrl+Y**). Works for every edit, up to 100 steps; typing in one field is a single step |
 | Delete | **Delete** (asks for confirmation when there are ideas below) |
 
 **Autosave** is on (status next to the name: *Saved / Saving… / Save error*).
@@ -237,9 +248,10 @@ Example requests: *"map this repository's architecture"*, *"map the payment flow
 | `[mermaid:file.mmd]` | Render a Mermaid file as a diagram (needs `mmdc`) |
 | `[link:url\|label]` | Add a link |
 | `[subtitle:text]` | Supporting text shown on hover |
+| `[rel:Idea title]` | Relates this idea to another one (cross-link) by its exact title |
 | `{color=#hex}` · `{links=#hex}` | Card colour · colour of the lines leaving the card |
 
-CLI options: `--id`, `--title`, `--replace`, `--dir <folder>` (create in another folder). Messages follow
+CLI options: `--id`, `--title`, `--replace`, `--dir <folder>` (create in another folder). To refresh a map after the system changed, run `update --id <slug> --outline map.md`: it matches ideas by title and keeps ids, colours, positions and manual edits (`--dry-run` previews, `--prune` removes ideas missing from the outline). Messages follow
 `RM_LANG=en|pt`; `MMDC` / `MMDC_BROWSER` point to mermaid-cli and its browser.
 
 ### Agent compatibility
@@ -247,8 +259,8 @@ CLI options: `--id`, `--title`, `--replace`, `--dir <folder>` (create in another
 | Agent | How the skill is found | Status |
 | --- | --- | --- |
 | **Claude (Claude Code)** | `skills/context-maps/SKILL.md` (copy to `~/.claude/skills/` for global use) | Native format |
-| **Codex** | `AGENTS.md` at the root points to `SKILL.md` | Prepared; not tested |
-| **Cursor** | `.cursor/rules/context-maps.mdc` and `AGENTS.md` | Prepared; not tested |
+| **Codex** | `AGENTS.md` at the root points to `SKILL.md` | Files checked in CI; real-app run pending ([how to verify](docs/skill.md#codex-and-cursor)) |
+| **Cursor** | `.cursor/rules/context-maps.mdc` and `AGENTS.md` | Files checked in CI; real-app run pending ([how to verify](docs/skill.md#codex-and-cursor)) |
 
 The heavy lifting lives in a Node CLI (`rm.mjs`), so any agent with terminal access can use it. Agent-facing
 instructions (`SKILL.md`, `schema.md`, `AGENTS.md`) are in English, with Portuguese copies (`*.pt-BR.md`).
@@ -275,6 +287,7 @@ instructions (`SKILL.md`, `schema.md`, `AGENTS.md`) are in English, with Portugu
           {"src": "presentations/my-flow/assets/d.svg", "alt": "Diagram", "kind": "diagram", "source": "flowchart TD…"}
         ],
         "links": [{"url": "https://example.com/docs", "label": "Docs"}],
+        "related": ["n-9f8e7d6c"],
         "children": []
       }
     ]
@@ -315,37 +328,40 @@ the registered libraries, only http/https links are accepted, and Mermaid runs w
 
 ```bash
 npm install --no-save playwright-core   # once; or set PLAYWRIGHT_MODULE to an existing playwright-core
-npm run test:e2e                        # edit, skill, browser, cards and motion, with an isolated temporary server
+npm run test:e2e                        # edit, skill, browser, cards, motion and a11y, with an isolated temporary server
 node tests/edit.mjs                     # or run a single suite
 ```
 
 | Suite | Covers |
 | --- | --- |
-| `edit` EDIT-01..28 | editing, diagrams, media, links, folders, language, export, import |
-| `skill` SKILL-01..07 | skill CLI |
+| `edit` EDIT-01..31 | editing, diagrams, media, links, folders, language, export, import |
+| `skill` SKILL-01..09 | skill CLI |
 | `browser` MAP-01..11 | navigation, zoom, text mode, mobile, full screen |
 | `cards` CARD-01..06 | titles, root, keyboard, images |
 | `motion` MOT-01..05 | animations and reduced motion |
+| `a11y` A11Y-01..07 | tree semantics, keyboard navigation, accessible names, dialog focus, pinch zoom |
 
 `BROWSER_EXECUTABLE` selects a specific Chrome/Chromium binary. The same checks run on Linux, macOS and Windows
 for every pull request ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)). To run `browser`, `cards` or
 `motion` on their own, point `PREVIEW_URL` (default `http://127.0.0.1:4173`) at a server with an empty or temporary `PRESENTATIONS_DIR`.
 
-### Regenerating the screenshots
+### Regenerating the screenshots and the demo
 
 The images in `docs/images/` come from the example presentation and are reproducible. The script copies
 `presentations/` to a temporary folder, so your files are not touched:
 
 ```bash
-PLAYWRIGHT_MODULE=file:///path/to/playwright-core/index.mjs node docs/screenshots.mjs
+PLAYWRIGHT_MODULE=file:///path/to/playwright-core/index.mjs node docs/screenshots.mjs   # the PNGs
+PLAYWRIGHT_MODULE=file:///path/to/playwright-core/index.mjs node docs/demo.mjs          # demo.gif (real skill commands on a temporary server)
 ```
+
+`docs/demo.mjs` records the frames with Playwright and encodes the GIF with `docs/gif.mjs`, a small dependency-free encoder.
 
 ## Known limitations
 
-- **No cross-links** between ideas (the structure is a tree). Cycles become text or a diagram.
+- The structure is a **tree**; ideas can be **related** across branches (dotted lines), but there are no arrows or labels on those relations.
 - **CLI diagrams** need `mmdc` (mermaid-cli); in the app editor Mermaid is already bundled.
 - Remote image URLs are **not downloaded** by the skill (use local files).
-- Mobile: one-finger pan and zoom buttons; pinch is not implemented.
 - Removing a media item does not delete its file from `assets/`.
 - Designed for a **local machine, single user**: there is no authentication or simultaneous editing.
 

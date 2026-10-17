@@ -2,6 +2,8 @@ const reduced=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
 let frame=0, timer=0;
 export function cancelMotion(){cancelAnimationFrame(frame);clearTimeout(timer);document.querySelectorAll('.is-presenting').forEach(e=>e.classList.remove('is-presenting'));}
 export function snapshot(camera){return {camera:{...camera},nodes:new Map([...document.querySelectorAll('.node')].map(e=>[e.dataset.id,{x:parseFloat(e.style.left),y:parseFloat(e.style.top)}]))};}
+const edgeListeners=[];
+export const onEdges=fn=>edgeListeners.push(fn);
 export function updateEdges(){
  for(const path of document.querySelectorAll('#connections path')){
   const parent=document.querySelector(`[data-id="${path.dataset.parent}"]`),child=document.querySelector(`[data-id="${path.dataset.child}"]`);
@@ -12,6 +14,7 @@ export function updateEdges(){
   const grad=document.getElementById(`fade-${path.dataset.child}`);
   if(grad){grad.setAttribute('x1',x1);grad.setAttribute('y1',y1);grad.setAttribute('x2',x2);grad.setAttribute('y2',y2);}
  }
+ for(const fn of edgeListeners)fn();
 }
 export function hoverEdge(id,on){document.querySelector(`#connections path[data-child="${id}"]`)?.classList.toggle('is-hovered',on);}
 export function animateLayout(before,camera,parentId,firstChild){

@@ -28,6 +28,11 @@ decisões — e publica o mapa pronto, com imagens, diagramas e links.
 > apresentação é um arquivo JSON que você versiona com Git.
 
 <p align="center">
+  <img src="docs/images/demo.gif" alt="Demo: um agente pede um mapa à skill, a skill valida e cria, e o mapa é explorado, buscado e editado no app" width="900"><br>
+  <sub>Do pedido ao mapa: a skill monta (comandos reais) e depois você explora, busca e edita.</sub>
+</p>
+
+<p align="center">
   <img src="docs/images/01-overview.png" alt="Uma apresentação com três cards raiz, aberta na visão geral" width="920">
 </p>
 
@@ -113,6 +118,9 @@ lugar: abra, expanda tudo e ligue o modo *Editar*.
 - **Vários cards raiz** nunca se sobrepõem: quando uma árvore aberta cobriria outra, quem estava **abaixo (ou à direita)** se afasta, então a ordem original é mantida, e volta à posição salva ao recolher.
 - **Expandir tudo / Recolher tudo**, **Tela cheia** e **Modo texto** (leitura linear do mapa inteiro) ficam na barra inferior.
 - **Subtítulos** aparecem num pequeno painel sob o card **somente ao passar o mouse**.
+- **Teclado:** Tab alcança todos os cards; na exibição **→** abre um ramo ou entra nele, **←** recolhe ou vai para o pai, **↑ ↓** andam entre irmãos, **Enter/Espaço** alternam. O mapa é exposto aos leitores de tela como uma árvore.
+- **Toque:** um dedo move o mapa, **dois dedos fazem pinça para dar zoom** (e também movem).
+- **Busca** (🔍 na barra inferior, **Ctrl+K** ou **/**) acha ideias pelo título ou subtítulo, sem diferenciar maiúsculas nem acentos; ao escolher um resultado, os ramos que o escondem se abrem e o mapa centraliza nele.
 
 <p align="center">
   <img src="docs/images/09-text-mode.png" alt="Modo texto: o mapa inteiro como um roteiro linear" width="820"><br>
@@ -155,6 +163,9 @@ centro: abre uma **roda de ações** em volta dele (fecha com **Esc**, × ou cli
 | Diagramas | **+ Diagrama** abre o editor Mermaid; **Editar** reabre |
 | Cards sem título | Apague o título de um card que tenha imagem/diagrama ou subtítulo: ele passa a mostrar só esse conteúdo |
 | Subtítulo · Links | Digite no campo "Subtítulo" abaixo do título; **+ Link** aceita http/https, com chips e **×** para remover |
+| Duplicar · Copiar · Colar | Na roda: **Duplicar** clona uma ideia com tudo abaixo ao lado da original; **Copiar** a guarda e **Colar** (aparece depois de copiar) a adiciona como filha de outra ideia — inclusive em outra apresentação, copiando as imagens |
+| Relacionar ideias | **Relacionar** na roda e depois clique em outra ideia: uma linha pontilhada liga as duas (nos dois sentidos) e um selo mostra quantas ideias estão relacionadas e leva a cada uma. Clique na mesma dupla de novo para remover |
+| Desfazer / refazer | Botões **↶ ↷** na barra inferior, ou **Ctrl+Z** / **Ctrl+Shift+Z** (**Ctrl+Y**). Vale para qualquer edição, até 100 passos; digitar num campo conta como um passo só |
 | Excluir | **Excluir** (pede confirmação se houver ideias abaixo) |
 
 O **salvamento é automático** (o estado aparece ao lado do nome: *Salvo / Salvando… / Erro ao salvar*).
@@ -237,9 +248,10 @@ diagramas do `docs/`"*, *"transforme esta especificação em um mapa para a reun
 | `[mermaid:arquivo.mmd]` | Renderiza um arquivo Mermaid como diagrama (exige `mmdc`) |
 | `[link:url\|rótulo]` | Adiciona um link |
 | `[subtitle:texto]` | Texto de apoio exibido ao passar o mouse |
+| `[rel:Título da ideia]` | Relaciona esta ideia a outra (ligação cruzada) pelo título exato |
 | `{color=#hex}` · `{links=#hex}` | Cor do card · cor das linhas que saem do card |
 
-Opções do CLI: `--id`, `--title`, `--replace`, `--dir <pasta>` (cria em outra pasta). As mensagens seguem
+Opções do CLI: `--id`, `--title`, `--replace`, `--dir <pasta>` (cria em outra pasta). Para atualizar um mapa depois que o sistema mudou, rode `update --id <slug> --outline mapa.md`: ele casa as ideias pelo título e mantém ids, cores, posições e edições manuais (`--dry-run` mostra o que mudaria, `--prune` remove ideias que saíram do outline). As mensagens seguem
 `RM_LANG=en|pt`; `MMDC` / `MMDC_BROWSER` apontam para o mermaid-cli e seu navegador.
 
 ### Compatibilidade com agentes
@@ -247,8 +259,8 @@ Opções do CLI: `--id`, `--title`, `--replace`, `--dir <pasta>` (cria em outra 
 | Agente | Como a skill é encontrada | Status |
 | --- | --- | --- |
 | **Claude (Claude Code)** | `skills/context-maps/SKILL.md` (copie para `~/.claude/skills/` para uso global) | Formato nativo |
-| **Codex** | `AGENTS.md` na raiz aponta para o `SKILL.md` | Preparado; não testado |
-| **Cursor** | `.cursor/rules/context-maps.mdc` e `AGENTS.md` | Preparado; não testado |
+| **Codex** | `AGENTS.md` na raiz aponta para o `SKILL.md` | Arquivos checados no CI; teste no app real pendente ([como verificar](docs/skill.pt-BR.md#codex-e-cursor)) |
+| **Cursor** | `.cursor/rules/context-maps.mdc` e `AGENTS.md` | Arquivos checados no CI; teste no app real pendente ([como verificar](docs/skill.pt-BR.md#codex-e-cursor)) |
 
 O trabalho pesado fica em um CLI Node (`rm.mjs`), então qualquer agente com acesso ao terminal consegue usar.
 As instruções para agentes (`SKILL.md`, `schema.md`, `AGENTS.md`) estão em inglês, com cópias em português (`*.pt-BR.md`).
@@ -275,6 +287,7 @@ As instruções para agentes (`SKILL.md`, `schema.md`, `AGENTS.md`) estão em in
           {"src": "presentations/meu-fluxo/assets/d.svg", "alt": "Diagrama", "kind": "diagram", "source": "flowchart TD…"}
         ],
         "links": [{"url": "https://exemplo.com/docs", "label": "Docs"}],
+        "related": ["n-9f8e7d6c"],
         "children": []
       }
     ]
@@ -315,37 +328,40 @@ das bibliotecas registradas, só links http/https são aceitos e o Mermaid roda 
 
 ```bash
 npm install --no-save playwright-core   # uma vez; ou defina PLAYWRIGHT_MODULE para um playwright-core existente
-npm run test:e2e                        # edit, skill, browser, cards e motion, com servidor temporário isolado
+npm run test:e2e                        # edit, skill, browser, cards, motion e a11y, com servidor temporário isolado
 node tests/edit.mjs                     # ou rode uma suíte só
 ```
 
 | Suíte | Cobre |
 | --- | --- |
-| `edit` EDIT-01..28 | edição, diagramas, mídias, links, pastas, idioma, exportação, importação |
-| `skill` SKILL-01..07 | CLI da skill |
+| `edit` EDIT-01..31 | edição, diagramas, mídias, links, pastas, idioma, exportação, importação |
+| `skill` SKILL-01..09 | CLI da skill |
 | `browser` MAP-01..11 | navegação, zoom, modo texto, mobile, tela cheia |
 | `cards` CARD-01..06 | títulos, raiz, teclado, imagens |
 | `motion` MOT-01..05 | animações e movimento reduzido |
+| `a11y` A11Y-01..07 | semântica de árvore, navegação por teclado, nomes acessíveis, foco nas janelas, zoom por pinça |
 
 `BROWSER_EXECUTABLE` escolhe um binário específico do Chrome/Chromium. As mesmas verificações rodam em Linux,
 macOS e Windows a cada pull request ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)). Para rodar `browser`,
 `cards` ou `motion` isoladamente, aponte `PREVIEW_URL` (padrão `http://127.0.0.1:4173`) para um servidor com `PRESENTATIONS_DIR` vazio ou temporário.
 
-### Regenerando as imagens
+### Regenerando as imagens e a demo
 
 As imagens em `docs/images/` vêm da apresentação de exemplo e são reproduzíveis. O script copia
 `presentations/` para uma pasta temporária, então seus arquivos não são tocados:
 
 ```bash
-PLAYWRIGHT_MODULE=file:///caminho/para/playwright-core/index.mjs node docs/screenshots.mjs
+PLAYWRIGHT_MODULE=file:///caminho/para/playwright-core/index.mjs node docs/screenshots.mjs   # os PNGs
+PLAYWRIGHT_MODULE=file:///caminho/para/playwright-core/index.mjs node docs/demo.mjs          # demo.gif (comandos reais da skill num servidor temporário)
 ```
+
+`docs/demo.mjs` grava os quadros com o Playwright e codifica o GIF com `docs/gif.mjs`, um codificador pequeno e sem dependências.
 
 ## Limitações conhecidas
 
-- **Sem ligações cruzadas** entre ideias (a estrutura é uma árvore). Ciclos viram texto ou diagrama.
+- A estrutura é uma **árvore**; as ideias podem ser **relacionadas** entre ramos (linhas pontilhadas), mas essas relações não têm setas nem rótulos.
 - **Diagramas via CLI** exigem `mmdc` (mermaid-cli); no editor do app o Mermaid já vem embutido.
 - URLs remotas de imagem **não são baixadas** pela skill (use arquivos locais).
-- Mobile: arrastar com um dedo e botões de zoom; pinch não implementado.
 - Remover uma mídia não apaga o arquivo em `assets/`.
 - Uso pensado para **máquina local, usuário único**: não há autenticação nem edição simultânea.
 

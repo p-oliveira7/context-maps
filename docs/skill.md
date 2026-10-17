@@ -80,7 +80,14 @@ When the skill is used **outside** the app repository:
 ### Codex and Cursor
 The repository ships `AGENTS.md` (Codex; also recognised by Cursor) and
 `.cursor/rules/context-maps.mdc`. Both point to the same `SKILL.md`, the single source of instructions.
-They are **prepared but were not tested** on those tools.
+Their format and references are checked automatically (`npm test`: front matter, existing paths, every CLI
+command documented), but they have **not been exercised by the real Codex or Cursor apps yet**.
+
+To verify an agent by hand (5 minutes), open this repository in it and ask: *"Build a map of this repository's
+architecture with Context Maps"*. A pass means the agent: (1) reads `AGENTS.md` / the rule and `SKILL.md`,
+(2) runs `rm.mjs serve` and `validate` before `create`, (3) ends with a URL that opens a map, and (4) does not write
+files in `presentations/` directly. Then ask it to *"update the map after adding X"* and check that it uses
+`rm.mjs update` (your manual edits must survive). Please report the result in an issue.
 
 ## 5. Requirements and configuration
 
@@ -112,6 +119,7 @@ node skills/context-maps/scripts/rm.mjs <command> [options]
 | `status` | — | JSON with the existing presentations |
 | `validate` | `--outline f.md` | Stats and warnings; **exits with code 3** if there are warnings |
 | `create` | `--outline f.md` `[--id slug]` `[--dir folder]` `[--title "…"]` `[--replace]` | Creates/overwrites, uploads media, prints a JSON report |
+| `update` | `--id slug` `--outline f.md` `[--prune]` `[--dry-run]` `[--title "…"]` | Merges the outline into an existing presentation (see below); prints `added`, `updated`, `kept`, `removed` |
 | `upload` | `<id> <file>` | Uploads an image and prints its `src` |
 
 Exit codes: `0` ok · `1` error · `2` server unavailable · `3` validation warnings · `64` wrong usage.
@@ -129,6 +137,15 @@ Sample `create` report:
   "skipped": []
 }
 ```
+
+### Updating an existing map (`update`)
+
+When the system changes, edit the outline and run `update` instead of `create --replace`. It keeps what people did in the app:
+
+- **Matching:** ideas are matched by title (ignoring case and extra spaces), root to root and child to child. Matched ideas keep their `id`, colours, root position and manually added images or links.
+- **Outline wins for what it states:** a `[subtitle:…]`, `{color=…}` or `{links=…}` in the outline overrides the saved value; new `[img:…]`, `[mermaid:…]` and `[link:…]` markers are added only when the idea does not have them yet (images by alt text, diagrams by source, links by URL), so running it twice changes nothing.
+- **Order and new ideas:** children follow the outline order; ideas that only exist in the map stay at the end (reported as `kept`), or are removed with `--prune` (`removed`). A **renamed** idea appears as new, and the old one is `kept` until you use `--prune`.
+- **Safety net:** `--dry-run` prints the report without changing anything. The map autosaves in the app, so reopen the page afterwards.
 
 ## 7. Outline format
 
@@ -151,6 +168,7 @@ Sample `create` report:
 | `[mermaid:file.mmd]` | Diagram; rendered with a dark theme and transparent background |
 | `[link:https://…\|label]` | http/https link; label optional (default: the domain) |
 | `[subtitle:text]` | Supporting text shown only while hovering the card (no `]` inside) |
+| `[rel:Other idea title]` | Cross-link to another idea, matched by exact title; unknown or ambiguous titles produce warnings |
 | Several markers | Repeat freely; they appear in the order written |
 | Paths | Relative to the outline file; remote image URLs are **not** downloaded |
 
@@ -220,8 +238,8 @@ A real example generated this way ships in `presentations/` ("visão do sistema"
 
 ## 12. Limitations
 
-- **Tree** structure; no cross-links between ideas.
-- No drag reordering; to change order, edit the outline and use `--replace`.
+- **Tree** structure; cross-links (`[rel:…]`) are plain dotted lines, without direction or label.
+- To change the order of ideas, edit the outline and run `update` (it follows the outline order and keeps your manual edits).
 - Remote-URL media is not downloaded.
 - CLI Mermaid rendering depends on the external `mmdc` (the app editor already bundles it).
 - Outside Claude, Codex and Cursor were prepared but **not tested**.

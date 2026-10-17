@@ -83,6 +83,7 @@ function validNode(node,depth=0,ids=new Set()){
  if(node.color!==undefined&&typeof node.color!=='string')return false;
  if((node.x!==undefined&&!Number.isFinite(node.x))||(node.y!==undefined&&!Number.isFinite(node.y)))return false;
  if(node.linksColor!==undefined&&typeof node.linksColor!=='string')return false;
+ if(node.related!==undefined&&!(Array.isArray(node.related)&&node.related.length<=50&&node.related.every(r=>typeof r==='string'&&r.length>0&&r.length<=80)))return false;
  if(node.subtitle!==undefined&&(typeof node.subtitle!=='string'||node.subtitle.length>2000))return false;
  return node.children.every(c=>validNode(c,depth+1,ids));
 }

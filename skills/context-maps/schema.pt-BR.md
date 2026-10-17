@@ -31,6 +31,7 @@
 - `id` de cada nó: string única (a skill gera `n-<hex>`; a raiz é `root`).
 - `color`: opcional, só nos filhos diretos da raiz (os demais herdam).
 - `linksColor`: opcional, cor das linhas que saem deste nó em direção às filhas (qualquer nó com filhas, inclusive a raiz); não afeta o nó, as filhas nem a linha que chega até ele.
+- `related`: opcional, lista de ids de nós (da mesma apresentação) ligados a este como ligações cruzadas; a relação vale nos dois sentidos e os ids de nós excluídos saem ao salvar. Nos outlines use `[rel:Título]`.
 - `images`: lista opcional (imagens e/ou diagramas, na ordem de exibição). O campo antigo `image` (um só) ainda é lido e migrado ao salvar.
 - `subtitle`: texto de apoio opcional (até 2000 caracteres), exibido só ao passar o mouse no card.
 - `links`: lista opcional de `{url, label?}` (apenas http/https), exibida como selo "N link(s)" abaixo do card.

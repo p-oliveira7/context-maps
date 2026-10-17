@@ -7,7 +7,21 @@ How to cut a release: [`docs/releasing.md`](docs/releasing.md).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-17
+
+A release about working faster and sharing: undo/redo, search, copy and paste, related ideas, export and
+import, `update` for the skill, keyboard and touch support, and CI on three operating systems.
+
 ### Added
+- **Pinch to zoom** (and two-finger pan) on touch screens.
+- **Keyboard navigation of the map**: Tab reaches every card (leaves included); in view mode the arrow keys walk the tree (→ opens or enters, ← collapses or goes to the parent, ↑ ↓ move between siblings). The action wheel takes focus when it opens and responds to the arrow keys, Home and End.
+- **Screen reader support**: the map is exposed as a tree (`tree` / `treeitem` with level and expanded state), search results and navigation are announced through a live region, focus stays inside the Save as and diagram dialogs, and a test checks that every control has an accessible name. Larger touch targets on touch devices.
+- **Related ideas (cross-links)**: the action wheel has **Relate**; click another idea to link the two (click again to remove). A dotted line joins related ideas when both are visible, a badge with the count lists them and jumps to each one even inside collapsed branches, and text mode lists them too. Stored as `related` (ids) on a node; references to deleted ideas are cleaned up. The skill outline accepts `[rel:Other idea title]`, in `create` and `update`.
+- **Search**: a toolbar button, **Ctrl/Cmd+K** or **/** opens a search over titles and subtitles (accent- and case-insensitive); choosing a result opens the branches that hide it and centres the map on it.
+- **Duplicate, Copy and Paste** in the action wheel: duplicate an idea with everything below it, or copy it and paste it as a child of another idea, including into another presentation (its images are copied too).
+- **Agent integration checks** in `npm test`: `SKILL.md` front matter, `AGENTS.md` and the Cursor rule point to files that exist, and every CLI command is documented and implemented. The skill guides now include a 5-minute manual checklist to verify an agent (Codex, Cursor) end to end.
+- **`update` command in the skill CLI** (`rm.mjs update --id <slug> --outline f.md [--prune] [--dry-run]`): merges an updated outline into an existing presentation, matching ideas by title and keeping ids, colours, positions and manual edits; adds new ideas, follows the outline order and is idempotent.
+- **Undo and redo for every edit** (up to 100 steps per presentation): buttons in the toolbar and Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z or Ctrl/Cmd+Y. Typing in the same field counts as one step; inside a text field the shortcut keeps its native text undo. The "Undo" notice after moving a card now uses this history.
 - **Export and import** from the presentation menu: **Export as HTML…** downloads one self-contained file (the viewer, the data and every image inlined) that opens offline in any browser, read-only; **Export as ZIP…** downloads the presentation files (`<name>.json` + `<name>/assets/`), the same portable layout used by extra folders. **Import…** reads either a ZIP package or an exported HTML file and opens the result as a new presentation (names stay unique; images missing from the package are dropped). API: `GET /api/presentations/:id/export?format=html|zip` and `POST /api/import?name=file.zip|file.html`.
 - **Continuous integration** (GitHub Actions) running the model, browser and skill tests on Linux, macOS and Windows for every push to `main` and every pull request.
 - `npm run test:e2e` runs all browser and skill tests in one go, using an isolated temporary server.
@@ -52,6 +66,7 @@ after 0.1.0 (pull requests #1–#10).
 - Linear reading (text) mode of the whole map.
 - Original sample map data and navigation state model.
 
-[Unreleased]: https://github.com/p-oliveira7/context-maps/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/p-oliveira7/context-maps/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/p-oliveira7/context-maps/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/p-oliveira7/context-maps/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/p-oliveira7/context-maps/releases/tag/v0.1.0

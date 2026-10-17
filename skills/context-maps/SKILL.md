@@ -24,6 +24,7 @@ CLI: `node skills/context-maps/scripts/rm.mjs <command>` (from the app root).
 | `status` | Lists the existing presentations |
 | `validate --outline f.md` | Checks the outline and prints warnings (exits with 3 if any) |
 | `create --outline f.md [--id slug] [--dir folder] [--replace]` | Creates (or overwrites) the presentation, uploads images/diagrams and prints the URL |
+| `update --id slug --outline f.md [--prune] [--dry-run]` | Merges an updated outline into an existing presentation: matches ideas by title, keeps ids, colours, positions and anything edited by hand, adds new ideas, follows the outline order. Ideas missing from the outline are kept at the end (`--prune` removes them). Prefer it over `--replace` when the system changed; `--dry-run` only reports |
 | `upload <id> <file>` | Uploads an image and prints its `src` |
 
 ## Procedure
@@ -57,6 +58,7 @@ CLI: `node skills/context-maps/scripts/rm.mjs <command>` (from the app root).
 - `{links=#rrggbb}` colours the lines from that idea to its children (any idea with children).
 - A bullet may have **no title** when it carries a marker (e.g. `- [mermaid:flow.mmd]` or `- [subtitle:note]`): the card then shows only the media / secondary text.
 - `[subtitle:Supporting text]` adds a subtitle shown only while hovering the card (no `]` inside).
+- `[rel:Other idea title]` relates this idea to another one anywhere in the map (a dotted cross-link), matched by its exact title; use it for dependencies that cut across branches. Unknown titles become warnings.
 - `[link:https://site.com|Label]` adds a clickable link below the card (label optional; several allowed; http/https only).
 - An idea can have **several** media items: repeat the markers (`[img:a.png|A] [mermaid:flow.mmd] [img:b.png|B]`); they stack in the card, in the order written.
 - Image/diagram paths are relative to the outline file. Remote URLs are **not** downloaded.

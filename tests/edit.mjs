@@ -800,6 +800,172 @@ try{
   await page.request.delete(`${base}/api/presentations/${made.id}`);
   await page.goto(`${base}/`);await page.locator('.node').first().waitFor();
  }
+ // EDIT-29: desfazer e refazer (botões, atalhos, digitação agrupada, nome, exclusão e gravação em disco)
+ {
+  const made=await (await page.request.post(`${base}/api/presentations`,{data:{title:'Histórico'}})).json();
+  await page.goto(`${base}/?p=${made.id}`);await page.locator('.node').first().waitFor();
+  await page.locator('#edit-switch').click();
+  const undoBtn=page.locator('#undo-btn'),redoBtn=page.locator('#redo-btn');
+  assert.equal(await undoBtn.isDisabled(),true);assert.equal(await redoBtn.isDisabled(),true); // nada a desfazer
+  const nodes=()=>page.locator('.node').count();
+  const diskTitles=async()=>{const d=await onDisk(made.id);const out=[];(function walk(n){out.push(n.title);n.children.forEach(walk);})(d.roots[0]);return out;};
+  await act('root','Adicionar filho');await page.waitForTimeout(100);
+  await page.keyboard.press('Escape');await page.evaluate(()=>document.activeElement?.blur()); // sai do campo de texto
+  assert.equal(await nodes(),2);assert.equal(await undoBtn.isDisabled(),false);
+  await undoBtn.click();assert.equal(await nodes(),1);
+  await until(async()=>(await diskTitles()).length===1,'desfazer deveria gravar em disco');
+  assert.equal(await undoBtn.isDisabled(),true);assert.equal(await redoBtn.isDisabled(),false);
+  await redoBtn.click();assert.equal(await nodes(),2);
+  await until(async()=>(await diskTitles()).length===2,'refazer deveria gravar em disco');
+  // atalhos fora de campos de texto: Ctrl+Z desfaz, Ctrl+Shift+Z e Ctrl+Y refazem
+  await page.evaluate(()=>document.activeElement?.blur());
+  await page.keyboard.press('Control+z');assert.equal(await nodes(),1);
+  await page.keyboard.press('Control+Shift+z');assert.equal(await nodes(),2);
+  await page.keyboard.press('Control+z');assert.equal(await nodes(),1);
+  await page.keyboard.press('Control+y');assert.equal(await nodes(),2);
+  // digitar várias letras no mesmo campo é um passo só
+  const rootText=page.locator('[data-id="root"] h1');
+  await rootText.click();await page.evaluate(()=>getSelection().selectAllChildren(document.querySelector('[data-id="root"] h1')));await page.keyboard.type('Novo titulo'); // seleciona o texto sem depender de Ctrl+A (no macOS é outro atalho)
+  await page.keyboard.press('Enter');
+  await until(async()=>(await diskTitles())[0]==='Novo titulo','título não gravado');
+  await page.evaluate(()=>document.activeElement?.blur());
+  await page.keyboard.press('Control+z');
+  assert.equal(await rootText.textContent(),'Histórico'); // voltou de uma vez, não letra por letra
+  await page.keyboard.press('Control+y');assert.equal(await rootText.textContent(),'Novo titulo');
+  // dentro de um campo de texto o atalho é do próprio campo (o app não desfaz o mapa)
+  await rootText.click();const before=await nodes();await page.keyboard.press('Control+z');assert.equal(await nodes(),before);await page.keyboard.press('Escape');
+  await page.evaluate(()=>document.activeElement?.blur());
+  // excluir um filho e desfazer
+  page.once('dialog',d=>d.accept());
+  const child=(await page.locator('.node:not(.root)').first().getAttribute('data-id'));
+  await act(child,'Excluir');await until(async()=>(await nodes())===1,'filho não excluído');
+  await page.keyboard.press('Control+z');await page.waitForTimeout(150);
+  assert.equal(await nodes(),2);
+  // nova ação depois de desfazer descarta o "refazer"
+  await page.keyboard.press('Control+z');assert.equal(await redoBtn.isDisabled(),false);
+  await act('root','Adicionar filho');await page.keyboard.press('Escape');
+  assert.equal(await redoBtn.isDisabled(),true);
+  // trocar de apresentação zera o histórico
+  await page.goto(`${base}/?p=${made.id}`);await page.locator('.node').first().waitFor();await page.locator('#edit-switch').click();
+  assert.equal(await undoBtn.isDisabled(),true);
+  await page.request.delete(`${base}/api/presentations/${made.id}`);
+  await page.goto(`${base}/`);await page.locator('.node').first().waitFor();
+ }
+ // EDIT-30: busca de ideias, duplicar, copiar e colar (inclusive entre apresentações)
+ {
+  const a=await (await page.request.post(`${base}/api/presentations`,{data:{title:'Busca A'}})).json();
+  const b=await (await page.request.post(`${base}/api/presentations`,{data:{title:'Busca B'}})).json();
+  const up=await (await page.request.post(`${base}/api/presentations/${a.id}/assets?name=fruta.png`,{data:png})).json();
+  const tree=[{id:'r',title:'Alvo',children:[
+   {id:'m',title:'Maçã',subtitle:'fruta vermelha',children:[{id:'f',title:'Folha',images:[{src:up.src,alt:'Folha'}],children:[]}]},
+   {id:'b',title:'Banana',children:[{id:'c',title:'Casca',children:[]}]}]}];
+  assert.equal((await page.request.put(`${base}/api/presentations/${a.id}`,{data:{title:'Busca A',roots:tree}})).status(),200);
+  await page.goto(`${base}/?p=${a.id}`);await page.locator('.node').first().waitFor();
+  const inView=async id=>{const bb=await page.locator(`[data-id="${id}"]`).boundingBox(),vp=page.viewportSize();return !!bb&&bb.x>=0&&bb.y>=0&&bb.x+bb.width<=vp.width&&bb.y+bb.height<=vp.height;};
+  // busca na exibição: Ctrl+K, sem diferenciar acentos, vai até a ideia
+  await page.keyboard.press('Control+k');await page.locator('#search-panel').waitFor();
+  await page.keyboard.type('maca');
+  assert.deepEqual(await page.locator('#search-results li span').allTextContents(),['Maçã']);
+  await page.keyboard.press('Enter');
+  assert.equal(await page.locator('#search-panel').isVisible(),false);assert.equal(await inView('m'),true);
+  // a barra "/" abre; a ideia escondida num ramo fechado aparece com o caminho e é aberta ao escolher
+  await page.evaluate(()=>document.activeElement?.blur());
+  assert.equal(await page.locator('[data-id="c"]').count(),0); // fechada
+  await page.keyboard.press('/');await page.keyboard.type('casca');
+  assert.match(await page.locator('#search-results li small').textContent(),/Alvo › Banana/);
+  await page.locator('#search-results li').first().click();
+  await page.locator('[data-id="c"]').waitFor();assert.equal(await inView('c'),true);
+  await page.keyboard.press('/');await page.keyboard.type('zzzz');
+  await page.locator('#search-empty').waitFor({state:'visible'});assert.equal(await page.locator('#search-results li').count(),0);
+  await page.keyboard.press('Escape');assert.equal(await page.locator('#search-panel').isVisible(),false);
+  await page.locator('#search-btn').click();await page.keyboard.type('vermelha'); // também acha pelo subtítulo
+  assert.deepEqual(await page.locator('#search-results li span').allTextContents(),['Maçã']);
+  await page.keyboard.press('Escape');
+  // duplicar (com tudo abaixo) e desfazer
+  await page.locator('#edit-switch').click();await page.locator('#expand').click();
+  await act('b','Duplicar ideia');
+  await until(async()=>(await page.locator('.node p',{hasText:/^Banana$/}).count())===2,'Banana não foi duplicada');
+  await until(async()=>(await page.locator('.node p',{hasText:/^Casca$/}).count())===2,'os filhos deveriam vir junto');
+  const ids=await page.locator('.node').evaluateAll(els=>els.map(e=>e.dataset.id));assert.equal(new Set(ids).size,ids.length); // ids novos
+  await page.evaluate(()=>document.activeElement?.blur());await page.keyboard.press('Control+z');
+  await until(async()=>(await page.locator('.node p',{hasText:/^Banana$/}).count())===1,'desfazer deveria remover a cópia');
+  // copiar uma ideia e colar como filha de outra (o item Colar só existe depois de copiar)
+  await act('c','Copiar ideia');
+  await page.evaluate(()=>{document.querySelector('#toast').hidden=true;});
+  await openMenu('m');
+  assert.equal(await page.locator('#radial-menu [aria-label^="Colar a ideia"]').count(),1);
+  await page.locator('#radial-menu [aria-label^="Colar a ideia"]').click();
+  await until(async()=>(await page.locator('.node p',{hasText:/^Casca$/}).count())===2,'a ideia colada não apareceu');
+  await until(async()=>(await onDisk(a.id)).roots[0].children[0].children.length===2,'a ideia colada não foi gravada');
+  const disk=await onDisk(a.id);assert.equal(disk.roots[0].children[0].children.length,2);assert.equal(disk.roots[0].children[0].children[1].title,'Casca');
+  assert.notEqual(disk.roots[0].children[0].children[1].id,'c');
+  // colar em outra apresentação copia as imagens para ela
+  await act('f','Copiar ideia');
+  await page.goto(`${base}/?p=${b.id}`);await page.locator('.node').first().waitFor();await page.locator('#edit-switch').click();
+  await openMenu('root');
+  await page.locator('#radial-menu [aria-label^="Colar a ideia"]').click();
+  await until(async()=>{const d=await onDisk(b.id);return d.roots[0].children.length===1;},'colagem entre apresentações não gravada');
+  const pasted=(await onDisk(b.id)).roots[0].children[0];
+  assert.equal(pasted.title,'Folha');assert.equal(pasted.images[0].src.startsWith(`presentations/${b.id}/assets/`),true);
+  assert.equal((await page.request.get(`${base}/${pasted.images[0].src}`)).status(),200);
+  for(const gone of [a.id,b.id])await page.request.delete(`${base}/api/presentations/${gone}`);
+  await page.goto(`${base}/`);await page.locator('.node').first().waitFor();
+ }
+ // EDIT-31: ligações cruzadas (ideias relacionadas): criar, linha pontilhada, selo, navegação, leitura, desfazer e exclusão
+ {
+  const made=await (await page.request.post(`${base}/api/presentations`,{data:{title:'Relações'}})).json();
+  const tree=[{id:'r',title:'Raiz',children:[
+   {id:'a',title:'Ideia A',children:[{id:'a1',title:'Filha de A',children:[]}]},
+   {id:'b',title:'Ideia B',children:[{id:'b1',title:'Filha de B',children:[]}]}]}];
+  assert.equal((await page.request.put(`${base}/api/presentations/${made.id}`,{data:{title:'Relações',roots:tree}})).status(),200);
+  await page.goto(`${base}/?p=${made.id}`);await page.locator('.node').first().waitFor();
+  await page.locator('#edit-switch').click();await page.locator('#expand').click();
+  const flat=n=>[n,...n.children.flatMap(flat)];
+  const related=async()=>flat((await onDisk(made.id)).roots[0]);
+  await act('a1','Relacionar esta ideia'); // modo "relacionar": Esc cancela sem relacionar
+  await page.waitForFunction(()=>document.body.classList.contains('is-relating'));
+  await page.keyboard.press('Escape');assert.equal(await page.evaluate(()=>document.body.classList.contains('is-relating')),false);
+  assert.equal(await page.locator('#cross-links path').count(),0);
+  await act('a1','Relacionar esta ideia');
+  await page.locator('[data-id="b1"] p').click(); // clica na ideia de destino
+  await until(async()=>(await page.locator('#cross-links path').count())===1,'a linha pontilhada não apareceu');
+  assert.equal(await page.locator('#cross-links circle').count(),2);
+  await until(async()=>(await related()).find(n=>n.id==='a1')?.related?.[0]==='b1','a relação não foi gravada');
+  assert.equal(await page.locator('[data-id="a1"] .related-badge').count(),1); // o selo aparece nos dois lados
+  assert.equal(await page.locator('[data-id="b1"] .related-badge').count(),1);
+  // desfazer e refazer
+  await page.evaluate(()=>{document.querySelector('#toast').hidden=true;document.activeElement?.blur();});
+  await page.keyboard.press('Control+z');await until(async()=>(await page.locator('#cross-links path').count())===0,'desfazer deveria tirar a relação');
+  await page.keyboard.press('Control+y');await until(async()=>(await page.locator('#cross-links path').count())===1,'refazer deveria devolver a relação');
+  // recolher um ramo esconde a linha, mas o selo continua levando até a ideia
+  await page.locator('[data-id="b"] .toggle').click();
+  await until(async()=>(await page.locator('#cross-links path').count())===0,'sem o destino visível não há linha');
+  await page.locator('[data-id="a1"] .related-badge').click();
+  await page.locator('.link-menu button',{hasText:'Filha de B'}).click();
+  await page.locator('[data-id="b1"]').waitFor();assert.equal(await page.locator('#cross-links path').count(),1); // abriu o ramo e foi até lá
+  // modo texto lista as relações
+  await page.locator('#edit-switch').click();await page.locator('#mode').click();
+  assert.match(await page.locator('.reading-related').first().textContent(),/↔ Filha de (A|B)/);
+  await page.locator('#mode').click();await page.locator('#edit-switch').click();
+  // clicar de novo na mesma dupla remove; excluir uma ideia limpa a referência
+  await page.evaluate(()=>{document.querySelector('#toast').hidden=true;});
+  await act('b1','Relacionar esta ideia');await page.locator('[data-id="a1"] p').click();
+  await until(async()=>(await page.locator('#cross-links path').count())===0,'relacionar de novo deveria remover');
+  await page.evaluate(()=>{document.querySelector('#toast').hidden=true;});
+  await act('b1','Relacionar esta ideia');await page.locator('[data-id="a1"] p').click();
+  await until(async()=>(await related()).some(n=>n.related),'relação não gravada de novo');
+  page.once('dialog',d=>d.accept());await act('a1','Excluir');
+  await until(async()=>!(await related()).some(n=>n.related),'a referência solta deveria ser limpa');
+  // duplicar uma ideia com relação interna mantém a ligação dentro da cópia
+  await page.request.put(`${base}/api/presentations/${made.id}`,{data:{title:'Relações',roots:[{id:'r',title:'Raiz',children:[{id:'x',title:'Pai X',children:[{id:'x1',title:'X1',related:['x2'],children:[]},{id:'x2',title:'X2',children:[]}]}]}]}});
+  await page.goto(`${base}/?p=${made.id}`);await page.locator('.node').first().waitFor();await page.locator('#edit-switch').click();await page.locator('#expand').click();
+  assert.equal(await page.locator('#cross-links path').count(),1);
+  await act('x','Duplicar ideia');
+  await until(async()=>(await page.locator('#cross-links path').count())===2,'a cópia deveria ter a própria ligação');
+  const ends=await page.locator('#cross-links path').evaluateAll(els=>els.map(e=>e.dataset.a+'>'+e.dataset.b));assert.equal(new Set(ends).size,2);
+  await page.request.delete(`${base}/api/presentations/${made.id}`);
+  await page.goto(`${base}/`);await page.locator('.node').first().waitFor();
+ }
  // EDIT-27: idioma da interface segue o do navegador (inglês por padrão; pt-BR no Brasil) e ?lang= força um deles
  {
   const open=async(locale,query='')=>{const ctx=await browser.newContext({locale,viewport:{width:1280,height:800},extraHTTPHeaders:{'x-context-maps':'1'}});const pg=await ctx.newPage();await pg.goto(`${base}/${query}`);await pg.locator('.node').first().waitFor();return {ctx,pg};};
@@ -833,5 +999,5 @@ try{
   assert.equal((await other.pg.locator('#edit-switch').textContent()).trim(),'Edit');
   await other.ctx.close();
  }
- assert.deepEqual(errors,[]);console.log('PASS EDIT-01..28');
+ assert.deepEqual(errors,[]);console.log('PASS EDIT-01..31');
 }finally{await browser.close();server.kill();await rm(dir,{recursive:true,force:true});await rm(configDir,{recursive:true,force:true});}

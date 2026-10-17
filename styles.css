@@ -299,6 +299,11 @@ body.is-editing .edit-fab{display:flex}
 /* Vários cards raiz */
 #add-root{display:none}
 body.is-editing #add-root{display:inline-flex}
+#history-controls{display:none;gap:.25rem}
+body.is-editing #history-controls{display:inline-flex}
+#history-controls button{padding:.28rem .55rem;font-size:.9rem;line-height:1}
+#history-controls button:disabled{opacity:.35;cursor:default}
+#history-controls button:disabled:hover{background:#ffffff0d;color:#ffffffad;border-color:#ffffff1c}
 .doc-title-input{position:absolute;left:0;top:0;z-index:5;padding:0 .8rem;border:1px solid #4f9d7a;border-radius:14px;background:#161616;color:#fff;font:inherit;font-size:.75rem;font-weight:500;outline:none;box-shadow:0 0 0 3px #4f9d7a33}
 .drag-ghost.ghost-free::after{content:attr(data-free);display:block;margin-top:2px;padding-left:.3rem;font-size:11px;color:#8fd1b0}
 .drag-ghost.ghost-free{border-color:#8fd1b0}
@@ -336,3 +341,38 @@ body.is-editing #add-root{display:inline-flex}
    (isso distorcia a medição dos rótulos e o diagrama saía cortado). */
 svg .node{position:static;width:auto;min-width:0;max-width:none;padding:0;overflow:visible;transition:none;transform-origin:revert;background:none;box-shadow:none}
 svg .node p,svg .node h1{margin:revert;font-size:inherit;font-weight:inherit;line-height:inherit;letter-spacing:inherit;color:inherit;overflow-wrap:normal;text-align:inherit}
+
+/* Busca de ideias */
+.search-panel{position:fixed;top:4.2rem;left:50%;transform:translateX(-50%);z-index:710;width:min(480px,calc(100vw - 2rem));padding:.5rem;background:#1c1c1cf5;border:1px solid #ffffff26;border-radius:14px;box-shadow:0 16px 48px #000c;backdrop-filter:blur(10px)}
+.search-panel[hidden]{display:none}
+#search-input{width:100%;padding:.6rem .8rem;border:1px solid #ffffff24;border-radius:10px;background:#121212;color:#fff;font:inherit;font-size:.9rem;outline:none}
+#search-input:focus{border-color:#4f9d7a}
+#search-results{list-style:none;margin:.4rem 0 0;padding:0;max-height:min(50vh,320px);overflow:auto}
+#search-results li{display:flex;flex-direction:column;gap:.1rem;padding:.45rem .6rem;border-radius:8px;cursor:pointer;color:#ffffffd9;font-size:.84rem}
+#search-results li small{color:#ffffff7a;font-size:.7rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#search-results li[aria-selected=true],#search-results li:hover{background:#ffffff1a;color:#fff}
+#search-results mark{background:#e4c58355;color:inherit;border-radius:3px}
+#search-empty{padding:.6rem;color:#ffffff80;font-size:.8rem}
+
+/* Ligações cruzadas (ideias relacionadas) */
+#cross-links{position:absolute;overflow:visible;pointer-events:none}
+#cross-links path{fill:none;stroke:#ffffff70;stroke-width:2.4;stroke-dasharray:3 8;stroke-linecap:round;transition:stroke .16s ease,stroke-width .16s ease}
+#cross-links circle{fill:#ffffff99}
+#cross-links .is-hovered{stroke:#e4c583;stroke-width:3.4}
+#cross-links circle.is-hovered{fill:#e4c583}
+.node-badge.related-badge{color:#e4c583;background:#e4c58314;border-color:#e4c58355}
+body.is-relating .node{cursor:crosshair}
+body.is-relating .node:hover{outline:2px dashed #e4c583;outline-offset:6px;border-radius:12px}
+.link-menu button{padding:.4rem .6rem;border-radius:7px;font-size:.78rem;color:#e9dcb8;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.link-menu button:hover{background:#ffffff14;color:#fff}
+.reading-related{margin:.2rem 0 .8rem;color:#e4c583;font-size:.82rem}
+
+/* Acessibilidade e toque */
+.sr-only{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.node:focus-visible,[role=menuitem]:focus-visible,#search-results li:focus-visible{outline:2px solid #e4c583;outline-offset:6px;border-radius:12px}
+.node:focus-visible{z-index:10}
+@media (pointer:coarse){
+ .toolbar button,.zoom-controls button{min-height:42px;min-width:42px}
+ .toggle{min-width:44px}
+ #doc-menu button{padding:.7rem .8rem}
+}
