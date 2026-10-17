@@ -1,1 +1,1 @@
-{"name":"context-maps","version":"0.3.0","private":true,"license":"MIT","type":"module","scripts":{"start":"node server.mjs","test":"node --test tests/model.test.js tests/agents.test.js","test:e2e":"node tests/run-e2e.mjs"}}
+{"name":"context-maps","version":"0.3.0","private":true,"license":"MIT","type":"module","scripts":{"start":"node server.mjs","test":"node --test tests/model.test.js tests/agents.test.js tests/bru.test.js","test:e2e":"node tests/run-e2e.mjs"}}
