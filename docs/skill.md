@@ -111,7 +111,7 @@ node skills/context-maps/scripts/rm.mjs <command> [options]
 | `serve` | — | Starts the server if it is not running |
 | `status` | — | JSON with the existing presentations |
 | `validate` | `--outline f.md` | Stats and warnings; **exits with code 3** if there are warnings |
-| `create` | `--outline f.md` `[--id slug]` `[--title "…"]` `[--replace]` | Creates/overwrites, uploads media, prints a JSON report |
+| `create` | `--outline f.md` `[--id slug]` `[--dir folder]` `[--title "…"]` `[--replace]` | Creates/overwrites, uploads media, prints a JSON report |
 | `upload` | `<id> <file>` | Uploads an image and prints its `src` |
 
 Exit codes: `0` ok · `1` error · `2` server unavailable · `3` validation warnings · `64` wrong usage.

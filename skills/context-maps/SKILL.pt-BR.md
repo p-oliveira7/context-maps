@@ -23,7 +23,7 @@ CLI: `node skills/context-maps/scripts/rm.mjs <comando>` (a partir da raiz do ap
 | `serve` | Inicia o servidor se não estiver ativo |
 | `status` | Lista as apresentações existentes |
 | `validate --outline f.md` | Confere o outline e mostra avisos (sai com 3 se houver) |
-| `create --outline f.md [--id slug] [--replace]` | Cria (ou sobrescreve) a apresentação, envia imagens/diagramas e imprime a URL |
+| `create --outline f.md [--id slug] [--dir pasta] [--replace]` | Cria (ou sobrescreve) a apresentação, envia imagens/diagramas e imprime a URL |
 | `upload <id> <arquivo>` | Envia uma imagem e imprime o `src` |
 
 ## Procedimento
@@ -63,6 +63,7 @@ CLI: `node skills/context-maps/scripts/rm.mjs <comando>` (a partir da raiz do ap
 - Imagens: png, jpg, webp, gif, svg.
 
 ## Regras
+- `--dir <pasta>` salva a apresentação em outra pasta da máquina (ex.: `docs/mapas` do projeto); a pasta é registrada automaticamente e as imagens ficam relativas ao arquivo.
 - Nunca apague apresentações nem use `--replace` sem o usuário pedir.
 - Não copie conteúdo protegido; resuma com suas palavras.
 - Se o servidor estiver fora do ar e `serve` falhar, informe o comando manual (`node server.mjs`) em vez de gravar arquivos direto.

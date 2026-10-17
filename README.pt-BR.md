@@ -76,7 +76,8 @@ Abra <http://127.0.0.1:4173>. Na primeira execução o servidor cria a apresenta
 | Variável | Padrão | Uso |
 | --- | --- | --- |
 | `PORT` | `4173` | Porta do servidor |
-| `PRESENTATIONS_DIR` | `./presentations` | Pasta onde ficam os mapas |
+| `PRESENTATIONS_DIR` | `./presentations` | Pasta da biblioteca principal |
+| `CONTEXT_MAPS_CONFIG` | `./.context-maps.json` | Onde as pastas extras ficam registradas |
 
 > Sem o servidor (por exemplo `python -m http.server`), o app abre **somente em exibição**, com o mapa
 > de demonstração embutido. Não abra o `index.html` por `file://` (usa módulos ES).
@@ -121,7 +122,11 @@ Ative o switch **Editar** na barra inferior.
 | Mover | Arraste a **alça ⋮⋮** à esquerda do card. O card e **tudo abaixo dele** saem do mapa e acompanham o cursor como uma pequena árvore. Solte sobre outro card (vira filho; folhas pulsam e uma linha tracejada mostra a conexão) ou na borda de cima/baixo (vira irmão). Pairar sobre um **ramo fechado o abre sozinho**, para você percorrer as ramificações (fecha de novo ao sair). Segure o **botão do meio do mouse** para mover o quadro durante o arraste, a roda dá zoom e **Esc** cancela; depois de cada movimento aparece **Desfazer** |
 | Excluir | **Excluir** (pede confirmação se houver ideias abaixo) |
 
-**Salvar como…** e **Salvar uma cópia…** (no menu de apresentações, ou **Ctrl+Shift+S**) criam outra apresentação a partir da atual com o nome que você digitar: o arquivo e as imagens são copiados para `presentations/<nome>/`, para você guardar versões e evitar perdas. *Salvar como* abre a cópia; *Salvar uma cópia* mantém você onde está. Nomes repetidos ganham um sufixo numérico.
+**Salvar como…** e **Salvar uma cópia…** (no menu de apresentações, ou **Ctrl+Shift+S**) abrem uma janela onde você escolhe o **nome**, a **pasta** e o que acontece depois:
+
+- **Pasta:** a biblioteca do app (`presentations/`), qualquer pasta registrada antes, ou **Outra pasta…** — digite o caminho completo ou clique em **Escolher…** (abre a janela nativa de pastas na sua máquina). A pasta é criada se preciso, lembrada em `.context-maps.json` (não versionado) e listada no menu com um título próprio, então você pode **abrir e editar apresentações no próprio lugar**, por exemplo dentro do repositório de outro projeto. **Adicionar pasta…** no menu registra uma pasta que já tem apresentações; o **×** ao lado da pasta só a tira da lista (nenhum arquivo é apagado).
+- **Depois de salvar:** *Abrir a nova apresentação* (padrão do *Salvar como*) ou *Continuar nesta* (padrão do *Salvar uma cópia*). O arquivo e as imagens são copiados juntos; os nomes continuam únicos (um nome repetido ganha " (2)").
+- Em pastas extras, os caminhos das imagens são gravados **relativos ao arquivo** (`<nome>/assets/…`), então a pasta inteira é portátil.
 
 O **salvamento é automático** (o estado aparece ao lado do nome: *Salvo / Salvando… / Erro ao salvar*).
 O menu no canto superior esquerdo troca, cria ou exclui apresentações.
@@ -209,14 +214,16 @@ Escuta apenas em `127.0.0.1`. Todas as rotas respondem JSON e `Cache-Control: no
 | Método e rota | Função |
 | --- | --- |
 | `GET /api/presentations` | Lista (`id`, `title`, `updatedAt`) |
-| `POST /api/presentations` | Cria (`{title, id?}`) |
+| `POST /api/presentations` | Cria (`{title, id?, dir?}`; `dir` = qualquer pasta absoluta) |
 | `GET /api/presentations/:id` | Lê |
 | `PUT /api/presentations/:id` | Salva `{title, roots}` (o antigo `{tree}` ainda é aceito; valida ids únicos, profundidade ≤ 40, mídias/links ≤ 50 por nó) |
-| `POST /api/presentations/:id/copy` | Copia a apresentação com um novo nome (`{title}`), incluindo as imagens |
+| `POST /api/presentations/:id/copy` | Copia a apresentação com um novo nome (`{title, dir?}`), incluindo as imagens, para a biblioteca ou outra pasta |
+| `GET/POST /api/libraries`, `DELETE /api/libraries/:key` | Lista, adiciona ou esquece pastas extras |
+| `POST /api/pick-folder` | Abre o seletor de pastas do sistema e devolve o caminho escolhido |
 | `DELETE /api/presentations/:id` | Remove o arquivo e as imagens |
 | `POST /api/presentations/:id/assets?name=…` | Envia imagem (png, jpg, webp, gif, svg; até 15 MB) |
 
-Segurança básica: sem acesso a arquivos fora da pasta do app/`presentations/`, só links http/https, e o
+Segurança básica: toda requisição que altera algo precisa do cabeçalho `x-context-maps: 1` (outras páginas web não conseguem enviá-lo ao seu servidor local), o `Host` precisa ser local, sem acesso a arquivos fora da pasta do app/`presentations/`, só links http/https, e o
 Mermaid roda em `securityLevel: strict`.
 
 ---
@@ -227,7 +234,7 @@ Mermaid roda em `securityLevel: strict`.
 
 ```bash
 export PLAYWRIGHT_MODULE=file:///caminho/para/playwright-core/index.mjs   # caminho absoluto
-node tests/edit.mjs      # EDIT-01..25  edição, diagramas, mídias, links (sobe servidor temporário)
+node tests/edit.mjs      # EDIT-01..26  edição, diagramas, mídias, links (sobe servidor temporário)
 node tests/skill.mjs     # SKILL-01..06 CLI da skill (sobe servidor temporário)
 node tests/browser.mjs   # MAP-01..11   navegação, zoom, modo texto, mobile, tela cheia
 node tests/cards.mjs     # CARD-01..06  títulos, raiz, teclado, imagens

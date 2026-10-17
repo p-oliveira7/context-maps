@@ -76,7 +76,8 @@ Open <http://127.0.0.1:4173>. On first run the server creates the demo presentat
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `PORT` | `4173` | Server port |
-| `PRESENTATIONS_DIR` | `./presentations` | Folder where maps are stored |
+| `PRESENTATIONS_DIR` | `./presentations` | Main library folder |
+| `CONTEXT_MAPS_CONFIG` | `./.context-maps.json` | Where the extra folders are remembered |
 
 > Without the server (for example `python -m http.server`) the app opens in **view mode only**, with the
 > built-in demo map. Do not open `index.html` through `file://` (it uses ES modules).
@@ -120,7 +121,11 @@ Turn on the **Edit** switch in the bottom bar.
 | Move | Drag the **⋮⋮ handle** on the left of a card. The card and **everything below it** leave the map and follow the cursor as a small tree. Drop on another card (becomes its child; a leaf pulses and a dashed line shows the connection) or on its top/bottom edge (becomes a sibling). Hovering a **collapsed branch opens it by itself**, so you can walk through its sub-branches (it closes again when you leave). Hold the **middle mouse button** to pan the map while dragging, wheel to zoom, **Esc** to cancel; an **Undo** toast follows every move |
 | Delete | **Delete** (asks for confirmation when there are ideas below) |
 
-**Save as…** and **Save a copy…** (in the presentation menu, or **Ctrl+Shift+S**) create another presentation from the current one with a name you type: the file and its images are copied to `presentations/<name>/`, so you can keep versions and avoid losses. *Save as* opens the copy; *Save a copy* keeps you where you are. Repeated names get a numeric suffix.
+**Save as…** and **Save a copy…** (in the presentation menu, or **Ctrl+Shift+S**) open a window where you choose the **name**, the **folder** and what happens next:
+
+- **Folder:** the app library (`presentations/`), any folder you registered before, or **Other folder…** — type a full path or press **Choose…** (a native folder window opens on your machine). The folder is created if needed, remembered in `.context-maps.json` (not versioned) and listed in the menu under its own heading, so you can **open and edit presentations in place**, e.g. inside another project's repository. **Add folder…** in the menu registers a folder that already has presentations; the **×** beside a folder only removes it from the list (no file is deleted).
+- **After saving:** *Open the new presentation* (default for *Save as*) or *Keep working on this one* (default for *Save a copy*). The file and its images are copied together; names stay unique (a repeated name gets " (2)").
+- In extra folders, image paths are stored **relative to the file** (`<name>/assets/…`), so the whole folder is portable.
 
 **Autosave** is on (status next to the name: *Saved / Saving… / Save error*). The menu in the top-left
 corner switches, creates or deletes presentations.
@@ -208,14 +213,16 @@ Listens on `127.0.0.1` only. Every route answers JSON with `Cache-Control: no-st
 | Method and route | Purpose |
 | --- | --- |
 | `GET /api/presentations` | List (`id`, `title`, `updatedAt`) |
-| `POST /api/presentations` | Create (`{title, id?}`) |
+| `POST /api/presentations` | Create (`{title, id?, dir?}`; `dir` = any absolute folder) |
 | `GET /api/presentations/:id` | Read |
 | `PUT /api/presentations/:id` | Save `{title, roots}` (the old `{tree}` is still accepted; validates validates unique ids, depth ≤ 40, ≤ 50 media/links per node) |
-| `POST /api/presentations/:id/copy` | Copy a presentation under a new name (`{title}`), including its images |
+| `POST /api/presentations/:id/copy` | Copy a presentation under a new name (`{title, dir?}`), including its images, into the library or another folder |
+| `GET/POST /api/libraries`, `DELETE /api/libraries/:key` | List, add or forget extra folders |
+| `POST /api/pick-folder` | Opens the system folder picker and returns the chosen path |
 | `DELETE /api/presentations/:id` | Remove the file and its images |
 | `POST /api/presentations/:id/assets?name=…` | Upload an image (png, jpg, webp, gif, svg; up to 15 MB) |
 
-Basic safety: no access to files outside the app folder / `presentations/`, only http/https links, and
+Basic safety: every request that changes something must carry the `x-context-maps: 1` header (other web pages cannot send it to your local server), the `Host` must be local, no access to files outside the app folder / `presentations/`, only http/https links, and
 Mermaid runs with `securityLevel: strict`.
 
 ---

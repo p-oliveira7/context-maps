@@ -110,7 +110,7 @@ node skills/context-maps/scripts/rm.mjs <comando> [opções]
 | `serve` | — | Inicia o servidor se não estiver ativo |
 | `status` | — | JSON com as apresentações existentes |
 | `validate` | `--outline f.md` | Estatísticas e avisos; **sai com código 3** se houver avisos |
-| `create` | `--outline f.md` `[--id slug]` `[--title "…"]` `[--replace]` | Cria/sobrescreve, envia mídias, imprime relatório JSON |
+| `create` | `--outline f.md` `[--id slug]` `[--dir pasta]` `[--title "…"]` `[--replace]` | Cria/sobrescreve, envia mídias, imprime relatório JSON |
 | `upload` | `<id> <arquivo>` | Envia uma imagem e imprime o `src` |
 
 Códigos de saída: `0` ok · `1` erro · `2` servidor indisponível · `3` avisos na validação · `64` uso incorreto.

@@ -23,7 +23,7 @@ CLI: `node skills/context-maps/scripts/rm.mjs <command>` (from the app root).
 | `serve` | Starts the server if it is not running |
 | `status` | Lists the existing presentations |
 | `validate --outline f.md` | Checks the outline and prints warnings (exits with 3 if any) |
-| `create --outline f.md [--id slug] [--replace]` | Creates (or overwrites) the presentation, uploads images/diagrams and prints the URL |
+| `create --outline f.md [--id slug] [--dir folder] [--replace]` | Creates (or overwrites) the presentation, uploads images/diagrams and prints the URL |
 | `upload <id> <file>` | Uploads an image and prints its `src` |
 
 ## Procedure
@@ -63,6 +63,7 @@ CLI: `node skills/context-maps/scripts/rm.mjs <command>` (from the app root).
 - Images: png, jpg, webp, gif, svg.
 
 ## Rules
+- `--dir <folder>` saves the presentation in another folder of the machine (e.g. the project's `docs/maps`); the folder is registered automatically and images are stored relative to the file.
 - Never delete presentations or use `--replace` unless the user asks.
 - Do not copy protected content; summarise in your own words.
 - If the server is down and `serve` fails, report the manual command (`node server.mjs`) instead of writing files directly.
