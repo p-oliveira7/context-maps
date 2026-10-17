@@ -24,6 +24,7 @@ CLI: `node skills/context-maps/scripts/rm.mjs <comando>` (a partir da raiz do ap
 | `status` | Lista as apresentações existentes |
 | `validate --outline f.md` | Confere o outline e mostra avisos (sai com 3 se houver) |
 | `create --outline f.md [--id slug] [--dir pasta] [--replace]` | Cria (ou sobrescreve) a apresentação, envia imagens/diagramas e imprime a URL |
+| `update --id slug --outline f.md [--prune] [--dry-run]` | Mescla um outline atualizado numa apresentação existente: casa as ideias pelo título, mantém ids, cores, posições e tudo que foi editado à mão, acrescenta as novas e segue a ordem do outline. Ideias que sumiram do outline ficam no fim (`--prune` as remove). Prefira ao `--replace` quando o sistema mudou; `--dry-run` só relata |
 | `upload <id> <arquivo>` | Envia uma imagem e imprime o `src` |
 
 ## Procedimento

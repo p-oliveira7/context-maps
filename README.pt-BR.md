@@ -240,7 +240,7 @@ diagramas do `docs/`"*, *"transforme esta especificação em um mapa para a reun
 | `[subtitle:texto]` | Texto de apoio exibido ao passar o mouse |
 | `{color=#hex}` · `{links=#hex}` | Cor do card · cor das linhas que saem do card |
 
-Opções do CLI: `--id`, `--title`, `--replace`, `--dir <pasta>` (cria em outra pasta). As mensagens seguem
+Opções do CLI: `--id`, `--title`, `--replace`, `--dir <pasta>` (cria em outra pasta). Para atualizar um mapa depois que o sistema mudou, rode `update --id <slug> --outline mapa.md`: ele casa as ideias pelo título e mantém ids, cores, posições e edições manuais (`--dry-run` mostra o que mudaria, `--prune` remove ideias que saíram do outline). As mensagens seguem
 `RM_LANG=en|pt`; `MMDC` / `MMDC_BROWSER` apontam para o mermaid-cli e seu navegador.
 
 ### Compatibilidade com agentes
@@ -323,7 +323,7 @@ node tests/edit.mjs                     # ou rode uma suíte só
 | Suíte | Cobre |
 | --- | --- |
 | `edit` EDIT-01..29 | edição, diagramas, mídias, links, pastas, idioma, exportação, importação |
-| `skill` SKILL-01..07 | CLI da skill |
+| `skill` SKILL-01..08 | CLI da skill |
 | `browser` MAP-01..11 | navegação, zoom, modo texto, mobile, tela cheia |
 | `cards` CARD-01..06 | títulos, raiz, teclado, imagens |
 | `motion` MOT-01..05 | animações e movimento reduzido |

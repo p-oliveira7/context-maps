@@ -24,6 +24,7 @@ CLI: `node skills/context-maps/scripts/rm.mjs <command>` (from the app root).
 | `status` | Lists the existing presentations |
 | `validate --outline f.md` | Checks the outline and prints warnings (exits with 3 if any) |
 | `create --outline f.md [--id slug] [--dir folder] [--replace]` | Creates (or overwrites) the presentation, uploads images/diagrams and prints the URL |
+| `update --id slug --outline f.md [--prune] [--dry-run]` | Merges an updated outline into an existing presentation: matches ideas by title, keeps ids, colours, positions and anything edited by hand, adds new ideas, follows the outline order. Ideas missing from the outline are kept at the end (`--prune` removes them). Prefer it over `--replace` when the system changed; `--dry-run` only reports |
 | `upload <id> <file>` | Uploads an image and prints its `src` |
 
 ## Procedure

@@ -81,11 +81,44 @@ try{
  const extDoc=JSON.parse(await readFile(path.join(extra,'externo.json'),'utf8'));
  assert.equal(extDoc.id,'externo');assert.ok(JSON.stringify(extDoc).includes('externo/assets/'));assert.equal(JSON.stringify(extDoc).includes('presentations/'),false);
  assert.ok((await readFile(path.join(data,'..','nada-aqui.txt'),'utf8').catch(()=>'ok'))==='ok');
+ // update: mescla um outline novo sem perder o que foi feito à mão
+ {
+  await writeFile(path.join(src,'v1.md'),`# Plano\n- Alfa [subtitle:Primeira]\n  - Alfa 1\n- Beta\n- Gama\n`);
+  const made=JSON.parse(run(['create','--outline','v1.md','--id','plano'],{MMDC:shim}).stdout);assert.equal(made.id,'plano');
+  const before=await (await fetch(`${base}/api/presentations/plano`)).json();
+  const alfa=before.roots[0].children[0],beta=before.roots[0].children[1];
+  // edição manual feita no app: cor numa ideia, posição da raiz, imagem em Beta
+  alfa.color='#6fa3d6';before.roots[0].x=500;before.roots[0].y=300;
+  const up=await (await fetch(`${base}/api/presentations/plano/assets?name=manual.png`,{method:'POST',headers:{'x-context-maps':'1'},body:png})).json();
+  beta.images=[{src:up.src,alt:'Manual'}];
+  assert.equal((await fetch(`${base}/api/presentations/plano`,{method:'PUT',headers:{'content-type':'application/json','x-context-maps':'1'},body:JSON.stringify(before)})).status,200);
+  await writeFile(path.join(src,'v2.md'),`# Plano\n- Beta\n- Alfa [subtitle:Primeira revisada] [link:https://example.com/a|Doc]\n  - Alfa 1\n  - Alfa 2\n- Delta [img:tela.png|Tela]\n`);
+  const dry=JSON.parse(run(['update','--id','plano','--outline','v2.md','--dry-run'],{MMDC:shim}).stdout);
+  assert.equal(dry.dryRun,true);assert.deepEqual(dry.added.sort(),['Alfa 2','Delta']);
+  assert.equal((await (await fetch(`${base}/api/presentations/plano`)).json()).roots[0].children.length,3); // dry-run não grava
+  const rep=JSON.parse(run(['update','--id','plano','--outline','v2.md'],{MMDC:shim}).stdout);
+  assert.deepEqual(rep.added.sort(),['Alfa 2','Delta']);assert.ok(rep.updated.includes('Alfa'));assert.deepEqual(rep.kept,['Gama']);assert.equal(rep.images,1);
+  const after=await (await fetch(`${base}/api/presentations/plano`)).json(),kids=after.roots[0].children;
+  assert.deepEqual(kids.map(k=>k.title),['Beta','Alfa','Delta','Gama']); // ordem do outline; o que sobrou fica no fim
+  const a2=kids[1];
+  assert.equal(a2.id,alfa.id);assert.equal(a2.color,'#6fa3d6'); // id e cor manual preservados
+  assert.equal(a2.subtitle,'Primeira revisada');assert.equal(a2.links[0].url,'https://example.com/a');assert.equal(a2.children.length,2);
+  assert.equal(kids[0].images[0].alt,'Manual'); // imagem manual preservada
+  assert.equal(after.roots[0].x,500);assert.equal(after.roots[0].y,300); // posição da raiz preservada
+  assert.equal(kids[2].images[0].alt,'Tela');
+  const again=JSON.parse(run(['update','--id','plano','--outline','v2.md'],{MMDC:shim}).stdout); // idempotente
+  assert.deepEqual([again.added,again.updated,again.images],[[],[],0]);
+  const pruned=JSON.parse(run(['update','--id','plano','--outline','v2.md','--prune'],{MMDC:shim}).stdout);
+  assert.deepEqual(pruned.removed,['Gama']);
+  assert.equal((await (await fetch(`${base}/api/presentations/plano`)).json()).roots[0].children.length,3);
+  const missing=run(['update','--id','nao-existe','--outline','v2.md']);assert.notEqual(missing.status,0);assert.match(missing.stderr,/não encontrada/);
+  assert.notEqual(run(['update','--outline','v2.md']).status,0);
+ }
  // --version imprime a versão do pacote
  {const v=run(['--version']);assert.equal(v.status,0);assert.match(v.stdout,/^context-maps \d+\.\d+\.\d+\s*$/);assert.equal(run(['version']).stdout,v.stdout);}
  // idioma das mensagens (RM_LANG)
  const badEn=run(['validate','--outline','bad.md'],{RM_LANG:'en'});assert.match(badEn.stdout,/characters/);
  const againEn=run(['create','--outline','mapa.md','--id','fluxo-login'],{RM_LANG:'en',MMDC:shim});assert.match(againEn.stderr,/already exists/);
  const downEn=run(['status'],{RM_URL:'http://127.0.0.1:1',RM_LANG:'en'});assert.match(downEn.stderr,/Server unavailable/);
- console.log('PASS SKILL-01..07');
+ console.log('PASS SKILL-01..08');
 }finally{server.kill();await rm(work,{recursive:true,force:true});await rm(configDir,{recursive:true,force:true});}

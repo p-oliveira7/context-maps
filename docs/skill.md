@@ -112,6 +112,7 @@ node skills/context-maps/scripts/rm.mjs <command> [options]
 | `status` | — | JSON with the existing presentations |
 | `validate` | `--outline f.md` | Stats and warnings; **exits with code 3** if there are warnings |
 | `create` | `--outline f.md` `[--id slug]` `[--dir folder]` `[--title "…"]` `[--replace]` | Creates/overwrites, uploads media, prints a JSON report |
+| `update` | `--id slug` `--outline f.md` `[--prune]` `[--dry-run]` `[--title "…"]` | Merges the outline into an existing presentation (see below); prints `added`, `updated`, `kept`, `removed` |
 | `upload` | `<id> <file>` | Uploads an image and prints its `src` |
 
 Exit codes: `0` ok · `1` error · `2` server unavailable · `3` validation warnings · `64` wrong usage.
@@ -129,6 +130,15 @@ Sample `create` report:
   "skipped": []
 }
 ```
+
+### Updating an existing map (`update`)
+
+When the system changes, edit the outline and run `update` instead of `create --replace`. It keeps what people did in the app:
+
+- **Matching:** ideas are matched by title (ignoring case and extra spaces), root to root and child to child. Matched ideas keep their `id`, colours, root position and manually added images or links.
+- **Outline wins for what it states:** a `[subtitle:…]`, `{color=…}` or `{links=…}` in the outline overrides the saved value; new `[img:…]`, `[mermaid:…]` and `[link:…]` markers are added only when the idea does not have them yet (images by alt text, diagrams by source, links by URL), so running it twice changes nothing.
+- **Order and new ideas:** children follow the outline order; ideas that only exist in the map stay at the end (reported as `kept`), or are removed with `--prune` (`removed`). A **renamed** idea appears as new, and the old one is `kept` until you use `--prune`.
+- **Safety net:** `--dry-run` prints the report without changing anything. The map autosaves in the app, so reopen the page afterwards.
 
 ## 7. Outline format
 
@@ -221,7 +231,7 @@ A real example generated this way ships in `presentations/` ("visão do sistema"
 ## 12. Limitations
 
 - **Tree** structure; no cross-links between ideas.
-- No drag reordering; to change order, edit the outline and use `--replace`.
+- To change the order of ideas, edit the outline and run `update` (it follows the outline order and keeps your manual edits).
 - Remote-URL media is not downloaded.
 - CLI Mermaid rendering depends on the external `mmdc` (the app editor already bundles it).
 - Outside Claude, Codex and Cursor were prepared but **not tested**.

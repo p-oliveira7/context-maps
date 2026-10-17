@@ -5,4 +5,4 @@ alwaysApply: false
 
 Siga o procedimento em `skills/context-maps/SKILL.md` e o formato em `skills/context-maps/schema.md`
 (resumo em `AGENTS.md`). Use sempre o CLI `skills/context-maps/scripts/rm.mjs`
-(`serve`, `validate`, `create`); não grave arquivos em `presentations/` diretamente.
+(`serve`, `validate`, `create`, `update`); não grave arquivos em `presentations/` diretamente.

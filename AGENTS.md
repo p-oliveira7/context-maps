@@ -17,7 +17,9 @@ Summary:
    `[img:file|alt]`, `[mermaid:file.mmd]`, `[link:https://…|label]`, `[subtitle:text]`, `{color=#hex}`).
 4. `node skills/context-maps/scripts/rm.mjs validate --outline file.md`
 5. `node skills/context-maps/scripts/rm.mjs create --outline file.md --id <slug>`
-   (use `--replace` only when the user asks to overwrite).
+   (use `--replace` only when the user asks to overwrite). To refresh an existing map after changes use
+   `node skills/context-maps/scripts/rm.mjs update --id <slug> --outline file.md [--dry-run] [--prune]`
+   (keeps ids, colours, positions and manual edits).
 6. Report the URL (`…/?p=<id>`), the node count and what was skipped.
 
 Mermaid diagrams need `mmdc` (mermaid-cli) on PATH or in `MMDC`; use `MMDC_BROWSER` to point to an

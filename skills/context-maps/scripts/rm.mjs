@@ -46,7 +46,9 @@ const MSG={
  usageValidate:{pt:()=>'Uso: validate --outline arquivo.md',en:()=>'Usage: validate --outline file.md'},
  usageCreate:{pt:()=>'Uso: create --outline arquivo.md [--id slug] [--title "..."]',en:()=>'Usage: create --outline file.md [--id slug] [--title "..."]'},
  usageUpload:{pt:()=>'Uso: upload <id> <arquivo>',en:()=>'Usage: upload <id> <file>'},
- usageCommands:{pt:()=>'Comandos: version | status | serve | validate --outline f.md | create --outline f.md [--id slug] [--dir pasta] [--replace] | upload <id> <arquivo>',en:()=>'Commands: version | status | serve | validate --outline f.md | create --outline f.md [--id slug] [--dir folder] [--replace] | upload <id> <file>'},
+ usageUpdate:{pt:()=>'Uso: update --id slug --outline arquivo.md [--prune] [--dry-run]',en:()=>'Usage: update --id slug --outline file.md [--prune] [--dry-run]'},
+ noPresentation:{pt:id=>`Apresentação "${id}" não encontrada. Use create para criá-la.`,en:id=>`Presentation "${id}" not found. Use create to make it.`},
+ usageCommands:{pt:()=>'Comandos: version | status | serve | validate --outline f.md | create --outline f.md [--id slug] [--dir pasta] [--replace] | update --id slug --outline f.md [--prune] [--dry-run] | upload <id> <arquivo>',en:()=>'Commands: version | status | serve | validate --outline f.md | create --outline f.md [--id slug] [--dir folder] [--replace] | update --id slug --outline f.md [--prune] [--dry-run] | upload <id> <file>'},
  needTitle:{pt:()=>'Defina um título (# Título no outline ou --title)',en:()=>'Set a title ("# Title" in the outline or --title)'},
  idExists:{pt:id=>`Já existe a apresentação "${id}". Use --replace para sobrescrever ou escolha outro --id.`,en:id=>`Presentation "${id}" already exists. Use --replace to overwrite or choose another --id.`}
 };
@@ -152,7 +154,7 @@ async function renderMermaid(source){
  if(run.status!==0||!existsSync(output)){await removeFile(dir,{recursive:true,force:true});return {error:(run.stderr||run.stdout||'falha').slice(0,200)};}
  return {file:output,dir};
 }
-async function attach(id,node,baseDir,report){
+async function attachOwn(id,node,baseDir,report){ // mídia, links e subtítulo do próprio nó (sem descer nos filhos)
  for(const item of node._media||[]){
   if(item.kind==='subtitle'){
    const text=item.raw.trim();
@@ -180,11 +182,65 @@ async function attach(id,node,baseDir,report){
    else{(node.images||=[]).push({src:await uploadFile(id,out.file),alt:item.alt||t('diagramAlt',node.title),kind:'diagram',source});await removeFile(out.dir,{recursive:true,force:true});report.diagrams++;}
   }
  }
+ }
+async function attach(id,node,baseDir,report){
+ await attachOwn(id,node,baseDir,report);
  for(const c of node.children)await attach(id,c,baseDir,report);
 }
 function clean(node){
  const {_media,_meta,...rest}=node;
  return {...rest,children:node.children.map(clean)};
+}
+
+/* ---------- update: mescla um outline novo numa apresentação existente, sem perder o que foi feito à mão ---------- */
+const norm=s=>String(s||'').replace(/\s+/g,' ').trim().toLowerCase();
+async function mergeInto(id,existing,fresh,baseDir,report,opts){
+ // existing: nó salvo (ou null); fresh: nó do outline. Devolve o nó resultante.
+ if(!existing){
+  report.added.push(fresh.title||'(sem título)');
+  if(!opts.dry)await attach(id,fresh,baseDir,report);
+  return clean(fresh);
+ }
+ const out={...existing};let changed=false;
+ if(fresh.color&&fresh.color!==existing.color){out.color=fresh.color;changed=true;}
+ if(fresh.linksColor&&fresh.linksColor!==existing.linksColor){out.linksColor=fresh.linksColor;changed=true;}
+ // mídia do outline: só entra o que ainda não existe no nó (imagem pelo alt, diagrama pelo código, link pela URL)
+ const have=existing.images||[],haveLinks=existing.links||[],pending=[];
+ for(const item of fresh._media||[]){
+  if(item.kind==='subtitle'){pending.push({...item,kind:'subtitle-set'});continue;}
+  if(item.kind==='link'){if(haveLinks.some(l=>l.url===item.file))continue;pending.push(item);continue;}
+  if(item.kind==='image'){if(have.some(m=>m.kind!=='diagram'&&m.alt===(item.alt||fresh.title)))continue;pending.push(item);continue;}
+  const file=path.resolve(baseDir,item.file);
+  const source=existsSync(file)?await readFile(file,'utf8'):null;
+  if(source!==null&&have.some(m=>m.kind==='diagram'&&m.source===source))continue;
+  pending.push(item);
+ }
+ const subtitleItem=pending.find(i=>i.kind==='subtitle-set');
+ if(subtitleItem){if(subtitleItem.raw.trim()!==(existing.subtitle||'')){out.subtitle=subtitleItem.raw.trim();changed=true;}}
+ const toAttach=pending.filter(i=>i.kind!=='subtitle-set');
+ if(toAttach.length){
+  changed=true;
+  if(!opts.dry){
+   const temp={title:fresh.title,_media:toAttach,children:[]};
+   await attachOwn(id,temp,baseDir,report);
+   if(temp.images)out.images=[...(existing.images||[]),...temp.images];
+   if(temp.links)out.links=[...(existing.links||[]),...temp.links];
+  }
+ }
+ if(changed)report.updated.push(fresh.title||existing.title||'(sem título)');
+ // filhos: a ordem do outline manda; o que só existe no mapa fica no fim (ou sai com --prune)
+ const used=new Set(),children=[];
+ for(const kid of fresh.children){
+  const match=(existing.children||[]).find(c=>!used.has(c)&&norm(c.title)===norm(kid.title));
+  if(match)used.add(match);
+  children.push(await mergeInto(id,match||null,kid,baseDir,report,opts));
+ }
+ for(const c of existing.children||[])if(!used.has(c)){
+  if(opts.prune)report.removed.push(c.title||'(sem título)');
+  else{children.push(c);report.kept.push(c.title||'(sem título)');}
+ }
+ out.children=children;
+ return out;
 }
 
 /* ---------- Comandos ---------- */
@@ -227,6 +283,31 @@ const commands={
   for(const r of roots)await attach(id,r,path.dirname(path.resolve(file)),report);
   await api(`/api/presentations/${id}`,{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({title:docTitle,roots:roots.map(clean)})});
   console.log(JSON.stringify({id,url:`${BASE}/?p=${id}`,file:`presentations/${id}.json`,roots:roots.length,nodes:l.count,depth:l.depth,images:report.images,diagrams:report.diagrams,links:report.links||0,warnings:[...warnings,...l.warnings],skipped:report.skipped},null,2));
+ },
+ async update(args){
+  const file=args.outline||args._[0],id=args.id&&args.id!==true?args.id:null;
+  if(!file||!id)die(t('usageUpdate'));
+  const {root,roots,warnings}=parseOutline(await readFile(file,'utf8'));
+  const list=await api('/api/presentations');
+  if(!list.some(p=>p.id===id))die(t('noPresentation',id));
+  const doc=await api(`/api/presentations/${id}`);
+  const existingRoots=doc.roots||[doc.tree],used=new Set(),report={images:0,diagrams:0,skipped:[],added:[],updated:[],kept:[],removed:[]};
+  const opts={dry:!!args['dry-run'],prune:!!args.prune},baseDir=path.dirname(path.resolve(file));
+  const merged=[];
+  for(const fresh of roots){
+   const match=existingRoots.find(r=>!used.has(r)&&norm(r.title)===norm(fresh.title));
+   if(match)used.add(match);
+   const node=await mergeInto(id,match||null,fresh,baseDir,report,opts);
+   if(!match&&existingRoots.some(r=>r.id===node.id))node.id=nodeId(); // id de raiz nova não pode colidir
+   merged.push(node);
+  }
+  for(const r of existingRoots)if(!used.has(r)){ // raízes que o outline não menciona: ficam (com posição) ou saem com --prune
+   if(opts.prune)report.removed.push(r.title||'(sem título)');else{merged.push(r);report.kept.push(r.title||'(sem título)');}
+  }
+  const title=args.title&&args.title!==true?args.title:doc.title;
+  const l=lintAll(roots);
+  if(!opts.dry)await api(`/api/presentations/${id}`,{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({title,roots:merged})});
+  console.log(JSON.stringify({id,url:`${BASE}/?p=${id}`,dryRun:opts.dry,added:report.added,updated:report.updated,kept:report.kept,removed:report.removed,images:report.images,diagrams:report.diagrams,warnings:[...warnings,...l.warnings],skipped:report.skipped},null,2));
  },
  async upload(args){
   const [id,file]=args._;if(!id||!file)die(t('usageUpload'));

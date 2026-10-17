@@ -240,7 +240,7 @@ Example requests: *"map this repository's architecture"*, *"map the payment flow
 | `[subtitle:text]` | Supporting text shown on hover |
 | `{color=#hex}` · `{links=#hex}` | Card colour · colour of the lines leaving the card |
 
-CLI options: `--id`, `--title`, `--replace`, `--dir <folder>` (create in another folder). Messages follow
+CLI options: `--id`, `--title`, `--replace`, `--dir <folder>` (create in another folder). To refresh a map after the system changed, run `update --id <slug> --outline map.md`: it matches ideas by title and keeps ids, colours, positions and manual edits (`--dry-run` previews, `--prune` removes ideas missing from the outline). Messages follow
 `RM_LANG=en|pt`; `MMDC` / `MMDC_BROWSER` point to mermaid-cli and its browser.
 
 ### Agent compatibility
@@ -323,7 +323,7 @@ node tests/edit.mjs                     # or run a single suite
 | Suite | Covers |
 | --- | --- |
 | `edit` EDIT-01..29 | editing, diagrams, media, links, folders, language, export, import |
-| `skill` SKILL-01..07 | skill CLI |
+| `skill` SKILL-01..08 | skill CLI |
 | `browser` MAP-01..11 | navigation, zoom, text mode, mobile, full screen |
 | `cards` CARD-01..06 | titles, root, keyboard, images |
 | `motion` MOT-01..05 | animations and reduced motion |

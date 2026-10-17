@@ -111,6 +111,7 @@ node skills/context-maps/scripts/rm.mjs <comando> [opções]
 | `status` | — | JSON com as apresentações existentes |
 | `validate` | `--outline f.md` | Estatísticas e avisos; **sai com código 3** se houver avisos |
 | `create` | `--outline f.md` `[--id slug]` `[--dir pasta]` `[--title "…"]` `[--replace]` | Cria/sobrescreve, envia mídias, imprime relatório JSON |
+| `update` | `--id slug` `--outline f.md` `[--prune]` `[--dry-run]` `[--title "…"]` | Mescla o outline numa apresentação existente (veja abaixo); imprime `added`, `updated`, `kept`, `removed` |
 | `upload` | `<id> <arquivo>` | Envia uma imagem e imprime o `src` |
 
 Códigos de saída: `0` ok · `1` erro · `2` servidor indisponível · `3` avisos na validação · `64` uso incorreto.
@@ -128,6 +129,15 @@ Exemplo de relatório do `create`:
   "skipped": []
 }
 ```
+
+### Atualizando um mapa existente (`update`)
+
+Quando o sistema muda, edite o outline e rode `update` em vez de `create --replace`. Ele mantém o que as pessoas fizeram no app:
+
+- **Casamento:** as ideias são casadas pelo título (sem diferenciar maiúsculas e espaços extras), raiz com raiz e filho com filho. As ideias casadas mantêm `id`, cores, posição da raiz e imagens ou links adicionados à mão.
+- **O outline vale para o que ele declara:** `[subtitle:…]`, `{color=…}` ou `{links=…}` no outline substituem o valor salvo; marcadores novos `[img:…]`, `[mermaid:…]` e `[link:…]` só entram se a ideia ainda não os tiver (imagens pelo texto alternativo, diagramas pelo código, links pela URL), então rodar duas vezes não muda nada.
+- **Ordem e ideias novas:** os filhos seguem a ordem do outline; ideias que só existem no mapa ficam no fim (relatadas em `kept`) ou saem com `--prune` (`removed`). Uma ideia **renomeada** aparece como nova, e a antiga fica em `kept` até você usar `--prune`.
+- **Rede de segurança:** `--dry-run` imprime o relatório sem alterar nada. O mapa salva automaticamente no app, então recarregue a página depois.
 
 ## 7. Formato do outline
 
@@ -218,7 +228,7 @@ Um exemplo real gerado assim acompanha o repositório em `presentations/` ("vis�
 ## 12. Limitações
 
 - Estrutura em **árvore**; sem ligações cruzadas entre ideias.
-- Sem reordenação por arrastar; para trocar a ordem, edite o outline e use `--replace`.
+- Para trocar a ordem das ideias, edite o outline e rode `update` (ele segue a ordem do outline e mantém suas edições manuais).
 - Mídias por URL remota não são baixadas.
 - Renderização de Mermaid pelo CLI depende do `mmdc` externo (no editor do app já é embutido).
 - Fora do app, Codex e Cursor foram preparados, mas **não testados**.
