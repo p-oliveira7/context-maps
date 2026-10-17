@@ -20,7 +20,19 @@ const MAX_JSON=5*1024*1024, MAX_IMAGE=15*1024*1024;
 
 const slug=text=>text.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,50)||'apresentacao';
 const send=(res,status,body,type='application/json; charset=utf-8')=>{res.writeHead(status,{'content-type':type,'cache-control':'no-store'});res.end(typeof body==='string'||Buffer.isBuffer(body)?body:JSON.stringify(body));};
-const fail=(res,status,message)=>send(res,status,{error:message});
+// Mensagens de erro: o texto em português é a chave; com o cabeçalho x-lang (ou Accept-Language) em inglês, vai traduzido.
+const EN={
+ 'Corpo grande demais':'Request body too large','Informe o caminho completo da pasta':'Enter the full folder path',
+ 'Escolha uma pasta, não a raiz do disco':'Choose a folder, not the drive root','Sem permissão para gravar nessa pasta':'No permission to write to that folder',
+ 'Acesso negado':'Access denied','Método não permitido':'Method not allowed','Pasta não registrada':'Folder not registered',
+ 'Seletor de pasta indisponível neste sistema; digite o caminho':'Folder picker unavailable on this system; type the path',
+ 'Rota inexistente':'Route not found','Identificador inválido ou já existente':'Invalid or already existing identifier',
+ 'Identificador inválido':'Invalid identifier','Apresentação inexistente':'Presentation not found',
+ 'Formato de imagem não suportado':'Unsupported image format','Informe um nome para a cópia':'Enter a name for the copy',
+ 'Estrutura inválida':'Invalid structure','Não encontrado':'Not found','Erro interno':'Internal error'
+};
+const wantsEnglish=req=>{const l=String(req?.headers?.['x-lang']||req?.headers?.['accept-language']||'').toLowerCase();return !(l.startsWith('pt'));};
+const fail=(res,status,message)=>send(res,status,{error:res.req&&wantsEnglish(res.req)&&EN[message]?EN[message]:message});
 async function readBody(req,limit){const chunks=[];let size=0;for await(const c of req){size+=c.length;if(size>limit)throw Object.assign(new Error('Corpo grande demais'),{status:413});chunks.push(c);}return Buffer.concat(chunks);}
 
 /* ---------- Bibliotecas (pastas com apresentações) ---------- */
