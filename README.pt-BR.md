@@ -83,6 +83,10 @@ Abra <http://127.0.0.1:4173>. Na primeira execução o servidor cria a apresenta
 
 ---
 
+## Apresentação de exemplo
+
+`presentations/cidades-para-pessoas.json` acompanha o repositório e mostra **todos os recursos** num só lugar: um mapa da cidade, uma raiz **"Guia de recursos"** com um ramo por recurso (subtítulo no hover, uma ou várias imagens, diagramas Mermaid, imagem + diagrama juntos, um ou vários links, cards sem título, cor das ligações para filhos diretos ou para a ramificação toda) e uma terceira **raiz independente** com posição livre. Abra, expanda tudo e experimente o modo *Editar*.
+
 ## Usando o app
 
 ### Exibição

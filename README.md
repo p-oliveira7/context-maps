@@ -83,6 +83,10 @@ Open <http://127.0.0.1:4173>. On first run the server creates the demo presentat
 
 ---
 
+## Example presentation
+
+`presentations/cidades-para-pessoas.json` ships with the repository and shows **every feature** in one place: a city map, a **"Guia de recursos"** root with one branch per feature (hover subtitles, single/multiple images, Mermaid diagrams, image + diagram together, one or several links, title-less cards, line colours for direct children or a whole branch) and a third, independent **root card** with a free position. Open it, expand everything and try *Edit* mode.
+
 ## Using the app
 
 ### View mode
