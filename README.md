@@ -28,6 +28,11 @@ publishes the finished map with images, diagrams and links.
 > presentation is a JSON file you version with Git.
 
 <p align="center">
+  <img src="docs/images/demo.gif" alt="Demo: an agent asks the skill for a map, the skill validates and creates it, and the map is explored, searched and edited in the app" width="900"><br>
+  <sub>From a request to a map: the skill builds it (real commands), then you explore, search and edit it.</sub>
+</p>
+
+<p align="center">
   <img src="docs/images/01-overview.png" alt="A presentation with three root cards, open on the overview" width="920">
 </p>
 
@@ -340,14 +345,17 @@ node tests/edit.mjs                     # or run a single suite
 for every pull request ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)). To run `browser`, `cards` or
 `motion` on their own, point `PREVIEW_URL` (default `http://127.0.0.1:4173`) at a server with an empty or temporary `PRESENTATIONS_DIR`.
 
-### Regenerating the screenshots
+### Regenerating the screenshots and the demo
 
 The images in `docs/images/` come from the example presentation and are reproducible. The script copies
 `presentations/` to a temporary folder, so your files are not touched:
 
 ```bash
-PLAYWRIGHT_MODULE=file:///path/to/playwright-core/index.mjs node docs/screenshots.mjs
+PLAYWRIGHT_MODULE=file:///path/to/playwright-core/index.mjs node docs/screenshots.mjs   # the PNGs
+PLAYWRIGHT_MODULE=file:///path/to/playwright-core/index.mjs node docs/demo.mjs          # demo.gif (real skill commands on a temporary server)
 ```
+
+`docs/demo.mjs` records the frames with Playwright and encodes the GIF with `docs/gif.mjs`, a small dependency-free encoder.
 
 ## Known limitations
 

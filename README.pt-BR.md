@@ -28,6 +28,11 @@ decisões — e publica o mapa pronto, com imagens, diagramas e links.
 > apresentação é um arquivo JSON que você versiona com Git.
 
 <p align="center">
+  <img src="docs/images/demo.gif" alt="Demo: um agente pede um mapa à skill, a skill valida e cria, e o mapa é explorado, buscado e editado no app" width="900"><br>
+  <sub>Do pedido ao mapa: a skill monta (comandos reais) e depois você explora, busca e edita.</sub>
+</p>
+
+<p align="center">
   <img src="docs/images/01-overview.png" alt="Uma apresentação com três cards raiz, aberta na visão geral" width="920">
 </p>
 
@@ -340,14 +345,17 @@ node tests/edit.mjs                     # ou rode uma suíte só
 macOS e Windows a cada pull request ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)). Para rodar `browser`,
 `cards` ou `motion` isoladamente, aponte `PREVIEW_URL` (padrão `http://127.0.0.1:4173`) para um servidor com `PRESENTATIONS_DIR` vazio ou temporário.
 
-### Regenerando as imagens
+### Regenerando as imagens e a demo
 
 As imagens em `docs/images/` vêm da apresentação de exemplo e são reproduzíveis. O script copia
 `presentations/` para uma pasta temporária, então seus arquivos não são tocados:
 
 ```bash
-PLAYWRIGHT_MODULE=file:///caminho/para/playwright-core/index.mjs node docs/screenshots.mjs
+PLAYWRIGHT_MODULE=file:///caminho/para/playwright-core/index.mjs node docs/screenshots.mjs   # os PNGs
+PLAYWRIGHT_MODULE=file:///caminho/para/playwright-core/index.mjs node docs/demo.mjs          # demo.gif (comandos reais da skill num servidor temporário)
 ```
+
+`docs/demo.mjs` grava os quadros com o Playwright e codifica o GIF com `docs/gif.mjs`, um codificador pequeno e sem dependências.
 
 ## Limitações conhecidas
 
