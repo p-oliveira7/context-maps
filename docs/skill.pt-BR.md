@@ -142,7 +142,7 @@ Exemplo de relatório do `create`:
 
 | Elemento | Regra |
 | --- | --- |
-| `# Título` | Primeira linha; vira a raiz e o nome da apresentação |
+| `# Título` | Primeira linha: primeiro card raiz e nome da apresentação; outras linhas `# Título` adicionam cards raiz independentes |
 | `- item` | Uma ideia; **indentação** (2 espaços ou tab) define a hierarquia |
 | `{color=#rrggbb}` | Cor do ramo; só tem efeito no primeiro nível |
 | `{links=#rrggbb}` | Cor das linhas daquela ideia até as filhas |

@@ -38,6 +38,10 @@ try{
   '    - [subtitle:Só texto secundário]',
   '- Anexo ausente [img:nao-existe.png]',
   '- Documentação [link:https://example.com/docs|Docs] [link:https://example.org] [link:ftp://x.test/arquivo]',
+  '',
+  '# Segundo fluxo {links=#778899}',
+  '- Passo A',
+  '  - Passo A1',
   ''].join('\n'));
  const ok=run(['create','--outline','mapa.md','--id','fluxo-login'],{MMDC:shim});
  assert.equal(ok.status,0,ok.stderr+ok.stdout);
@@ -45,7 +49,8 @@ try{
  assert.equal(report.id,'fluxo-login');assert.equal(report.url,`${base}/?p=fluxo-login`);
  assert.equal(report.images,3);assert.equal(report.diagrams,3);assert.deepEqual(report.warnings,[]);assert.equal(report.skipped.length,2);assert.equal(report.links,2);
  const doc=JSON.parse(await readFile(path.join(data,'fluxo-login.json'),'utf8'));
- const t=doc.tree;
+ const t=doc.roots?doc.roots[0]:doc.tree;
+ assert.equal(doc.title,'Fluxo de login');assert.equal(doc.roots.length,2);assert.equal(doc.roots[1].title,'Segundo fluxo');assert.equal(doc.roots[1].linksColor,'#778899');assert.equal(doc.roots[1].children[0].children[0].title,'Passo A1');assert.equal(report.roots,2);
  assert.equal(t.title,'Fluxo de login');assert.equal(t.children.length,4);assert.equal(t.images.length,2);assert.equal(t.images[0].alt,'Tela inicial');assert.equal(t.images[1].alt,'Segunda tela');assert.equal(t.image,undefined);
  assert.equal(t.children[0].color,'#112233');assert.equal(t.children[0].linksColor,'#445566');assert.equal(t.children[0].title,'Autenticar');assert.equal(t.children[0].children[0].subtitle,'Confere usuário e senha | pode usar SSO');assert.equal(t.children[0].children[0].title,'Validar credenciais');assert.equal(t.children[0].children.length,2);
  const multi=t.children[0].children[1].images;assert.deepEqual(multi.map(i=>i.kind||'image'),['diagram','diagram','image']);assert.match(multi[0].source,/flowchart/);

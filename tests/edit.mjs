@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
-import {mkdtemp,readFile,readdir,rm} from 'node:fs/promises';
+import {mkdtemp,readFile,readdir,rm,writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -11,7 +11,8 @@ const port=4190, base=`http://127.0.0.1:${port}`;
 const server=spawn(process.execPath,['server.mjs'],{cwd:root,env:{...process.env,PORT:String(port),PRESENTATIONS_DIR:dir},stdio:['ignore','pipe','inherit']});
 await new Promise((ok,fail)=>{server.stdout.once('data',ok);server.once('exit',c=>fail(new Error(`server exit ${c}`)));});
 const browser=await chromium.launch({executablePath:process.env.BROWSER_EXECUTABLE||'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});
-const onDisk=async id=>JSON.parse(await readFile(path.join(dir,`${id}.json`),'utf8'));
+const rawDisk=async id=>JSON.parse(await readFile(path.join(dir,`${id}.json`),'utf8'));
+const onDisk=async id=>{const raw=await rawDisk(id);return {...raw,tree:raw.roots?.[0]??raw.tree};}; // .tree = primeira raiz (formato novo ou antigo)
 const until=async(fn,message)=>{for(let i=0;i<40;i++){if(await fn())return;await new Promise(r=>setTimeout(r,100));}assert.fail(message);};
 try{
  const page=await browser.newPage({viewport:{width:1280,height:800}});page.setDefaultTimeout(5000);
@@ -326,12 +327,15 @@ try{
  await page.locator('#fit').click();
  await handleDrag(`[data-id="${subTop}"]`,'[data-id="root"]','center');
  await until(async()=>(await tops()).at(-1).id===subTop&&(await tops())[1].id==='nature','card não voltou ao fim da raiz');
- // 5) soltar numa área vazia não muda nada
+ // 5) soltar num espaço vazio cria um novo card raiz (e dá para desfazer)
  const snapshotBefore=JSON.stringify(await tops());
  await page.locator('#fit').click();
  dnd=await handleDrag(`[data-id="${imgTop}"]`,null,'center');
- assert.equal(dnd.into+dnd.invalid,0); // sobre o próprio lugar (o conjunto sai do mapa) não há alvo
- await new Promise(r=>setTimeout(r,500));
+ assert.equal(dnd.into+dnd.invalid,0); // sobre o espaço vazio não há card alvo
+ await until(async()=>(await rawDisk(id)).roots.length===2&&(await rawDisk(id)).roots[1].id===imgTop,'soltar no vazio deveria criar uma nova raiz');
+ assert.equal((await tops()).some(k=>k.id===imgTop),false);
+ await page.locator('#toast-undo').click();
+ await until(async()=>(await rawDisk(id)).roots.length===1,'desfazer não restaurou');
  assert.equal(JSON.stringify(await tops()),snapshotBefore);
  // 6) Esc cancela o arraste
  await page.locator('#fit').click();
@@ -470,7 +474,8 @@ try{
  await until(async()=>(await readdir(dir)).includes('backup-do-mapa.json'),'cópia não criada');
  assert.equal(await page.locator('#doc-title').textContent(),originalTitle); // continua na original
  const backup=await onDisk('backup-do-mapa');
- assert.equal(backup.tree.title,'Backup do mapa');
+ assert.equal(backup.title,'Backup do mapa'); // o nome da apresentação é separado dos cards raiz
+ assert.equal(backup.tree.title,originalTitle);
  const mediaOf=n=>[...(n.images||[]),...n.children.flatMap(mediaOf)];
  const backupMedia=mediaOf(backup.tree).filter(m=>m.src.startsWith('presentations/'));
  assert.ok(backupMedia.length>0);
@@ -482,7 +487,7 @@ try{
  await page.locator('[data-id="root"] h1').fill('Versão 2 editada'); // editar a cópia não altera as outras
  await until(async()=>(await onDisk('versao-2')).tree.title==='Versão 2 editada','edição da cópia não salva');
  assert.equal(JSON.stringify((await onDisk('cidades-para-pessoas')).tree),originalDisk);
- assert.equal((await onDisk('backup-do-mapa')).tree.title,'Backup do mapa');
+ assert.equal((await onDisk('backup-do-mapa')).title,'Backup do mapa');
  promptAnswer='Versão 2';
  await page.locator('#doc-button').click();await page.locator('#doc-copy').click(); // nome repetido ganha sufixo
  await until(async()=>(await readdir(dir)).includes('versao-2-2.json'),'nome repetido não recebeu sufixo');
@@ -491,11 +496,144 @@ try{
  await until(async()=>(await page.locator('#doc-title').textContent())===originalTitle,'não voltou à apresentação original');
  promptAnswer='Minha apresentação';
 
+ // EDIT-24: vários cards raiz com posição livre, nome da apresentação separado e leitura do formato antigo
+ await page.request.post(`${base}/api/presentations`,{data:{title:'Multi raiz'}});
+ await page.goto(`${base}/?p=multi-raiz`);await page.locator('.node').first().waitFor();
+ await sw.click();
+ const multi=()=>rawDisk('multi-raiz');
+ {const raw=await multi();assert.equal(raw.title,'Multi raiz');assert.equal(raw.roots.length,1);assert.equal(raw.tree,undefined);} // formato novo
+ const emptyPoint=()=>page.evaluate(()=>{ // procura um ponto livre do mapa (sem cards nem painéis)
+  for(let y=innerHeight-150;y>120;y-=40)for(let x=60;x<innerWidth-60;x+=40){const el=document.elementFromPoint(x,y);if(el&&el.closest('#viewport')&&!el.closest('.node,.toolbar,.zoom-controls,.doc-bar'))return {x,y};}
+  return null;
+ });
+ const dragToPoint=async(fromSel,point)=>{
+  await page.evaluate(()=>{document.querySelector('#toast').hidden=true;});
+  await page.locator('#fit').click();
+  await page.locator(fromSel).hover();
+  const hb=await page.locator(`${fromSel} .drag-handle`).boundingBox();
+  await page.mouse.move(hb.x+hb.width/2,hb.y+hb.height/2);await page.mouse.down();
+  await page.mouse.move(hb.x+hb.width/2+12,hb.y+hb.height/2+12,{steps:3});await page.waitForTimeout(120);
+  const p=point||await emptyPoint();
+  await page.mouse.move(p.x,p.y,{steps:12});await page.waitForTimeout(80);
+  const free=await page.evaluate(()=>document.querySelector('.drag-ghost')?.classList.contains('ghost-free'));
+  await page.mouse.up();return free;
+ };
+ // 1) novo card raiz
+ await page.locator('#add-root').click();
+ await until(async()=>(await multi()).roots.length===2,'novo card raiz não criado');
+ const root2=(await multi()).roots[1];
+ assert.ok(Number.isFinite(root2.x)&&Number.isFinite(root2.y));
+ assert.equal(await page.locator('.node.root').count(),2);
+ await act(root2.id,'Adicionar filho');
+ await until(async()=>(await multi()).roots[1].children.length===1,'filho da nova raiz não salvo');
+ const child2=(await multi()).roots[1].children[0].id;
+ // 2) nome da apresentação separado do texto dos cards raiz
+ await page.locator('#doc-button').dblclick();
+ await page.locator('.doc-title-input').fill('Meu fluxo');await page.keyboard.press('Enter');
+ await until(async()=>(await multi()).title==='Meu fluxo','nome da apresentação não salvo');
+ assert.equal((await multi()).roots[0].title,'Multi raiz'); // a raiz mantém o seu texto
+ assert.equal(await page.locator('#doc-title').textContent(),'Meu fluxo');
+ await page.locator('#doc-button').click();
+ await until(async()=>(await page.locator('#doc-list button[data-id="multi-raiz"]').textContent())==='Meu fluxo','o menu deveria mostrar o nome novo');
+ await page.keyboard.press('Escape');await page.mouse.click(5,5);
+ // nome repetido: Enter mostra o aviso e não salva; criar/copiar com nome repetido ganha sufixo
+ await page.locator('#doc-button').dblclick();
+ await page.locator('.doc-title-input').fill('E se a cidade fosse feita para as pessoas?');await page.keyboard.press('Enter');
+ await page.locator('.doc-title-error:not([hidden])').waitFor();
+ assert.equal(await page.locator('.doc-title-input').count(),1); // continua editando
+ await new Promise(r=>setTimeout(r,500));
+ assert.equal((await multi()).title,'Meu fluxo'); // nada foi salvo
+ await page.keyboard.press('Escape');
+ assert.equal(await page.locator('.doc-title-input').count(),0);
+ assert.equal(await page.locator('#doc-title').textContent(),'Meu fluxo');
+ await page.locator('#doc-button').dblclick(); // sair do campo (blur) com nome repetido mantém o nome atual e avisa
+ await page.locator('.doc-title-input').fill('minha apresentação');await page.mouse.click(5,300);
+ await page.locator('.doc-title-input').waitFor({state:'detached'});
+ assert.equal(await page.locator('#doc-title').textContent(),'Meu fluxo');
+ assert.match(await page.locator('#toast-text').textContent(),/Já existe/);
+ const dup=await (await page.request.post(`${base}/api/presentations`,{data:{title:'Meu fluxo'}})).json();
+ assert.equal(dup.title,'Meu fluxo (2)'); // o servidor também evita repetir
+ await page.request.delete(`${base}/api/presentations/${dup.id}`);
+ // 3) reposicionar uma raiz arrastando-a para um espaço vazio
+ const posBefore={x:root2.x,y:root2.y};
+ const freeHint=await dragToPoint(`[data-id="${root2.id}"]`,null);
+ assert.equal(freeHint,true); // o conjunto avisa que soltar ali reposiciona
+ await until(async()=>{const r=(await multi()).roots[1];return r.id===root2.id&&(r.x!==posBefore.x||r.y!==posBefore.y);},'raiz não foi reposicionada');
+ assert.equal((await multi()).roots.length,2);
+ // 4) arrastar um card para o espaço vazio o transforma em raiz; Desfazer restaura
+  await dragToPoint(`[data-id="${child2}"]`,null);
+ await until(async()=>(await multi()).roots.length===3&&(await multi()).roots[2].id===child2,'card não virou raiz');
+ assert.equal((await multi()).roots[1].children.length,0);
+ await page.locator('#toast-undo').click();
+ await until(async()=>(await multi()).roots.length===2&&(await multi()).roots[1].children.length===1,'desfazer não restaurou');
+ // 5) conectar uma raiz a outro card (vira filha) e desfazer
+ await page.evaluate(()=>{document.querySelector('#toast').hidden=true;});
+ await page.locator('#fit').click();
+ {
+  const hb=await (async()=>{await page.locator(`[data-id="${root2.id}"]`).hover();return page.locator(`[data-id="${root2.id}"] .drag-handle`).boundingBox();})();
+  await page.mouse.move(hb.x+hb.width/2,hb.y+hb.height/2);await page.mouse.down();
+  await page.mouse.move(hb.x+hb.width/2+12,hb.y+hb.height/2+12,{steps:3});await page.waitForTimeout(120);
+  const tb=await page.locator('[data-id="root"]').boundingBox();
+  await page.mouse.move(tb.x+tb.width/2,tb.y+tb.height/2,{steps:12});await page.waitForTimeout(80);
+  await page.mouse.up();
+ }
+ await until(async()=>{const raw=await multi();return raw.roots.length===1&&raw.roots[0].children.some(c=>c.id===root2.id);},'raiz não foi conectada ao outro card');
+ assert.equal((await multi()).roots[0].children.find(c=>c.id===root2.id).x,undefined); // deixa de ter posição própria
+ await page.locator('#toast-undo').click();
+ await until(async()=>(await multi()).roots.length===2,'desfazer da conexão falhou');
+ // 6) excluir uma raiz (a última não pode ser excluída)
+ await act(root2.id,'Excluir ideia');
+ await until(async()=>(await multi()).roots.length===1,'raiz não excluída');
+ await openMenu('root');assert.equal(await page.locator('#radial-menu [aria-label^="Excluir ideia"]').count(),0);
+ await page.keyboard.press('Escape');await page.locator('#radial-menu').waitFor({state:'detached'});
+ // 7) "virar raiz" pela roda de ações
+ await act('root','Adicionar filho');
+ await until(async()=>(await multi()).roots[0].children.length===1,'filho não criado');
+ const kid=(await multi()).roots[0].children[0].id;
+ await act(kid,'Transformar em card raiz');
+ await until(async()=>(await multi()).roots.length===2&&(await multi()).roots[1].id===kid,'não virou raiz pela roda');
+ // 8) arquivo no formato antigo ({tree}) abre normalmente e passa ao formato novo ao salvar
+ await writeFile(path.join(dir,'legado.json'),JSON.stringify({id:'legado',tree:{id:'root',title:'Fluxo legado',children:[{id:'a1',title:'Filho antigo',image:{src:'city.svg',alt:'Cidade'},children:[]}]}}));
+ await page.goto(`${base}/?p=legado`);await page.locator('.node').first().waitFor();
+ assert.equal(await page.locator('#doc-title').textContent(),'Fluxo legado'); // o nome vem da raiz
+ assert.equal(await page.locator('.node').count(),2);
+ assert.equal(await page.locator('[data-id="a1"] .image-button img').count(),1);
+ await sw.click();await page.locator('[data-id="a1"] p:not(.node-subtitle)').fill('Filho antigo editado');
+ await until(async()=>{const raw=await rawDisk('legado');return Array.isArray(raw.roots)&&raw.title==='Fluxo legado'&&raw.tree===undefined&&raw.roots[0].children[0].title==='Filho antigo editado'&&raw.roots[0].children[0].images?.length===1&&raw.roots[0].children[0].image===undefined;},'formato antigo não migrado ao salvar');
+ for(const extra of ['multi-raiz','legado'])await page.request.delete(`${base}/api/presentations/${extra}`);
+ await page.goto(`${base}/?p=cidades-para-pessoas`);await page.locator('.node').first().waitFor();
+
+ // EDIT-25: árvores abertas não se sobrepõem (deslocamento visual) e voltam à origem ao recolher
+ const mk=(prefix,title,kids)=>({id:`${prefix}0`,title,children:Array.from({length:kids},(_,i)=>({id:`${prefix}${i+1}`,title:`${title} ramo ${i+1}`,children:Array.from({length:3},(_,k)=>({id:`${prefix}${i+1}-${k+1}`,title:`${title} detalhe ${i+1}.${k+1}`,children:[]}))}))});
+ const rootA=mk('a','Fluxo A',3),rootB=mk('b','Fluxo B',2);
+ rootA.x=0;rootA.y=0;rootB.x=1000;rootB.y=0; // B fica ao lado de A quando A está fechada
+ await writeFile(path.join(dir,'colisao.json'),JSON.stringify({id:'colisao',title:'Colisão',roots:[rootA,rootB]}));
+ await page.goto(`${base}/?p=colisao`);await page.locator('.node').first().waitFor();
+ const leftOf=id=>page.locator(`[data-id="${id}"]`).evaluate(el=>({x:parseFloat(el.style.left),y:parseFloat(el.style.top)}));
+ const rects=()=>page.evaluate(()=>[...document.querySelectorAll('.node')].map(el=>({id:el.dataset.id,r:el.getBoundingClientRect()})));
+ const overlaps=async()=>{const all=await rects();for(const a of all.filter(n=>n.id.startsWith('a')))for(const b of all.filter(n=>n.id.startsWith('b'))){const A=a.r,B=b.r;if(A.left<B.right&&B.left<A.right&&A.top<B.bottom&&B.top<A.bottom)return `${a.id}×${b.id}`;}return null;};
+ await page.locator('#collapse').click();
+ const home=await leftOf('b0');assert.equal(home.x,1000); // fechado: na posição salva
+ assert.equal(await overlaps(),null);
+ await page.locator('#expand').click(); // abre tudo: A cresce e B se afasta para não sobrepor
+ const moved=await leftOf('b0');
+ assert.ok(moved.x!==home.x||moved.y!==home.y,'B deveria se afastar quando A abre');
+ assert.equal(await overlaps(),null,'árvores abertas não podem se sobrepor');
+ assert.equal(JSON.parse(await readFile(path.join(dir,'colisao.json'),'utf8')).roots[1].x,1000); // nada foi salvo: é só visual
+ await page.locator('#collapse').click(); // recolhe: volta à origem
+ const back=await leftOf('b0');assert.deepEqual(back,home);
+ // abrir só um ramo pelo próprio card também reposiciona com animação e volta ao fechar
+ await page.locator('[data-id="a1"] .toggle').click();await page.locator('[data-id="a2"] .toggle').click();await page.locator('[data-id="a3"] .toggle').click();
+ await page.waitForTimeout(1500);
+ assert.equal(await overlaps(),null);
+ await page.request.delete(`${base}/api/presentations/colisao`);
+ await page.goto(`${base}/?p=cidades-para-pessoas`);await page.locator('.node').first().waitFor();
+
  await page.locator('#doc-button').click();await page.locator('#doc-delete').click(); // EDIT-10: excluir apresentação
  await until(async()=>!(await readdir(dir)).includes('cidades-para-pessoas.json'),'arquivo não removido');
  await until(async()=>(await page.locator('#doc-title').textContent())==='Minha apresentação','apresentação restante não aberta');
 
  const traversal=await page.request.get(`${base}/presentations/..%2fserver.mjs`);assert.equal(traversal.status(),404); // segurança básica
  assert.equal((await page.request.get(`${base}/server.mjs`)).status(),404);
- assert.deepEqual(errors,[]);console.log('PASS EDIT-01..23');
+ assert.deepEqual(errors,[]);console.log('PASS EDIT-01..25');
 }finally{await browser.close();server.kill();await rm(dir,{recursive:true,force:true});}

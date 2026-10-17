@@ -51,7 +51,7 @@ CLI: `node skills/context-maps/scripts/rm.mjs <command>` (from the app root).
 - Step 2
   - Login screen [img:docs/screen.png|Screenshot]
 ```
-- `# Title` (first line) becomes the root and the presentation name.
+- `# Title` (first line) becomes the first root card and the presentation name. Further `# Title` lines start **additional root cards** (independent flows); `--title` sets the presentation name separately.
 - Each `-` is an idea; indentation (2 spaces or a tab) defines the hierarchy.
 - `{color=#rrggbb}` only has effect on first-level branches.
 - `{links=#rrggbb}` colours the lines from that idea to its children (any idea with children).

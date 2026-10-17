@@ -90,6 +90,7 @@ Abra <http://127.0.0.1:4173>. Na primeira execução o servidor cria a apresenta
 - **Clique no título** (ou Enter/Espaço) expande ou recolhe um ramo; o botão em leque ao lado do card também.
   Abrir um ramo anima os cards por 420 ms e destaca por 1 s a conexão ao primeiro filho
   (respeita `prefers-reduced-motion`).
+- **Vários cards raiz** nunca se sobrepõem: quando uma árvore aberta cobriria outra, as demais se afastam (com a animação de abrir) e voltam à posição salva ao recolher.
 - **Passar o mouse** num card destaca a linha que chega até ele, e o card **cresce um pouco** (a imagem também ganha zoom); desativado na edição e com movimento reduzido.
 - **Expandir tudo / Recolher tudo**, **Tela cheia** (modo de tela cheia do navegador; o mapa funciona exatamente igual) e **Modo texto** (leitura linear do mapa inteiro) na barra inferior.
 - **Imagens e diagramas** abrem em tela cheia; com várias mídias há setas ‹ › (ou ← →) e contador.
@@ -102,6 +103,8 @@ Ative o switch **Editar** na barra inferior.
 | Ação | Como |
 | --- | --- |
 | Editar texto | Clique no texto; Enter confirma |
+| Cards raiz | **Card raiz** (barra inferior, modo edição) adiciona outro ponto de partida em qualquer lugar do mapa; uma apresentação pode ter vários. Arraste uma raiz pela alça **⋮⋮** para posicioná-la livremente, ou sobre outro card para conectá-la como filha. Soltar qualquer card no **espaço vazio** o transforma (com tudo abaixo) em uma nova raiz (**Virar raiz** na roda faz o mesmo); **Excluir** funciona nas raízes enquanto sobrar ao menos uma |
+| Nome da apresentação | **Duplo clique** no nome, no menu do canto superior esquerdo, para renomear (separado do texto dos cards raiz). Os nomes são únicos: um nome já usado é recusado com um aviso (e *nova/cópia* acrescentam " (2)", " (3)"…) |
 | Menu de edição | Passe o mouse num card e clique no botão **✎** no topo, ao centro: abre uma **roda de ações** em volta dele (fecha com **Esc**, × ou clicando fora) |
 | Adicionar ideia | **+ Filho**, **+ Irmão** (depois), **+ Antes** (irmão antes) ou **+ Pai** (envolve a ideia num novo card pai); profundidade livre |
 | Reordenar mídias | Com 2+ imagens/diagramas no card: botões **↑ ↓** ou arraste a alça **⋮⋮** sobre outro item (uma linha verde mostra onde cai) |
@@ -169,9 +172,11 @@ O trabalho pesado fica em um CLI Node (`rm.mjs`), então qualquer agente com ace
 ```json
 {
   "id": "meu-fluxo",
-  "tree": {
+  "title": "Nome da apresentação",
+  "roots": [{
     "id": "root",
-    "title": "Título da apresentação",
+    "title": "Primeiro card raiz",
+    "x": 0, "y": 0,
     "children": [
       {
         "id": "n-1a2b3c4d",
@@ -187,7 +192,7 @@ O trabalho pesado fica em um CLI Node (`rm.mjs`), então qualquer agente com ace
         "children": []
       }
     ]
-  }
+  }]
 }
 ```
 
@@ -202,7 +207,7 @@ Escuta apenas em `127.0.0.1`. Todas as rotas respondem JSON e `Cache-Control: no
 | `GET /api/presentations` | Lista (`id`, `title`, `updatedAt`) |
 | `POST /api/presentations` | Cria (`{title, id?}`) |
 | `GET /api/presentations/:id` | Lê |
-| `PUT /api/presentations/:id` | Salva a árvore (valida ids únicos, profundidade ≤ 40, mídias/links ≤ 50 por nó) |
+| `PUT /api/presentations/:id` | Salva `{title, roots}` (o antigo `{tree}` ainda é aceito; valida ids únicos, profundidade ≤ 40, mídias/links ≤ 50 por nó) |
 | `POST /api/presentations/:id/copy` | Copia a apresentação com um novo nome (`{title}`), incluindo as imagens |
 | `DELETE /api/presentations/:id` | Remove o arquivo e as imagens |
 | `POST /api/presentations/:id/assets?name=…` | Envia imagem (png, jpg, webp, gif, svg; até 15 MB) |
@@ -218,7 +223,7 @@ Mermaid roda em `securityLevel: strict`.
 
 ```bash
 export PLAYWRIGHT_MODULE=file:///caminho/para/playwright-core/index.mjs   # caminho absoluto
-node tests/edit.mjs      # EDIT-01..22  edição, diagramas, mídias, links (sobe servidor temporário)
+node tests/edit.mjs      # EDIT-01..25  edição, diagramas, mídias, links (sobe servidor temporário)
 node tests/skill.mjs     # SKILL-01..06 CLI da skill (sobe servidor temporário)
 node tests/browser.mjs   # MAP-01..11   navegação, zoom, modo texto, mobile, tela cheia
 node tests/cards.mjs     # CARD-01..06  títulos, raiz, teclado, imagens

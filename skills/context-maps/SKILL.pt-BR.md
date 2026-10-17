@@ -51,7 +51,7 @@ CLI: `node skills/context-maps/scripts/rm.mjs <comando>` (a partir da raiz do ap
 - Etapa 2
   - Print da tela [img:docs/tela.png|Tela de login]
 ```
-- `# Título` (primeira linha) vira a raiz e o nome da apresentação.
+- `# Título` (primeira linha) vira o primeiro card raiz e o nome da apresentação. Outras linhas `# Título` iniciam **novos cards raiz** (fluxos independentes); `--title` define o nome da apresentação separadamente.
 - Cada `-` é uma ideia; a indentação (2 espaços ou tab) define a hierarquia.
 - `{color=#rrggbb}` só tem efeito nos ramos do primeiro nível.
 - `{links=#rrggbb}` colore as linhas daquela ideia até as filhas (qualquer ideia com filhas).
