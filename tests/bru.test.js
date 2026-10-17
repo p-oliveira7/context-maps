@@ -78,7 +78,8 @@ test('BRU-01: reads method, url, params, headers, auth, body, scripts and docs',
 });
 test('BRU-02: round trip keeps everything, including blocks the app does not edit',()=>{
  const m=parseBru(SAMPLE);
- assert.deepEqual(m.extras.map(b=>b.name).sort(),['assert','auth:oauth2']);
+ assert.deepEqual(m.extras.map(b=>b.name),['auth:oauth2']); // assert agora é editável (m.assertions); o resto continua guardado como está
+ assert.deepEqual(m.assertions,[{name:'res.status',value:'eq 201',enabled:true}]);
  const again=parseBru(stringifyBru(m));
  assert.deepEqual(again,m);
  const text=stringifyBru(m);
