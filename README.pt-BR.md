@@ -90,7 +90,7 @@ Abra <http://127.0.0.1:4173>. Na primeira execução o servidor cria a apresenta
 - **Clique no título** (ou Enter/Espaço) expande ou recolhe um ramo; o botão em leque ao lado do card também.
   Abrir um ramo anima os cards por 420 ms e destaca por 1 s a conexão ao primeiro filho
   (respeita `prefers-reduced-motion`).
-- **Vários cards raiz** nunca se sobrepõem: quando uma árvore aberta cobriria outra, as demais se afastam (com a animação de abrir) e voltam à posição salva ao recolher.
+- **Vários cards raiz** nunca se sobrepõem: quando uma árvore aberta cobriria outra, quem estava **abaixo (ou à direita)** se afasta (com a animação de abrir), então a ordem original é mantida, e volta à posição salva ao recolher.
 - **Passar o mouse** num card destaca a linha que chega até ele, e o card **cresce um pouco** (a imagem também ganha zoom); desativado na edição e com movimento reduzido.
 - **Expandir tudo / Recolher tudo**, **Tela cheia** (modo de tela cheia do navegador; o mapa funciona exatamente igual) e **Modo texto** (leitura linear do mapa inteiro) na barra inferior.
 - **Imagens e diagramas** abrem em tela cheia; com várias mídias há setas ‹ › (ou ← →) e contador.

@@ -90,7 +90,7 @@ Open <http://127.0.0.1:4173>. On first run the server creates the demo presentat
 - **Click a title** (or Enter/Space) to expand or collapse a branch; the fan-style button beside the card works too.
   Opening a branch animates the cards for 420 ms and highlights the connection to the first child for 1 s
   (honours `prefers-reduced-motion`).
-- **Several root cards** never overlap: when an open tree would cover another, the others move aside (with the usual opening animation) and return to their saved position when collapsed.
+- **Several root cards** never overlap: when an open tree would cover another, the one that was **below (or to the right)** moves aside (with the usual opening animation), so the original order is kept, and it returns to its saved position when collapsed.
 - **Hovering** a card highlights the line that leads to it, and the card **grows slightly** (its image zooms too); disabled in edit mode and with reduced motion.
 - **Expand all / Collapse all**, **Full screen** (the browser's full-screen mode; the map keeps working exactly the same) and **Text mode** (linear reading of the whole map) live in the bottom bar.
 - **Images and diagrams** open full screen; with several items there are ‹ › arrows (or ← →) and a counter.

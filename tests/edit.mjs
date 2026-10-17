@@ -626,6 +626,28 @@ try{
  await page.locator('[data-id="a1"] .toggle').click();await page.locator('[data-id="a2"] .toggle').click();await page.locator('[data-id="a3"] .toggle').click();
  await page.waitForTimeout(1500);
  assert.equal(await overlaps(),null);
+ // a ordem original é preservada: quem estava abaixo continua abaixo (e quem estava à direita continua à direita)
+ const vertical={id:'ordem',title:'Ordem',roots:[mk('a','Cima',1),mk('b','Baixo',3)]};
+ vertical.roots[0].x=0;vertical.roots[0].y=0;vertical.roots[1].x=0;vertical.roots[1].y=250; // B abaixo de A (mas a árvore dele, aberta, cresce para cima e alcança A)
+ await writeFile(path.join(dir,'ordem.json'),JSON.stringify(vertical));
+ await page.goto(`${base}/?p=ordem`);await page.locator('.node').first().waitFor();
+ await page.locator('#collapse').click();
+ const aHome=await leftOf('a0'),bHome=await leftOf('b0');assert.ok(bHome.y>aHome.y);
+ await page.locator('#expand').click(); // B cresce para cima, sobre A: continua abaixo de A
+ const aOpen=await leftOf('a0'),bOpen=await leftOf('b0');
+ assert.ok(bOpen.y>aOpen.y,`B deveria continuar abaixo de A (A=${aOpen.y}, B=${bOpen.y})`);
+ assert.equal(await overlaps(),null);
+ assert.deepEqual(aOpen,aHome); // A (que estava acima) não é jogado para baixo
+ await page.locator('#collapse').click();
+ assert.deepEqual(await leftOf('b0'),bHome); // e tudo volta à origem
+ const wide={id:'ordem',title:'Ordem',roots:[mk('a','Esquerda',3),mk('b','Direita',3)]};
+ wide.roots[0].x=0;wide.roots[0].y=200;wide.roots[1].x=1000;wide.roots[1].y=0; // B à direita e mais acima
+ await writeFile(path.join(dir,'ordem.json'),JSON.stringify(wide));
+ await page.goto(`${base}/?p=ordem`);await page.locator('.node').first().waitFor();
+ await page.locator('#expand').click();
+ assert.ok((await leftOf('b0')).x>(await leftOf('a0')).x,'quem estava à direita deve continuar à direita');
+ assert.equal(await overlaps(),null);
+ await page.request.delete(`${base}/api/presentations/ordem`);
  await page.request.delete(`${base}/api/presentations/colisao`);
  await page.goto(`${base}/?p=cidades-para-pessoas`);await page.locator('.node').first().waitFor();
 

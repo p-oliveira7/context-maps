@@ -1,6 +1,6 @@
-import {tree as seed,visibleNodes,allBranches,zoomAt,parentOf,findNode,newId,PALETTE} from './model.js?v=13';
-import {cancelMotion,snapshot,animateLayout,hoverEdge,updateEdges} from './motion.js?v=13';
-import * as store from './store.js?v=13';
+import {tree as seed,visibleNodes,allBranches,zoomAt,parentOf,findNode,newId,PALETTE} from './model.js?v=14';
+import {cancelMotion,snapshot,animateLayout,hoverEdge,updateEdges} from './motion.js?v=14';
+import * as store from './store.js?v=14';
 const $=s=>document.querySelector(s), viewport=$('#viewport'), world=$('#world');
 const ROOT_COLOR='#a7a7b8', GAP=64;
 let doc={id:null,title:seed.title,roots:[seed]}, roots=doc.roots, expanded=new Set(['root']), camera={x:0,y:0,scale:1}, reading=false, editing=false, bounds={x:0,y:0,width:1,height:1};
@@ -671,20 +671,27 @@ function render(){
   const L=layoutTree(root),manual=Number.isFinite(root.x)&&Number.isFinite(root.y);
   const ox=manual?root.x:0,oy=manual?root.y-L.rootY:stackBottom; // sem posição salva: empilha abaixo das anteriores
   let w=0;for(const [id,p] of L.local){const el=elements.get(id);w=Math.max(w,p.x+el.offsetWidth+(el.querySelector('.toggle')?40:0));}
-  trees.push({L,ox,oy,w,h:L.total,dx:0,dy:0});
+  trees.push({L,ox,oy,w,h:L.total,dx:0,dy:0,ax:ox,ay:oy+L.rootY}); // ax, ay: onde está o card raiz (âncora) na posição salva
   stackBottom=Math.max(stackBottom,oy+L.total+120);
  }
- // Se árvores abertas se sobrepõem, as de baixo/da direita se afastam (só visualmente, nada é salvo): ao recolher voltam à origem.
+ // Se árvores abertas se sobrepõem, uma delas se afasta (só visualmente, nada é salvo) e volta à origem ao recolher.
+ // A ordem original entre os cards raiz é preservada: quem estava abaixo (ou à direita) continua abaixo (ou à direita) e é quem se afasta.
  const MARGIN=80,hits=(a,b)=>a.x<b.x+b.w+MARGIN&&b.x<a.x+a.w+MARGIN&&a.y<b.y+b.h+MARGIN&&b.y<a.y+a.h+MARGIN;
- const placed=[];
- for(const T of [...trees].sort((a,b)=>a.oy-b.oy||a.ox-b.ox)){
-  for(let guard=0;guard<60;guard++){
-   const box={x:T.ox+T.dx,y:T.oy+T.dy,w:T.w,h:T.h},hit=placed.find(P=>hits(box,P));
-   if(!hit)break;
-   const down=hit.y+hit.h+MARGIN-box.y,right=hit.x+hit.w+MARGIN-box.x;
-   if(down<=right)T.dy+=down;else T.dx+=right;
+ const boxOf=T=>({x:T.ox+T.dx,y:T.oy+T.dy,w:T.w,h:T.h});
+ for(let guard=0;guard<200;guard++){
+  let moved=false;
+  search:for(let i=0;i<trees.length;i++)for(let j=i+1;j<trees.length;j++){
+   const A=trees[i],B=trees[j],a=boxOf(A),b=boxOf(B);
+   if(!hits(a,b))continue;
+   const dyAnchor=B.ay-A.ay,dxAnchor=B.ax-A.ax;
+   if(Math.abs(dyAnchor)>=Math.abs(dxAnchor)){ // relação vertical: o que estava abaixo continua abaixo
+    const [first,second]=dyAnchor>=0?[a,B]:[b,A];second.dy+=first.y+first.h+MARGIN-boxOf(second).y;
+   }else{ // relação horizontal: o que estava à direita continua à direita
+    const [first,second]=dxAnchor>=0?[a,B]:[b,A];second.dx+=first.x+first.w+MARGIN-boxOf(second).x;
+   }
+   moved=true;break search;
   }
-  placed.push({x:T.ox+T.dx,y:T.oy+T.dy,w:T.w,h:T.h});
+  if(!moved)break;
  }
  for(const T of trees)for(const [id,p] of T.L.local)positions.set(id,{x:p.x+T.ox+T.dx,y:p.y+T.oy+T.dy});
  for(const [id,p] of positions){const el=elements.get(id);el.style.left=`${p.x}px`;el.style.top=`${p.y}px`;}
