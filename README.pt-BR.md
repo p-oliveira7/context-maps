@@ -8,6 +8,7 @@
 [![Dependências](https://img.shields.io/badge/depend%C3%AAncias%20de%20runtime-0-2ea44f)](#começando)
 [![Local primeiro](https://img.shields.io/badge/local--first-127.0.0.1-blue)](#segurança)
 [![Skill](https://img.shields.io/badge/skill%20para%20agentes-Claude%20%C2%B7%20Codex%20%C2%B7%20Cursor-8a63d2)](#skill-para-agentes)
+[![Licença: MIT](https://img.shields.io/badge/licen%C3%A7a-MIT-blue)](LICENSE)
 [![Mermaid](https://img.shields.io/badge/diagramas-Mermaid-ff3670)](#imagens-diagramas-e-links)
 
 **Português (BR)** · [English](README.md)
@@ -38,7 +39,7 @@ decisões — e publica o mapa pronto, com imagens, diagramas e links.
 - [Skill para agentes](#skill-para-agentes)
 - [Formato dos dados](#formato-dos-dados) · [API do servidor](#api-do-servidor) · [Segurança](#segurança)
 - [Testes](#testes) · [Regenerando as imagens](#regenerando-as-imagens)
-- [Limitações conhecidas](#limitações-conhecidas) · [Terceiros](#terceiros) · [Origem](#origem)
+- [Limitações conhecidas](#limitações-conhecidas) · [Licença](#licença) · [Terceiros](#terceiros) · [Origem](#origem)
 
 ## Por que Context Maps
 
@@ -333,6 +334,10 @@ PLAYWRIGHT_MODULE=file:///caminho/para/playwright-core/index.mjs node docs/scree
 - Mobile: arrastar com um dedo e botões de zoom; pinch não implementado.
 - Remover uma mídia não apaga o arquivo em `assets/`.
 - Uso pensado para **máquina local, usuário único**: não há autenticação nem edição simultânea.
+
+## Licença
+
+[MIT](LICENSE) © 2026 Paulo Oliveira.
 
 ## Terceiros
 
