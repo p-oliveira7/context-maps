@@ -7,6 +7,13 @@ How to cut a release: [`docs/releasing.md`](docs/releasing.md).
 
 ## [Unreleased]
 
+### Added
+- **Continuous integration** (GitHub Actions) running the model, browser and skill tests on Linux, macOS and Windows for every push to `main` and every pull request.
+- `npm run test:e2e` runs all browser and skill tests in one go, using an isolated temporary server.
+
+### Changed
+- Browser tests now use the installed Chrome by default (`channel: chrome`) instead of a Windows-only path; `BROWSER_EXECUTABLE` still overrides it.
+
 ## [0.2.0] - 2026-10-17
 
 First release with editing, the agent skill and a localized interface. It covers everything merged
