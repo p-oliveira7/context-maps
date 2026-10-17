@@ -28,4 +28,5 @@ installed Chrome. CLI messages follow `RM_LANG=en|pt`.
 - Server: `node server.mjs` (`PORT`, `PRESENTATIONS_DIR` variables).
 - Tests: `npm test` (model) and `node tests/{browser,cards,motion,edit,skill}.mjs`
   with `PLAYWRIGHT_MODULE` pointing to `playwright-core`. `edit` and `skill` start their own temp server.
+- Every behaviour change adds a line under `## [Unreleased]` in `CHANGELOG.md`; releases follow `docs/releasing.md` (version in `package.json` + `version.js`).
 - Do not add runtime dependencies; Mermaid in `vendor/` is loaded on demand by the diagram editor only.

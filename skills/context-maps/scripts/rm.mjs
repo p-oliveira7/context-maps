@@ -46,7 +46,7 @@ const MSG={
  usageValidate:{pt:()=>'Uso: validate --outline arquivo.md',en:()=>'Usage: validate --outline file.md'},
  usageCreate:{pt:()=>'Uso: create --outline arquivo.md [--id slug] [--title "..."]',en:()=>'Usage: create --outline file.md [--id slug] [--title "..."]'},
  usageUpload:{pt:()=>'Uso: upload <id> <arquivo>',en:()=>'Usage: upload <id> <file>'},
- usageCommands:{pt:()=>'Comandos: status | serve | validate --outline f.md | create --outline f.md [--id slug] [--dir pasta] [--replace] | upload <id> <arquivo>',en:()=>'Commands: status | serve | validate --outline f.md | create --outline f.md [--id slug] [--dir folder] [--replace] | upload <id> <file>'},
+ usageCommands:{pt:()=>'Comandos: version | status | serve | validate --outline f.md | create --outline f.md [--id slug] [--dir pasta] [--replace] | upload <id> <arquivo>',en:()=>'Commands: version | status | serve | validate --outline f.md | create --outline f.md [--id slug] [--dir folder] [--replace] | upload <id> <file>'},
  needTitle:{pt:()=>'Defina um título (# Título no outline ou --title)',en:()=>'Set a title ("# Title" in the outline or --title)'},
  idExists:{pt:id=>`Já existe a apresentação "${id}". Use --replace para sobrescrever ou escolha outro --id.`,en:id=>`Presentation "${id}" already exists. Use --replace to overwrite or choose another --id.`}
 };
@@ -234,8 +234,13 @@ const commands={
  }
 };
 
+async function toolVersion(){ // lê package.json do repositório; uma cópia avulsa da skill (sem o app ao lado) não tem versão
+ try{const pkg=JSON.parse(await readFile(path.join(path.dirname(fileURLToPath(import.meta.url)),'..','..','..','package.json'),'utf8'));if(pkg.name==='context-maps')return pkg.version;}catch{}
+ return 'unknown';
+}
 if(process.argv[1]===fileURLToPath(import.meta.url)){
  const [cmd,...rest]=process.argv.slice(2);
+ if(cmd==='--version'||cmd==='version'){console.log(`context-maps ${await toolVersion()}`);process.exit(0);}
  if(!commands[cmd])die(t('usageCommands'),64);
  await commands[cmd](parseArgs(rest));
 }

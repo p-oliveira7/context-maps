@@ -733,6 +733,7 @@ try{
   await en.pg.locator('#edit-switch').click();
   await en.pg.locator('#doc-button').click();await en.pg.locator('#doc-saveas').waitFor();
   assert.equal((await en.pg.locator('#doc-saveas').textContent()).trim(),'Save as…');
+  assert.match(await en.pg.locator('#doc-version').textContent(),/^Context Maps v\d+\.\d+\.\d+$/); // versão no rodapé do menu
   await en.pg.locator('#doc-saveas').click();await en.pg.locator('#saveas-modal').waitFor();
   assert.equal((await en.pg.locator('#saveas-heading').textContent()).trim(),'Save as');
   await en.pg.locator('#saveas-folder').selectOption('__other');await en.pg.locator('#saveas-path').fill('relative/path');await en.pg.locator('#saveas-submit').click();
