@@ -366,3 +366,13 @@ body.is-relating .node:hover{outline:2px dashed #e4c583;outline-offset:6px;borde
 .link-menu button{padding:.4rem .6rem;border-radius:7px;font-size:.78rem;color:#e9dcb8;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .link-menu button:hover{background:#ffffff14;color:#fff}
 .reading-related{margin:.2rem 0 .8rem;color:#e4c583;font-size:.82rem}
+
+/* Acessibilidade e toque */
+.sr-only{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.node:focus-visible,[role=menuitem]:focus-visible,#search-results li:focus-visible{outline:2px solid #e4c583;outline-offset:6px;border-radius:12px}
+.node:focus-visible{z-index:10}
+@media (pointer:coarse){
+ .toolbar button,.zoom-controls button{min-height:42px;min-width:42px}
+ .toggle{min-width:44px}
+ #doc-menu button{padding:.7rem .8rem}
+}

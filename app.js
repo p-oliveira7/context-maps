@@ -498,8 +498,18 @@ function openRadial(fab,card,node,depth,picker){
  card.classList.add('menu-open');fab.setAttribute('aria-expanded','true');
  radial={el,card,fab,
   onDown:e=>{if(!el.contains(e.target)&&e.target!==fab)closeRadial();},
-  onKey:e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();closeRadial();fab.focus({preventScroll:true});}},
+  onKey:e=>{
+   if(e.key==='Escape'){e.preventDefault();e.stopPropagation();closeRadial();fab.focus({preventScroll:true});return;}
+   const keys=['ArrowRight','ArrowDown','ArrowLeft','ArrowUp','Home','End'];
+   if(!keys.includes(e.key))return;
+   const list=[...el.querySelectorAll('.radial-item')];if(!list.length)return;
+   e.preventDefault();e.stopPropagation();
+   const at=list.indexOf(document.activeElement);
+   const next=e.key==='Home'?0:e.key==='End'?list.length-1:(at+(e.key==='ArrowRight'||e.key==='ArrowDown'?1:-1)+list.length)%list.length;
+   list[next].focus({preventScroll:true});
+  },
   onWheel:()=>closeRadial()};
+ requestAnimationFrame(()=>el.querySelector('.radial-item')?.focus({preventScroll:true})); // o foco entra na roda
  document.addEventListener('pointerdown',radial.onDown,true);document.addEventListener('keydown',radial.onKey,true);document.addEventListener('wheel',radial.onWheel,true);
 }
 function editControls(card,node,depth){
@@ -750,6 +760,8 @@ function render(){
  for(const node of visible){
   const depth=depths.get(node.id),isRoot=depth===0;
   const el=document.createElement('section');el.className=`node ${isRoot?'root':node.children.length?'branch':'leaf'}`;el.dataset.id=node.id;el.style.setProperty('--branch',colors.get(node.id));
+  el.setAttribute('role','treeitem');el.setAttribute('aria-level',String(depth+1));if(node.children.length)el.setAttribute('aria-expanded',String(expanded.has(node.id)));
+  if(!editing&&!node.children.length)el.tabIndex=0; // folhas também recebem foco do teclado
   el.addEventListener('pointerenter',()=>{hoverEdge(node.id,true);hoverCross(node.id,true);});el.addEventListener('pointerleave',()=>{hoverEdge(node.id,false);hoverCross(node.id,false);});
   const images=imagesOf(node);
   if(images.length){el.classList.add('has-image');images.forEach((image,i)=>el.append(imageItem(node,image,i)));}
@@ -1008,6 +1020,7 @@ function searchIdeas(query){
  roots.forEach(r=>walk(r,[]));
  return out.sort((a,b)=>a.rank-b.rank).slice(0,8);
 }
+const announce=message=>{const r=$('#sr-status');if(!r)return;r.textContent='';setTimeout(()=>{r.textContent=message;},30);};
 function goToNode(id){
  for(const a of ancestorIds(id))expanded.add(a);
  render();
@@ -1015,6 +1028,7 @@ function goToNode(id){
  const x=parseFloat(el.style.left)+el.offsetWidth/2,y=parseFloat(el.style.top)+el.offsetHeight/2;
  camera.scale=Math.max(camera.scale,.8);camera.x=viewport.clientWidth/2-x*camera.scale;camera.y=viewport.clientHeight/2-y*camera.scale;updateCamera();
  revealNode(id);el.querySelector('.node-title,.toggle,[contenteditable]')?.focus({preventScroll:true});
+ announce(t('wentTo',nameOf(findAny(id))));
 }
 const searchPanel=$('#search-panel'),searchInput=$('#search-input'),searchList=$('#search-results');
 let searchHits=[],searchIndex=0,searchOpener=null;
@@ -1035,6 +1049,7 @@ function renderSearch(){
   li.onclick=()=>chooseSearch(i);searchList.append(li);
  });
  $('#search-empty').hidden=!(searchInput.value.trim()&&!searchHits.length);
+ if(searchInput.value.trim())announce(searchHits.length?t('searchResults',searchHits.length):t('searchEmpty'));
  searchInput.setAttribute('aria-expanded',String(searchHits.length>0));
  if(searchHits.length)searchInput.setAttribute('aria-activedescendant',`search-hit-${searchIndex}`);else searchInput.removeAttribute('aria-activedescendant');
 }
@@ -1059,6 +1074,68 @@ document.addEventListener('keydown',e=>{
   e.preventDefault();openSearch();
  }
 });
+
+/* Teclado no mapa (exibição): setas percorrem a árvore — → abre/entra, ← recolhe/sobe, ↑ ↓ vão entre irmãos */
+const focusTargetOf=id=>{const el=document.querySelector(`[data-id="${id}"]`);return el&&(el.querySelector('.node-title')||el.querySelector('.toggle')||el);};
+function focusNode(id){
+ const target=focusTargetOf(id);if(!target)return;
+ target.focus({preventScroll:true});
+ const r=document.querySelector(`[data-id="${id}"]`).getBoundingClientRect(),v=viewport.getBoundingClientRect();
+ if(r.left<v.left||r.right>v.right||r.top<v.top||r.bottom>v.bottom){camera.x+=v.left+v.width/2-(r.left+r.width/2);camera.y+=v.top+v.height/2-(r.top+r.height/2);updateCamera();}
+}
+$('#nodes').addEventListener('keydown',e=>{
+ if(editing||e.altKey||e.ctrlKey||e.metaKey||!['ArrowRight','ArrowLeft','ArrowUp','ArrowDown'].includes(e.key))return;
+ const el=e.target.closest('.node');if(!el||e.target.closest('.link-menu,.node-badges'))return;
+ const node=findAny(el.dataset.id);if(!node)return;
+ const parent=parentAny(node.id),siblings=parent?parent.children:roots;
+ const visibleSiblings=siblings.filter(n=>document.querySelector(`[data-id="${n.id}"]`));
+ let go=null;
+ if(e.key==='ArrowRight'){
+  if(!node.children.length)return;
+  if(!expanded.has(node.id)){e.preventDefault();el.querySelector('.toggle')?.click();return;}
+  go=node.children[0].id;
+ }else if(e.key==='ArrowLeft'){
+  if(node.children.length&&expanded.has(node.id)){e.preventDefault();el.querySelector('.toggle')?.click();return;}
+  go=parent?.id;
+ }else{
+  const at=visibleSiblings.indexOf(node),next=visibleSiblings[at+(e.key==='ArrowDown'?1:-1)];
+  go=next?.id;
+ }
+ if(go){e.preventDefault();focusNode(go);}
+});
+
+/* Foco preso dentro das janelas (Salvar como, editor de diagrama) */
+document.addEventListener('keydown',e=>{
+ if(e.key!=='Tab')return;
+ const modal=document.querySelector('.modal:not([hidden])');if(!modal)return;
+ const items=[...modal.querySelectorAll('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])')].filter(x=>!x.disabled&&!x.hidden&&x.offsetParent!==null);
+ if(!items.length)return;
+ const first=items[0],last=items.at(-1);
+ if(!modal.contains(document.activeElement)){e.preventDefault();first.focus();}
+ else if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
+ else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+});
+
+/* Zoom com dois dedos (pinça) e arrasto com dois dedos */
+const touches=new Map();let pinch=null;
+const pinchState=()=>{const [a,b]=[...touches.values()];return {d:Math.hypot(a.x-b.x,a.y-b.y)||1,x:(a.x+b.x)/2,y:(a.y+b.y)/2};};
+window.addEventListener('pointerdown',e=>{
+ if(e.pointerType!=='touch'||!e.target.closest?.('#viewport'))return;
+ touches.set(e.pointerId,{x:e.clientX,y:e.clientY});
+ if(touches.size===2){stopDrag();pinch=pinchState();}
+},true);
+window.addEventListener('pointermove',e=>{
+ if(!touches.has(e.pointerId))return;
+ touches.set(e.pointerId,{x:e.clientX,y:e.clientY});
+ if(touches.size<2||!pinch)return;
+ e.preventDefault();
+ const now=pinchState(),r=viewport.getBoundingClientRect();
+ camera.x+=now.x-pinch.x;camera.y+=now.y-pinch.y; // dois dedos também movem o quadro
+ zoom(now.d/pinch.d,{x:now.x-r.left,y:now.y-r.top});
+ pinch=now;
+},{passive:false});
+const endTouch=e=>{touches.delete(e.pointerId);if(touches.size<2)pinch=null;};
+window.addEventListener('pointerup',endTouch,true);window.addEventListener('pointercancel',endTouch,true);
 
 /* Controles */
 $('#expand').onclick=()=>{expanded=roots.reduce((set,r)=>new Set([...set,...allBranches(r)]),new Set());render();fit();};

@@ -8,6 +8,9 @@ How to cut a release: [`docs/releasing.md`](docs/releasing.md).
 ## [Unreleased]
 
 ### Added
+- **Pinch to zoom** (and two-finger pan) on touch screens.
+- **Keyboard navigation of the map**: Tab reaches every card (leaves included); in view mode the arrow keys walk the tree (→ opens or enters, ← collapses or goes to the parent, ↑ ↓ move between siblings). The action wheel takes focus when it opens and responds to the arrow keys, Home and End.
+- **Screen reader support**: the map is exposed as a tree (`tree` / `treeitem` with level and expanded state), search results and navigation are announced through a live region, focus stays inside the Save as and diagram dialogs, and a test checks that every control has an accessible name. Larger touch targets on touch devices.
 - **Related ideas (cross-links)**: the action wheel has **Relate**; click another idea to link the two (click again to remove). A dotted line joins related ideas when both are visible, a badge with the count lists them and jumps to each one even inside collapsed branches, and text mode lists them too. Stored as `related` (ids) on a node; references to deleted ideas are cleaned up. The skill outline accepts `[rel:Other idea title]`, in `create` and `update`.
 - **Search**: a toolbar button, **Ctrl/Cmd+K** or **/** opens a search over titles and subtitles (accent- and case-insensitive); choosing a result opens the branches that hide it and centres the map on it.
 - **Duplicate, Copy and Paste** in the action wheel: duplicate an idea with everything below it, or copy it and paste it as a child of another idea, including into another presentation (its images are copied too).

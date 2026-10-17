@@ -113,6 +113,8 @@ place: open it, expand everything and switch on *Edit* mode.
 - **Several root cards** never overlap: when an open tree would cover another, the one that was **below (or to the right)** moves aside, so the original order is kept, and it returns to its saved position when collapsed.
 - **Expand all / Collapse all**, **Full screen** and **Text mode** (linear reading of the whole map) live in the bottom bar.
 - **Subtitles** show in a small panel under the card **only while hovering it**.
+- **Keyboard:** Tab reaches every card; in view mode **→** opens a branch or enters it, **←** collapses or goes to the parent, **↑ ↓** move between siblings, **Enter/Space** toggle. The map is exposed to screen readers as a tree.
+- **Touch:** one finger pans, **two fingers pinch to zoom** (and pan).
 - **Search** (🔍 in the bottom bar, **Ctrl+K** or **/**) finds ideas by title or subtitle, ignoring case and accents; picking a result opens the branches that hide it and centres the map on it.
 
 <p align="center">
@@ -321,7 +323,7 @@ the registered libraries, only http/https links are accepted, and Mermaid runs w
 
 ```bash
 npm install --no-save playwright-core   # once; or set PLAYWRIGHT_MODULE to an existing playwright-core
-npm run test:e2e                        # edit, skill, browser, cards and motion, with an isolated temporary server
+npm run test:e2e                        # edit, skill, browser, cards, motion and a11y, with an isolated temporary server
 node tests/edit.mjs                     # or run a single suite
 ```
 
@@ -332,6 +334,7 @@ node tests/edit.mjs                     # or run a single suite
 | `browser` MAP-01..11 | navigation, zoom, text mode, mobile, full screen |
 | `cards` CARD-01..06 | titles, root, keyboard, images |
 | `motion` MOT-01..05 | animations and reduced motion |
+| `a11y` A11Y-01..07 | tree semantics, keyboard navigation, accessible names, dialog focus, pinch zoom |
 
 `BROWSER_EXECUTABLE` selects a specific Chrome/Chromium binary. The same checks run on Linux, macOS and Windows
 for every pull request ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)). To run `browser`, `cards` or
@@ -351,7 +354,6 @@ PLAYWRIGHT_MODULE=file:///path/to/playwright-core/index.mjs node docs/screenshot
 - The structure is a **tree**; ideas can be **related** across branches (dotted lines), but there are no arrows or labels on those relations.
 - **CLI diagrams** need `mmdc` (mermaid-cli); in the app editor Mermaid is already bundled.
 - Remote image URLs are **not downloaded** by the skill (use local files).
-- Mobile: one-finger pan and zoom buttons; pinch is not implemented.
 - Removing a media item does not delete its file from `assets/`.
 - Designed for a **local machine, single user**: there is no authentication or simultaneous editing.
 
