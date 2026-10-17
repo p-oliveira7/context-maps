@@ -248,8 +248,8 @@ Opções do CLI: `--id`, `--title`, `--replace`, `--dir <pasta>` (cria em outra 
 | Agente | Como a skill é encontrada | Status |
 | --- | --- | --- |
 | **Claude (Claude Code)** | `skills/context-maps/SKILL.md` (copie para `~/.claude/skills/` para uso global) | Formato nativo |
-| **Codex** | `AGENTS.md` na raiz aponta para o `SKILL.md` | Preparado; não testado |
-| **Cursor** | `.cursor/rules/context-maps.mdc` e `AGENTS.md` | Preparado; não testado |
+| **Codex** | `AGENTS.md` na raiz aponta para o `SKILL.md` | Arquivos checados no CI; teste no app real pendente ([como verificar](docs/skill.pt-BR.md#codex-e-cursor)) |
+| **Cursor** | `.cursor/rules/context-maps.mdc` e `AGENTS.md` | Arquivos checados no CI; teste no app real pendente ([como verificar](docs/skill.pt-BR.md#codex-e-cursor)) |
 
 O trabalho pesado fica em um CLI Node (`rm.mjs`), então qualquer agente com acesso ao terminal consegue usar.
 As instruções para agentes (`SKILL.md`, `schema.md`, `AGENTS.md`) estão em inglês, com cópias em português (`*.pt-BR.md`).

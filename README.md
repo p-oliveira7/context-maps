@@ -248,8 +248,8 @@ CLI options: `--id`, `--title`, `--replace`, `--dir <folder>` (create in another
 | Agent | How the skill is found | Status |
 | --- | --- | --- |
 | **Claude (Claude Code)** | `skills/context-maps/SKILL.md` (copy to `~/.claude/skills/` for global use) | Native format |
-| **Codex** | `AGENTS.md` at the root points to `SKILL.md` | Prepared; not tested |
-| **Cursor** | `.cursor/rules/context-maps.mdc` and `AGENTS.md` | Prepared; not tested |
+| **Codex** | `AGENTS.md` at the root points to `SKILL.md` | Files checked in CI; real-app run pending ([how to verify](docs/skill.md#codex-and-cursor)) |
+| **Cursor** | `.cursor/rules/context-maps.mdc` and `AGENTS.md` | Files checked in CI; real-app run pending ([how to verify](docs/skill.md#codex-and-cursor)) |
 
 The heavy lifting lives in a Node CLI (`rm.mjs`), so any agent with terminal access can use it. Agent-facing
 instructions (`SKILL.md`, `schema.md`, `AGENTS.md`) are in English, with Portuguese copies (`*.pt-BR.md`).

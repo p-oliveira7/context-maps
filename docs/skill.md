@@ -80,7 +80,14 @@ When the skill is used **outside** the app repository:
 ### Codex and Cursor
 The repository ships `AGENTS.md` (Codex; also recognised by Cursor) and
 `.cursor/rules/context-maps.mdc`. Both point to the same `SKILL.md`, the single source of instructions.
-They are **prepared but were not tested** on those tools.
+Their format and references are checked automatically (`npm test`: front matter, existing paths, every CLI
+command documented), but they have **not been exercised by the real Codex or Cursor apps yet**.
+
+To verify an agent by hand (5 minutes), open this repository in it and ask: *"Build a map of this repository's
+architecture with Context Maps"*. A pass means the agent: (1) reads `AGENTS.md` / the rule and `SKILL.md`,
+(2) runs `rm.mjs serve` and `validate` before `create`, (3) ends with a URL that opens a map, and (4) does not write
+files in `presentations/` directly. Then ask it to *"update the map after adding X"* and check that it uses
+`rm.mjs update` (your manual edits must survive). Please report the result in an issue.
 
 ## 5. Requirements and configuration
 
