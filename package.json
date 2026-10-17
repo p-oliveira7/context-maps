@@ -1,1 +1,1 @@
-{"name":"context-maps","version":"0.1.0","private":true,"type":"module","scripts":{"start":"node server.mjs","test":"node --test tests/model.test.js"}}
+{"name":"context-maps","version":"0.1.0","private":true,"license":"MIT","type":"module","scripts":{"start":"node server.mjs","test":"node --test tests/model.test.js"}}

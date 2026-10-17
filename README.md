@@ -8,6 +8,7 @@
 [![Dependencies](https://img.shields.io/badge/runtime%20dependencies-0-2ea44f)](#getting-started)
 [![Local first](https://img.shields.io/badge/local--first-127.0.0.1-blue)](#security)
 [![Agent skill](https://img.shields.io/badge/agent%20skill-Claude%20%C2%B7%20Codex%20%C2%B7%20Cursor-8a63d2)](#agent-skill)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![Mermaid](https://img.shields.io/badge/diagrams-Mermaid-ff3670)](#images-diagrams-and-links)
 
 **English** · [Português (BR)](README.pt-BR.md)
@@ -38,7 +39,7 @@ publishes the finished map with images, diagrams and links.
 - [Agent skill](#agent-skill)
 - [Data format](#data-format) · [Server API](#server-api) · [Security](#security)
 - [Tests](#tests) · [Regenerating the screenshots](#regenerating-the-screenshots)
-- [Known limitations](#known-limitations) · [Third-party](#third-party) · [Origin](#origin)
+- [Known limitations](#known-limitations) · [License](#license) · [Third-party](#third-party) · [Origin](#origin)
 
 ## Why Context Maps
 
@@ -333,6 +334,10 @@ PLAYWRIGHT_MODULE=file:///path/to/playwright-core/index.mjs node docs/screenshot
 - Mobile: one-finger pan and zoom buttons; pinch is not implemented.
 - Removing a media item does not delete its file from `assets/`.
 - Designed for a **local machine, single user**: there is no authentication or simultaneous editing.
+
+## License
+
+[MIT](LICENSE) © 2026 Paulo Oliveira.
 
 ## Third-party
 
