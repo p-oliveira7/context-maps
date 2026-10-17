@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import {tree} from '../model.js';
-const {chromium}=await import(process.env.PLAYWRIGHT_MODULE||'playwright-core');
-const browser=await chromium.launch({executablePath:process.env.BROWSER_EXECUTABLE||'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});
+import {launch} from './launch.mjs';
+const browser=await launch();
 try {
- const page=await browser.newPage({locale:'pt-BR',viewport:{width:1280,height:720}});page.setDefaultTimeout(5000);
+ const page=await browser.newPage({locale:'pt-BR',viewport:{width:1280,height:720}});page.setDefaultTimeout(process.env.CI?15000:5000);
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto(process.env.PREVIEW_URL||'http://127.0.0.1:4173');
  const ids=()=>page.locator('.node').evaluateAll(els=>els.map(e=>e.dataset.id).sort());

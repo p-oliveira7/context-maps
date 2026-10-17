@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
-const {chromium}=await import(process.env.PLAYWRIGHT_MODULE||'playwright-core');
-const browser=await chromium.launch({executablePath:process.env.BROWSER_EXECUTABLE||'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});
+import {launch} from './launch.mjs';
+const browser=await launch();
 try{
  const page=await browser.newPage({locale:'pt-BR',viewport:{width:1280,height:720},reducedMotion:'no-preference'});const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.clock.install({time:new Date('2026-01-01T00:00:00Z')});
