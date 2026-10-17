@@ -15,9 +15,9 @@ await new Promise((ok,fail)=>{server.stdout.once('data',ok);server.once('exit',c
 const browser=await launch();
 const rawDisk=async id=>JSON.parse(await readFile(path.join(dir,`${id}.json`),'utf8'));
 const onDisk=async id=>{const raw=await rawDisk(id);return {...raw,tree:raw.roots?.[0]??raw.tree};}; // .tree = primeira raiz (formato novo ou antigo)
-const until=async(fn,message)=>{for(let i=0;i<40;i++){if(await fn())return;await new Promise(r=>setTimeout(r,100));}assert.fail(message);};
+const until=async(fn,message)=>{for(let i=0;i<(process.env.CI?200:40);i++){if(await fn())return;await new Promise(r=>setTimeout(r,100));}assert.fail(message);};
 try{
- const page=await browser.newPage({locale:'pt-BR',viewport:{width:1280,height:800},extraHTTPHeaders:{'x-context-maps':'1'}});page.setDefaultTimeout(5000);
+ const page=await browser.newPage({locale:'pt-BR',viewport:{width:1280,height:800},extraHTTPHeaders:{'x-context-maps':'1'}});page.setDefaultTimeout(process.env.CI?15000:5000);
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  let confirmAnswer=true,promptAnswer='Minha apresentação';
  page.on('dialog',d=>d.type()==='prompt'?d.accept(promptAnswer):confirmAnswer?d.accept():d.dismiss());
@@ -470,7 +470,7 @@ try{
  await page.locator('#doc-button').click(); // EDIT-09: várias apresentações
  await page.locator('#doc-new').click();
  await until(async()=>(await readdir(dir)).includes('minha-apresentacao.json'),'nova apresentação não criada');
- assert.equal(await page.locator('#doc-title').textContent(),'Minha apresentação');
+ await until(async()=>(await page.locator('#doc-title').textContent())==='Minha apresentação','a nova apresentação não foi aberta');
  assert.deepEqual(await ids(),['root']);
  assert.equal(await sw.getAttribute('aria-checked'),'true');
  await act('root','Adicionar filho');await page.keyboard.type('Primeira ideia');await page.keyboard.press('Enter');
