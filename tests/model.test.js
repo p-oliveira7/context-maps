@@ -28,3 +28,15 @@ test('VERSION: version.js, package.json and the changelog agree',()=>{
  assert.ok(log.includes(`## [${VERSION}] - `),`CHANGELOG.md has no section for ${VERSION}`);
  assert.ok(log.includes('## [Unreleased]'));
 });
+import {writeZip,readZip,crc32} from '../zip.mjs';
+test('ZIP: round trip keeps names and bytes (stored and deflated), and ignores unsafe paths',()=>{
+ const big=Buffer.alloc(5000,'abc');
+ const zip=writeZip([{name:'a.json',data:Buffer.from('{"x":1}')},{name:'pasta/grande.txt',data:big},{name:'../fora.txt',data:Buffer.from('x')},{name:'ç/ã.txt',data:Buffer.from('acentos')}]);
+ const out=readZip(zip);
+ assert.deepEqual(out.map(e=>e.name),['a.json','pasta/grande.txt','ç/ã.txt']); // "../fora.txt" é ignorado
+ assert.deepEqual(out[1].data,big);assert.equal(out[0].data.toString(),'{"x":1}');
+ assert.ok(zip.length<5000,'o arquivo grande deveria ser comprimido');
+ assert.equal(crc32(Buffer.from('123456789')),0xCBF43926);
+ assert.throws(()=>readZip(Buffer.from('não é zip')),/zip/);
+ assert.throws(()=>readZip(zip,{maxTotal:100}),/grande demais/);
+});

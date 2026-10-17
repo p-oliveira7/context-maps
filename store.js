@@ -20,6 +20,7 @@ export const remove=id=>json(`${base}/${id}`,{method:'DELETE'});
 export const libraries=()=>json('api/libraries');
 export const addLibrary=dir=>json('api/libraries',{method:'POST',...jsonBody({dir})});
 export const removeLibrary=key=>json(`api/libraries/${key}`,{method:'DELETE'});
+export const importFile=file=>json(`api/import?name=${encodeURIComponent(file.name)}`,{method:'POST',body:file});
 export const pickFolder=()=>json('api/pick-folder',{method:'POST'});
 export async function upload(id,file){
  const {src}=await json(`${base}/${id}/assets?name=${encodeURIComponent(file.name)}`,{method:'POST',body:file});

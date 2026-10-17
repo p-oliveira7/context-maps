@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
 import {mkdtemp,readFile,readdir,rm,writeFile} from 'node:fs/promises';
 import {existsSync} from 'node:fs';
+import {pathToFileURL} from 'node:url';
+import {readZip,writeZip} from '../zip.mjs';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -722,6 +724,82 @@ try{
 
  const traversal=await page.request.get(`${base}/presentations/..%2fserver.mjs`);assert.equal(traversal.status(),404); // segurança básica
  assert.equal((await page.request.get(`${base}/server.mjs`)).status(),404);
+ // EDIT-28: exportar como HTML único (abre offline, imagens embutidas, somente leitura) e como Markdown
+ {
+  const made=await (await page.request.post(`${base}/api/presentations`,{data:{title:'Exportável'}})).json();
+  const up=await (await page.request.post(`${base}/api/presentations/${made.id}/assets?name=foto.png`,{data:png})).json();
+  const roots=[{id:'r',title:'Raiz exportada',subtitle:'Texto de apoio',color:'#c76a61',children:[
+   {id:'c1',title:'Filho com imagem',images:[{src:up.src,alt:'Foto'}],links:[{url:'https://example.com/docs',label:'Docs'}],children:[]},
+   {id:'c2',title:'Outro filho',linksColor:'#6fa3d6',children:[{id:'c3',title:'Neto',children:[]}]}]}];
+  assert.equal((await page.request.put(`${base}/api/presentations/${made.id}`,{data:{title:'Exportável',roots}})).status(),200);
+  const html=await (await page.request.get(`${base}/api/presentations/${made.id}/export?format=html`)).text();
+  assert.ok(html.includes('data:image/png;base64,'),'a imagem deveria estar embutida');
+  assert.equal(html.includes('presentations/'+made.id),false,'nenhum caminho do servidor deveria sobrar');
+  const exported=path.join(dir,'exportado.html');await writeFile(exported,html);
+  const offline=await browser.newContext({locale:'pt-BR',viewport:{width:1280,height:800},offline:true});
+  const pg=await offline.newPage();const pageErrors=[];pg.on('pageerror',e=>pageErrors.push(e.message));
+  await pg.goto(pathToFileURL(exported).href);await pg.locator('.node').first().waitFor();
+  assert.equal(await pg.title(),'Exportável · Context Maps');
+  assert.equal(await pg.locator('#edit-switch').isVisible(),false); // somente leitura
+  await pg.locator('#expand').click();await pg.waitForTimeout(400);
+  assert.equal(await pg.locator('.node').count(),4);
+  assert.equal(await pg.locator('.node img').evaluateAll(els=>els.length>0&&els.every(i=>i.complete&&i.naturalWidth>0)),true); // a imagem carrega sem rede
+  assert.equal(await pg.locator('.node.root h1').textContent(),'Raiz exportada');
+  assert.deepEqual(pageErrors,[]);
+  await offline.close();await rm(exported,{force:true});
+  const head=await page.request.get(`${base}/api/presentations/${made.id}/export?format=html`);
+  assert.match(head.headers()['content-disposition'],/attachment; filename="exportavel\.html"/);
+  assert.equal((await page.request.get(`${base}/api/presentations/${made.id}/export?format=md`)).status(),400); // Markdown não é mais um formato
+  // pacote ZIP: o JSON + as imagens (formato portátil)
+  const zipRes=await page.request.get(`${base}/api/presentations/${made.id}/export?format=zip`);
+  assert.equal(zipRes.status(),200);assert.match(zipRes.headers()['content-disposition'],/filename="exportavel\.zip"/);
+  const zipBytes=await zipRes.body();
+  const entries=readZip(zipBytes);
+  assert.deepEqual(entries.map(e=>e.name).sort(),['exportavel.json',entries.find(e=>e.name.startsWith('exportavel/assets/')).name].sort());
+  const packed=JSON.parse(entries.find(e=>e.name==='exportavel.json').data.toString());
+  assert.equal(packed.title,'Exportável');assert.ok(packed.roots[0].children[0].images[0].src.startsWith('exportavel/assets/'));
+  assert.deepEqual(entries.find(e=>e.name.startsWith('exportavel/assets/')).data,png); // a imagem vai byte a byte
+  // importar o ZIP: vira uma apresentação nova (nome único) com as imagens copiadas
+  const importZip=await page.request.post(`${base}/api/import?name=exportavel.zip`,{data:zipBytes});
+  assert.equal(importZip.status(),201);const impZ=await importZip.json();
+  assert.equal(impZ.title,'Exportável (2)');
+  const impZDoc=await (await page.request.get(`${base}/api/presentations/${impZ.id}`)).json();
+  assert.equal(impZDoc.roots[0].children[0].images[0].src.startsWith(`presentations/${impZ.id}/assets/`),true);
+  assert.equal((await page.request.get(`${base}/${impZDoc.roots[0].children[0].images[0].src}`)).status(),200);
+  assert.equal(impZDoc.roots[0].color,'#c76a61');assert.equal(impZDoc.roots[0].children[0].links[0].url,'https://example.com/docs');
+  // importar o HTML exportado: as imagens embutidas voltam a ser arquivos
+  const importHtml=await page.request.post(`${base}/api/import?name=exportado.html`,{data:Buffer.from(html)});
+  assert.equal(importHtml.status(),201);const impH=await importHtml.json();
+  assert.equal(impH.title,'Exportável (3)');
+  const impHDoc=await (await page.request.get(`${base}/api/presentations/${impH.id}`)).json();
+  const hSrc=impHDoc.roots[0].children[0].images[0].src;
+  assert.equal(hSrc.startsWith(`presentations/${impH.id}/assets/`),true);
+  assert.deepEqual(await (await page.request.get(`${base}/${hSrc}`)).body(),png);
+  // arquivos inválidos e caminhos maliciosos
+  assert.equal((await page.request.post(`${base}/api/import?name=x.zip`,{data:Buffer.from('isto não é um arquivo válido')})).status(),400);
+  assert.equal((await page.request.post(`${base}/api/import?name=x.html`,{data:Buffer.from('<html><body>sem dados</body></html>')})).status(),400);
+  const evil=writeZip([{name:'mal.json',data:Buffer.from(JSON.stringify({title:'Maliciosa',roots:[{id:'r',title:'R',images:[{src:'../../server.mjs',alt:'x'},{src:'mal/assets/../../../etc/passwd',alt:'y'}],children:[]}]}))},{name:'../fora.txt',data:Buffer.from('x')}]);
+  const evilRes=await page.request.post(`${base}/api/import?name=mal.zip`,{data:evil});assert.equal(evilRes.status(),201);
+  const evilDoc=await (await page.request.get(`${base}/api/presentations/${(await evilRes.json()).id}`)).json();
+  assert.equal(evilDoc.roots[0].images,undefined); // referências fora do pacote são descartadas
+  assert.equal(existsSync(path.join(dir,'..','fora.txt')),false);
+  const bad=await page.request.post(`${base}/api/import?name=x.zip`,{data:Buffer.from('nada'),headers:{'accept-language':'en'}});
+  assert.match((await bad.json()).error,/Invalid import file/);
+  for(const imported of [impZ.id,impH.id,'maliciosa'])await page.request.delete(`${base}/api/presentations/${imported}`);
+  // pelo menu: baixar ZIP e importar um arquivo
+  await page.goto(`${base}/?p=${made.id}`);await page.locator('.node').first().waitFor();
+  await page.locator('#doc-button').click();
+  const [download]=await Promise.all([page.waitForEvent('download'),page.locator('#doc-export-zip').click()]);
+  assert.equal(download.suggestedFilename(),'exportavel.zip');
+  await page.locator('#doc-button').click();
+  const [chooser]=await Promise.all([page.waitForEvent('filechooser'),page.locator('#doc-import').click()]);
+  await chooser.setFiles({name:'exportavel.zip',mimeType:'application/zip',buffer:zipBytes});
+  await until(async()=>(await page.locator('#doc-title').textContent())==='Exportável (2)','a apresentação importada não foi aberta');
+  assert.equal(await page.locator('.node img').count()>=0,true);
+  await page.request.delete(`${base}/api/presentations/${(await (await page.request.get(`${base}/api/presentations`)).json()).find(d=>d.title==='Exportável (2)').id}`);
+  await page.request.delete(`${base}/api/presentations/${made.id}`);
+  await page.goto(`${base}/`);await page.locator('.node').first().waitFor();
+ }
  // EDIT-27: idioma da interface segue o do navegador (inglês por padrão; pt-BR no Brasil) e ?lang= força um deles
  {
   const open=async(locale,query='')=>{const ctx=await browser.newContext({locale,viewport:{width:1280,height:800},extraHTTPHeaders:{'x-context-maps':'1'}});const pg=await ctx.newPage();await pg.goto(`${base}/${query}`);await pg.locator('.node').first().waitFor();return {ctx,pg};};
@@ -755,5 +833,5 @@ try{
   assert.equal((await other.pg.locator('#edit-switch').textContent()).trim(),'Edit');
   await other.ctx.close();
  }
- assert.deepEqual(errors,[]);console.log('PASS EDIT-01..27');
+ assert.deepEqual(errors,[]);console.log('PASS EDIT-01..28');
 }finally{await browser.close();server.kill();await rm(dir,{recursive:true,force:true});await rm(configDir,{recursive:true,force:true});}

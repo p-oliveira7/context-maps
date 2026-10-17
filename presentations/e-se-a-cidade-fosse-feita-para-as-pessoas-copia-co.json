@@ -1,0 +1,401 @@
+{
+  "id": "e-se-a-cidade-fosse-feita-para-as-pessoas-copia-co",
+  "title": "E se a cidade fosse feita para as pessoas? (cópia) (cópia) (2)",
+  "roots": [
+    {
+      "id": "root",
+      "title": "E se a cidade fosse feita para as pessoas?",
+      "children": [
+        {
+          "id": "n-698bbbf7",
+          "title": "Como queremos nos mover?",
+          "children": [
+            {
+              "id": "n-3757b41b",
+              "title": "Calçadas que convidam a caminhar",
+              "children": []
+            },
+            {
+              "id": "n-dd90769e",
+              "title": "Bicicletas conectadas ao transporte público",
+              "children": [],
+              "links": [
+                {
+                  "url": "https://pt.wikipedia.org/wiki/Mobilidade_urbana",
+                  "label": "Mobilidade urbana"
+                }
+              ]
+            },
+            {
+              "id": "n-8b602422",
+              "title": "Menos tempo no trânsito, mais tempo de vida",
+              "children": []
+            }
+          ],
+          "color": "#c76a61",
+          "subtitle": "Os subtítulos aparecem dentro do card, só ao passar o mouse."
+        },
+        {
+          "id": "n-fc880937",
+          "title": "Onde a natureza encontra a cidade?",
+          "children": [
+            {
+              "id": "n-3ad4fa86",
+              "title": "Uma árvore muda a experiência de uma rua",
+              "children": [],
+              "images": [
+                {
+                  "src": "presentations/e-se-a-cidade-fosse-feita-para-as-pessoas-copia-co/assets/park-mvbotqwx-3.svg",
+                  "alt": "Árvores oferecendo sombra ao caminho do parque"
+                }
+              ]
+            }
+          ],
+          "color": "#d4a458",
+          "images": [
+            {
+              "src": "presentations/e-se-a-cidade-fosse-feita-para-as-pessoas-copia-co/assets/park-mvbotqwh-2.svg",
+              "alt": "Parque com árvores e um caminho junto ao rio"
+            }
+          ]
+        },
+        {
+          "id": "n-adf4a795",
+          "title": "O que nos aproxima uns dos outros?",
+          "children": [
+            {
+              "id": "n-b57955cb",
+              "title": "Praças como salas de estar coletivas",
+              "children": []
+            },
+            {
+              "id": "n-ab2027f0",
+              "title": "Cultura e comércio de bairro",
+              "children": []
+            },
+            {
+              "id": "n-eed132f9",
+              "title": "Espaços para todas as idades",
+              "children": []
+            }
+          ],
+          "color": "#a39acb"
+        },
+        {
+          "id": "n-4e384b53",
+          "title": "Por onde começamos a mudança?",
+          "children": [
+            {
+              "id": "n-718b86f6",
+              "title": "Ouvir quem já vive o lugar",
+              "children": []
+            },
+            {
+              "id": "n-ad98f159",
+              "title": "Testar em uma rua antes de ampliar",
+              "children": []
+            },
+            {
+              "id": "n-c5a2c4a2",
+              "title": "Medir o que melhora a vida cotidiana",
+              "children": []
+            }
+          ],
+          "color": "#d98757"
+        }
+      ],
+      "images": [
+        {
+          "src": "presentations/e-se-a-cidade-fosse-feita-para-as-pessoas-copia-co/assets/city-mvbotqw2-1.svg",
+          "alt": "Cidade com árvores, caminhos e edifícios em tons verdes"
+        }
+      ],
+      "subtitle": "Mapa de exemplo do Context Maps. Passe o mouse nos cards para ver os subtítulos e ative “Editar” para mexer."
+    },
+    {
+      "id": "n-b2332e76",
+      "title": "Guia de recursos",
+      "children": [
+        {
+          "id": "n-39d8103b",
+          "title": "Subtítulo ao passar o mouse",
+          "children": [],
+          "color": "#6fa3d6",
+          "subtitle": "Este texto de apoio fica escondido e só aparece aqui, dentro do card, quando o mouse está sobre ele."
+        },
+        {
+          "id": "n-2c168956",
+          "title": "Imagens",
+          "children": [
+            {
+              "id": "n-385e600c",
+              "title": "Uma imagem",
+              "children": [],
+              "images": [
+                {
+                  "src": "presentations/e-se-a-cidade-fosse-feita-para-as-pessoas-copia-co/assets/park-mvbotqxc-4.svg",
+                  "alt": "Parque com árvores e um rio"
+                }
+              ]
+            },
+            {
+              "id": "n-bdb5e1ef",
+              "title": "Várias imagens no mesmo card",
+              "children": [],
+              "images": [
+                {
+                  "src": "presentations/e-se-a-cidade-fosse-feita-para-as-pessoas-copia-co/assets/city-mvbotqxs-5.svg",
+                  "alt": "Cidade"
+                },
+                {
+                  "src": "presentations/e-se-a-cidade-fosse-feita-para-as-pessoas-copia-co/assets/park-mvbotqy8-6.svg",
+                  "alt": "Parque"
+                }
+              ]
+            },
+            {
+              "id": "n-25e7e3a9",
+              "title": "Imagem e diagrama juntos",
+              "children": [],
+              "images": [
+                {
+                  "src": "presentations/e-se-a-cidade-fosse-feita-para-as-pessoas-copia-co/assets/park-mvbotqyo-7.svg",
+                  "alt": "Parque"
+                },
+                {
+                  "src": "presentations/e-se-a-cidade-fosse-feita-para-as-pessoas-copia-co/assets/d-mvbotsss-8.svg",
+                  "alt": "Diagrama: Imagem e diagrama juntos",
+                  "kind": "diagram",
+                  "source": "flowchart LR\n    A[\"Ideia\"] --> B{\"Tem detalhes?\"}\n    B -->|Sim| C[\"Adicione filhos\"]\n    B -->|Não| D[\"Deixe como folha\"]\n    C --> E[\"Imagens, links e diagramas\"]\n    D --> E\n"
+                }
+              ]
+            }
+          ],
+          "color": "#7fb59a"
+        },
+        {
+          "id": "n-17d7ee48",
+          "title": "Diagramas Mermaid",
+          "children": [
+            {
+              "id": "n-9405322f",
+              "title": "Fluxograma",
+              "children": [],
+              "images": [
+                {
+                  "src": "presentations/e-se-a-cidade-fosse-feita-para-as-pessoas-copia-co/assets/d-mvbottsj-9.svg",
+                  "alt": "Diagrama: Fluxograma",
+                  "kind": "diagram",
+                  "source": "flowchart LR\n    A[\"Ideia\"] --> B{\"Tem detalhes?\"}\n    B -->|Sim| C[\"Adicione filhos\"]\n    B -->|Não| D[\"Deixe como folha\"]\n    C --> E[\"Imagens, links e diagramas\"]\n    D --> E\n"
+                }
+              ]
+            },
+            {
+              "id": "n-6086cc1a",
+              "title": "Diagrama de sequência",
+              "children": [],
+              "images": [
+                {
+                  "src": "presentations/e-se-a-cidade-fosse-feita-para-as-pessoas-copia-co/assets/d-mvbotuna-a.svg",
+                  "alt": "Diagrama: Diagrama de sequência",
+                  "kind": "diagram",
+                  "source": "sequenceDiagram\n    actor U as Pessoa\n    participant M as Mapa\n    participant S as Servidor local\n    U->>M: Edita um card\n    M->>S: Salva (autosave)\n    S-->>M: Salvo\n    M-->>U: Estado \"Salvo\"\n"
+                }
+              ]
+            }
+          ],
+          "color": "#c76a61"
+        },
+        {
+          "id": "n-6f1c2e34",
+          "title": "Links",
+          "children": [
+            {
+              "id": "n-80c24a3a",
+              "title": "Um link abre direto em nova aba",
+              "children": [],
+              "links": [
+                {
+                  "url": "https://mermaid.js.org/",
+                  "label": "Mermaid"
+                }
+              ]
+            },
+            {
+              "id": "n-b2e28240",
+              "title": "Vários links abrem uma lista",
+              "children": [],
+              "links": [
+                {
+                  "url": "https://nodejs.org/",
+                  "label": "Node.js"
+                },
+                {
+                  "url": "https://developer.mozilla.org/",
+                  "label": "MDN"
+                },
+                {
+                  "url": "https://git-scm.com/",
+                  "label": "Git"
+                }
+              ]
+            }
+          ],
+          "color": "#d4a458"
+        },
+        {
+          "id": "n-09389b3e",
+          "title": "Cards sem título",
+          "children": [
+            {
+              "id": "n-74ee0255",
+              "title": "",
+              "children": [],
+              "images": [
+                {
+                  "src": "presentations/e-se-a-cidade-fosse-feita-para-as-pessoas-copia-co/assets/city-mvbotunp-b.svg",
+                  "alt": "Só imagem, sem título"
+                }
+              ]
+            },
+            {
+              "id": "n-eed7e157",
+              "title": "",
+              "children": [],
+              "subtitle": "Só texto secundário: sem título, o subtítulo fica sempre visível."
+            },
+            {
+              "id": "n-43625c68",
+              "title": "",
+              "children": [],
+              "images": [
+                {
+                  "src": "presentations/e-se-a-cidade-fosse-feita-para-as-pessoas-copia-co/assets/d-mvbotvo7-c.svg",
+                  "alt": "Diagrama: ",
+                  "kind": "diagram",
+                  "source": "flowchart LR\n    A[\"Ideia\"] --> B{\"Tem detalhes?\"}\n    B -->|Sim| C[\"Adicione filhos\"]\n    B -->|Não| D[\"Deixe como folha\"]\n    C --> E[\"Imagens, links e diagramas\"]\n    D --> E\n"
+                }
+              ]
+            }
+          ],
+          "color": "#a39acb"
+        },
+        {
+          "id": "n-b271cf99",
+          "title": "Cor das ligações",
+          "children": [
+            {
+              "id": "n-40d75ffe",
+              "title": "Só as ligações deste card",
+              "children": [
+                {
+                  "id": "n-3256c3da",
+                  "title": "Filha com subtítulo",
+                  "children": [],
+                  "subtitle": "As linhas que saem do card acima têm outra cor; esta filha e as linhas que chegam a ela não mudam."
+                },
+                {
+                  "id": "n-06274574",
+                  "title": "Outra filha",
+                  "children": []
+                }
+              ],
+              "linksColor": "#ff7ab6"
+            },
+            {
+              "id": "n-b2539bbc",
+              "title": "Toda a ramificação",
+              "children": [
+                {
+                  "id": "n-068f267a",
+                  "title": "Neta A",
+                  "children": [
+                    {
+                      "id": "n-bdabfe6b",
+                      "title": "Bisneta 1",
+                      "children": []
+                    },
+                    {
+                      "id": "n-7ec47fdb",
+                      "title": "Bisneta 2",
+                      "children": []
+                    }
+                  ],
+                  "linksColor": "#4fd1c5"
+                },
+                {
+                  "id": "n-a8f41d08",
+                  "title": "Neta B",
+                  "children": []
+                }
+              ],
+              "linksColor": "#4fd1c5"
+            }
+          ],
+          "color": "#d98757",
+          "linksColor": "#ffffff"
+        }
+      ],
+      "subtitle": "Cada ramo mostra um recurso do Context Maps. Abra os ramos e experimente no modo Editar."
+    },
+    {
+      "id": "n-9d6124cb",
+      "title": "Outro ponto de partida",
+      "children": [
+        {
+          "id": "n-89333ed2",
+          "title": "Vários cards raiz",
+          "children": [
+            {
+              "id": "n-11f89d67",
+              "title": "Cada raiz tem a sua árvore e uma posição livre no mapa",
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "n-ed9b3ac1",
+          "title": "Sem sobreposição",
+          "children": [
+            {
+              "id": "n-7d5880ee",
+              "title": "Ao abrir ramos, as árvores se afastam e voltam ao recolher",
+              "children": []
+            }
+          ]
+        }
+      ],
+      "subtitle": "Um card raiz independente: arraste pela alça para posicionar ou solte sobre outro card para conectar.",
+      "x": 1750,
+      "y": -120
+    },
+    {
+      "id": "n-p6e1s4b",
+      "title": "Novo card raiz",
+      "children": [],
+      "x": 0,
+      "y": 1867
+    },
+    {
+      "id": "n-ges502l",
+      "title": "Novo card raiz",
+      "children": [],
+      "x": 0,
+      "y": 2054
+    },
+    {
+      "id": "n-6c17fc19",
+      "title": "Rios vivos, margens acessíveis",
+      "children": [],
+      "x": 0,
+      "y": 2403
+    },
+    {
+      "id": "n-b9ba3f40",
+      "title": "Pequenos parques a poucos passos de casa",
+      "children": [],
+      "x": 1259,
+      "y": 608
+    }
+  ]
+}

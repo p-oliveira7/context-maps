@@ -16,7 +16,7 @@ const plural=(n,one,many)=>n===1?one:many;
 const dict={
  en:{
   pageTitle:'Context Maps',viewport:'Interactive map: drag the background to navigate',
-  docNew:'+ New presentation',docAddFolder:'Add folder…',docSaveAs:'Save as…',docCopy:'Save a copy…',docDelete:'Delete this presentation',
+  docNew:'+ New presentation',docAddFolder:'Add folder…',docSaveAs:'Save as…',docCopy:'Save a copy…',docDelete:'Delete this presentation',exportHtml:'Export as HTML…',exportZip:'Export as ZIP…',importFile:'Import…',imported:t=>`Imported “${t}”`,importError:'Could not import the file.',
   undo:'Undo',zoomOut:'Zoom out',zoomIn:'Zoom in',fit:'Fit map',toolbar:'Map controls',edit:'Edit',
   addRootLabel:'Add root card',addRootTitle:'Add a new root card (independent starting point)',rootCard:'Root card',
   expandAll:'Expand all',collapseAll:'Collapse all',fullscreen:'Full screen',exitFullscreen:'Exit full screen',textMode:'Text mode',mindMap:'Mind map',
@@ -64,7 +64,7 @@ const dict={
  },
  pt:{
   pageTitle:'Context Maps',viewport:'Mapa interativo: arraste o fundo para navegar',
-  docNew:'+ Nova apresentação',docAddFolder:'Adicionar pasta…',docSaveAs:'Salvar como…',docCopy:'Salvar uma cópia…',docDelete:'Excluir esta apresentação',
+  docNew:'+ Nova apresentação',docAddFolder:'Adicionar pasta…',docSaveAs:'Salvar como…',docCopy:'Salvar uma cópia…',docDelete:'Excluir esta apresentação',exportHtml:'Exportar como HTML…',exportZip:'Exportar como ZIP…',importFile:'Importar…',imported:t=>`“${t}” importada`,importError:'Não foi possível importar o arquivo.',
   undo:'Desfazer',zoomOut:'Diminuir zoom',zoomIn:'Aumentar zoom',fit:'Enquadrar mapa',toolbar:'Controles do mapa',edit:'Editar',
   addRootLabel:'Adicionar card raiz',addRootTitle:'Adicionar um novo card raiz (ponto de partida independente)',rootCard:'Card raiz',
   expandAll:'Expandir tudo',collapseAll:'Recolher tudo',fullscreen:'Tela cheia',exitFullscreen:'Sair da tela cheia',textMode:'Modo texto',mindMap:'Mapa mental',
