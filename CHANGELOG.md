@@ -7,6 +7,11 @@ How to cut a release: [`docs/releasing.md`](docs/releasing.md).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-17
+
+A release about working faster and sharing: undo/redo, search, copy and paste, related ideas, export and
+import, `update` for the skill, keyboard and touch support, and CI on three operating systems.
+
 ### Added
 - **Pinch to zoom** (and two-finger pan) on touch screens.
 - **Keyboard navigation of the map**: Tab reaches every card (leaves included); in view mode the arrow keys walk the tree (→ opens or enters, ← collapses or goes to the parent, ↑ ↓ move between siblings). The action wheel takes focus when it opens and responds to the arrow keys, Home and End.
@@ -61,6 +66,7 @@ after 0.1.0 (pull requests #1–#10).
 - Linear reading (text) mode of the whole map.
 - Original sample map data and navigation state model.
 
-[Unreleased]: https://github.com/p-oliveira7/context-maps/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/p-oliveira7/context-maps/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/p-oliveira7/context-maps/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/p-oliveira7/context-maps/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/p-oliveira7/context-maps/releases/tag/v0.1.0

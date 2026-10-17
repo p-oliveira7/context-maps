@@ -1,2 +1,2 @@
 // Versão do Context Maps (mantida igual à de package.json por tests/model.test.js; ver docs/releasing.md).
-export const VERSION='0.2.0';
+export const VERSION='0.3.0';
