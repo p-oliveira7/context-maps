@@ -10,7 +10,8 @@ const work=await mkdtemp(path.join(tmpdir(),'rm-skill-'));
 const data=path.join(work,'data'),src=path.join(work,'src');
 await mkdir(src);
 const port=4191,base=`http://127.0.0.1:${port}`;
-const server=spawn(process.execPath,['server.mjs'],{cwd:root,env:{...process.env,PORT:String(port),PRESENTATIONS_DIR:data},stdio:['ignore','pipe','inherit']});
+const configDir=await mkdtemp(path.join(tmpdir(),'rm-skill-config-'));
+const server=spawn(process.execPath,['server.mjs'],{cwd:root,env:{...process.env,PORT:String(port),PRESENTATIONS_DIR:data,CONTEXT_MAPS_CONFIG:path.join(configDir,'config.json')},stdio:['ignore','pipe','inherit']});
 await new Promise((ok,fail)=>{server.stdout.once('data',ok);server.once('exit',c=>fail(new Error(`server exit ${c}`)));});
 const run=(args,env={})=>spawnSync(process.execPath,[cli,...args],{cwd:src,encoding:'utf8',env:{...process.env,RM_URL:base,RM_LANG:'pt',...env}});
 try{
@@ -72,9 +73,17 @@ try{
 
  // servidor fora do ar
  const down=run(['status'],{RM_URL:'http://127.0.0.1:1'});assert.equal(down.status,2);
+ // --dir: cria a apresentação em outra pasta da máquina (imagens relativas ao arquivo)
+ const extra=path.join(work,'projeto','docs','mapas');
+ const outExt=run(['create','--outline','mapa.md','--id','externo','--dir',extra],{MMDC:shim});
+ assert.equal(outExt.status,0,outExt.stderr+outExt.stdout);
+ const extReport=JSON.parse(outExt.stdout);assert.match(extReport.url,/\?p=[0-9a-f]{6}~externo$/);
+ const extDoc=JSON.parse(await readFile(path.join(extra,'externo.json'),'utf8'));
+ assert.equal(extDoc.id,'externo');assert.ok(JSON.stringify(extDoc).includes('externo/assets/'));assert.equal(JSON.stringify(extDoc).includes('presentations/'),false);
+ assert.ok((await readFile(path.join(data,'..','nada-aqui.txt'),'utf8').catch(()=>'ok'))==='ok');
  // idioma das mensagens (RM_LANG)
  const badEn=run(['validate','--outline','bad.md'],{RM_LANG:'en'});assert.match(badEn.stdout,/characters/);
  const againEn=run(['create','--outline','mapa.md','--id','fluxo-login'],{RM_LANG:'en',MMDC:shim});assert.match(againEn.stderr,/already exists/);
  const downEn=run(['status'],{RM_URL:'http://127.0.0.1:1',RM_LANG:'en'});assert.match(downEn.stderr,/Server unavailable/);
  console.log('PASS SKILL-01..07');
-}finally{server.kill();await rm(work,{recursive:true,force:true});}
+}finally{server.kill();await rm(work,{recursive:true,force:true});await rm(configDir,{recursive:true,force:true});}

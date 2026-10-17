@@ -1,26 +1,39 @@
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
 import {mkdtemp,readFile,readdir,rm,writeFile} from 'node:fs/promises';
+import {existsSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 const {chromium}=await import(process.env.PLAYWRIGHT_MODULE||'playwright-core');
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const dir=await mkdtemp(path.join(tmpdir(),'context-maps-'));
+const configDir=await mkdtemp(path.join(tmpdir(),'context-maps-config-')),configFile=path.join(configDir,'config.json');
 const port=4190, base=`http://127.0.0.1:${port}`;
-const server=spawn(process.execPath,['server.mjs'],{cwd:root,env:{...process.env,PORT:String(port),PRESENTATIONS_DIR:dir},stdio:['ignore','pipe','inherit']});
+const server=spawn(process.execPath,['server.mjs'],{cwd:root,env:{...process.env,PORT:String(port),PRESENTATIONS_DIR:dir,CONTEXT_MAPS_CONFIG:configFile},stdio:['ignore','pipe','inherit']});
 await new Promise((ok,fail)=>{server.stdout.once('data',ok);server.once('exit',c=>fail(new Error(`server exit ${c}`)));});
 const browser=await chromium.launch({executablePath:process.env.BROWSER_EXECUTABLE||'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});
 const rawDisk=async id=>JSON.parse(await readFile(path.join(dir,`${id}.json`),'utf8'));
 const onDisk=async id=>{const raw=await rawDisk(id);return {...raw,tree:raw.roots?.[0]??raw.tree};}; // .tree = primeira raiz (formato novo ou antigo)
 const until=async(fn,message)=>{for(let i=0;i<40;i++){if(await fn())return;await new Promise(r=>setTimeout(r,100));}assert.fail(message);};
 try{
- const page=await browser.newPage({viewport:{width:1280,height:800}});page.setDefaultTimeout(5000);
+ const page=await browser.newPage({viewport:{width:1280,height:800},extraHTTPHeaders:{'x-context-maps':'1'}});page.setDefaultTimeout(5000);
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  let confirmAnswer=true,promptAnswer='Minha apresentação';
  page.on('dialog',d=>d.type()==='prompt'?d.accept(promptAnswer):confirmAnswer?d.accept():d.dismiss());
  await page.goto(base);
  const sw=page.locator('#edit-switch'),ids=()=>page.locator('.node').evaluateAll(els=>els.map(e=>e.dataset.id).sort());
+ const saveAs=async(item,name,opts={})=>{ // janela "Salvar como": nome, pasta e o que fazer depois
+  await page.evaluate(()=>{document.querySelector('#toast').hidden=true;});
+  await page.locator('#doc-button').click();await page.locator(item).click();
+  await page.locator('#saveas-modal').waitFor();
+  await page.locator('#saveas-name').fill(name);
+  if(opts.mode)await page.locator(`input[name="saveas-mode"][value="${opts.mode}"]`).check();
+  if(opts.folder!==undefined)await page.locator('#saveas-folder').selectOption(opts.folder);
+  if(opts.folderPath){await page.locator('#saveas-folder').selectOption('__other');await page.locator('#saveas-path').fill(opts.folderPath);}
+  await page.locator('#saveas-submit').click();
+  if(!opts.keepOpen)await page.locator('#saveas-modal').waitFor({state:'hidden'});
+ };
  const openMenu=async nid=>{
   await page.evaluate(()=>{document.querySelector('#toast').hidden=true;});
   await page.locator('#fit').click(); // garante que o card não fique atrás da barra inferior
@@ -469,8 +482,7 @@ try{
  // EDIT-23: salvar uma cópia / salvar como com nome definido pelo usuário
  const originalTitle=await page.locator('#doc-title').textContent();
  const originalDisk=JSON.stringify((await onDisk('cidades-para-pessoas')).tree);
- promptAnswer='Backup do mapa';
- await page.locator('#doc-button').click();await page.locator('#doc-copy').click(); // copia e continua na atual
+ await saveAs('#doc-copy','Backup do mapa'); // copia e continua na atual (a janela já vem com "continuar" marcado)
  await until(async()=>(await readdir(dir)).includes('backup-do-mapa.json'),'cópia não criada');
  assert.equal(await page.locator('#doc-title').textContent(),originalTitle); // continua na original
  const backup=await onDisk('backup-do-mapa');
@@ -480,16 +492,14 @@ try{
  const backupMedia=mediaOf(backup.tree).filter(m=>m.src.startsWith('presentations/'));
  assert.ok(backupMedia.length>0);
  for(const m of backupMedia){assert.match(m.src,/^presentations\/backup-do-mapa\/assets\//);assert.equal((await page.request.get(`${base}/${m.src}`)).status(),200);} // imagens copiadas
- promptAnswer='Versão 2';
- await page.locator('#doc-button').click();await page.locator('#doc-saveas').click(); // copia e abre a nova
+ await saveAs('#doc-saveas','Versão 2'); // copia e abre a nova
  await until(async()=>(await page.locator('#doc-title').textContent())==='Versão 2','não abriu a nova apresentação');
  assert.ok((await readdir(dir)).includes('versao-2.json')); // acentos e espaços viram um nome de arquivo seguro
  await page.locator('[data-id="root"] h1').fill('Versão 2 editada'); // editar a cópia não altera as outras
  await until(async()=>(await onDisk('versao-2')).tree.title==='Versão 2 editada','edição da cópia não salva');
  assert.equal(JSON.stringify((await onDisk('cidades-para-pessoas')).tree),originalDisk);
  assert.equal((await onDisk('backup-do-mapa')).title,'Backup do mapa');
- promptAnswer='Versão 2';
- await page.locator('#doc-button').click();await page.locator('#doc-copy').click(); // nome repetido ganha sufixo
+ await saveAs('#doc-copy','Versão 2'); // nome repetido ganha sufixo
  await until(async()=>(await readdir(dir)).includes('versao-2-2.json'),'nome repetido não recebeu sufixo');
  for(const copyId of ['backup-do-mapa','versao-2','versao-2-2'])await page.request.delete(`${base}/api/presentations/${copyId}`);
  await page.locator('#doc-button').click();await page.locator('#doc-list button[data-id="cidades-para-pessoas"]').click();
@@ -651,11 +661,66 @@ try{
  await page.request.delete(`${base}/api/presentations/colisao`);
  await page.goto(`${base}/?p=cidades-para-pessoas`);await page.locator('.node').first().waitFor();
 
+ // EDIT-26: salvar em outra pasta da máquina (e abrir/editar de lá)
+ const extRoot=await mkdtemp(path.join(tmpdir(),'cm-ext-')),extDir=path.join(extRoot,'meus mapas'); // pasta nova, com espaço no nome
+ const cfgFolders=async()=>JSON.parse(await readFile(configFile,'utf8')).folders;
+ await saveAs('#doc-copy','Externa',{folderPath:extDir}); // continua na atual
+ await until(async()=>existsSync(path.join(extDir,'externa.json')),'cópia não foi gravada na outra pasta');
+ assert.deepEqual(await cfgFolders(),[path.resolve(extDir)]); // a pasta foi registrada
+ {
+  const doc=await readFile(path.join(extDir,'externa.json'),'utf8').then(JSON.parse);
+  assert.equal(doc.id,'externa');assert.equal(doc.title,'Externa');
+  const srcs=[];(function walk(n){for(const m of n.images||[])srcs.push(m.src);n.children.forEach(walk);})(doc.roots[0]);
+  const local=srcs.filter(s=>s.includes('assets/'));
+  assert.ok(local.length>0&&local.every(s=>s.startsWith('externa/assets/')),'em pastas extras as imagens são gravadas relativas ao arquivo');
+  const copied=await readdir(path.join(extDir,'externa','assets'));
+  assert.ok(copied.length>=local.length); // as imagens foram copiadas junto
+ }
+ assert.equal(await page.locator('#doc-title').textContent(),originalTitle); // continuou na original
+ // o menu lista a pasta e dá para abrir de lá
+ await page.locator('#doc-button').click();
+ await page.locator('.doc-folder').waitFor();
+ assert.match(await page.locator('.doc-folder').first().textContent(),/meus mapas/);
+ await page.locator('#doc-list button',{hasText:'Externa'}).click();
+ await until(async()=>(await page.locator('#doc-title').textContent())==='Externa','não abriu a apresentação da outra pasta');
+ assert.match(page.url(),/p=[0-9a-f]{6}~externa/);
+ await page.locator('#expand').click();await page.waitForTimeout(400);
+ assert.equal(await page.locator('.node img').evaluateAll(els=>els.length>0&&els.every(i=>i.complete&&i.naturalWidth>0)),true); // as imagens carregam da outra pasta
+ // editar grava na outra pasta, mantendo os caminhos relativos
+ await sw.click();
+ await page.locator('[data-id="root"] h1').fill('Externa editada');
+ await until(async()=>(await readFile(path.join(extDir,'externa.json'),'utf8').then(JSON.parse)).roots[0].title==='Externa editada','edição não foi gravada na outra pasta');
+ await page.locator('[data-id="nature"] input[type=file]').setInputFiles({name:'nova-externa.png',mimeType:'image/png',buffer:png});
+ await until(async()=>(await readdir(path.join(extDir,'externa','assets'))).some(f=>f.startsWith('nova-externa')),'upload não foi para a outra pasta');
+ await until(async()=>JSON.stringify(await readFile(path.join(extDir,'externa.json'),'utf8')).includes('externa/assets/nova-externa'),'caminho da nova imagem deveria ser relativo');
+ assert.equal(JSON.stringify(await readFile(path.join(extDir,'externa.json'),'utf8')).includes('presentations/'),false);
+ // salvar como a partir da pasta externa para a biblioteca do app
+ await saveAs('#doc-saveas','De volta para casa',{folder:''}); // biblioteca principal, abre a nova
+ await until(async()=>existsSync(path.join(dir,'de-volta-para-casa.json')),'não gravou na biblioteca principal');
+ {const back=JSON.parse(await readFile(path.join(dir,'de-volta-para-casa.json'),'utf8'));const srcs=[];(function walk(n){for(const m of n.images||[])srcs.push(m.src);n.children.forEach(walk);})(back.roots[0]);
+  assert.ok(srcs.filter(s=>s.includes('assets/')).every(s=>s.startsWith('presentations/de-volta-para-casa/assets/')));}
+ // caminho relativo é recusado com mensagem
+ await saveAs('#doc-copy','Relativa',{folderPath:'pasta/relativa',keepOpen:true});
+ await page.locator('#saveas-error:not(:empty)').waitFor();
+ assert.match(await page.locator('#saveas-error').textContent(),/caminho completo/i);
+ await page.keyboard.press('Escape');await page.locator('#saveas-modal').waitFor({state:'hidden'});
+ assert.equal((await readdir(dir)).some(f=>f.startsWith('relativa')),false);
+ // o servidor recusa pedidos sem o cabeçalho (outras páginas não podem escrever)
+ {const bare=await browser.newContext();const res=await bare.request.post(`${base}/api/libraries`,{data:{dir:path.join(extRoot,'invasor')}});assert.equal(res.status(),403);await bare.close();} // sem o cabeçalho x-context-maps
+ assert.equal(existsSync(path.join(extRoot,'invasor')),false);
+ // tirar a pasta da lista não apaga os arquivos
+ await page.locator('#doc-button').click();await page.locator('.doc-folder button').first().click();
+ await until(async()=>(await cfgFolders()).length===0,'pasta não foi removida da lista');
+ assert.equal(existsSync(path.join(extDir,'externa.json')),true);
+ await page.request.delete(`${base}/api/presentations/de-volta-para-casa`);
+ await rm(extRoot,{recursive:true,force:true});
+ await page.goto(`${base}/?p=cidades-para-pessoas`);await page.locator('.node').first().waitFor();
+
  await page.locator('#doc-button').click();await page.locator('#doc-delete').click(); // EDIT-10: excluir apresentação
  await until(async()=>!(await readdir(dir)).includes('cidades-para-pessoas.json'),'arquivo não removido');
  await until(async()=>(await page.locator('#doc-title').textContent())==='Minha apresentação','apresentação restante não aberta');
 
  const traversal=await page.request.get(`${base}/presentations/..%2fserver.mjs`);assert.equal(traversal.status(),404); // segurança básica
  assert.equal((await page.request.get(`${base}/server.mjs`)).status(),404);
- assert.deepEqual(errors,[]);console.log('PASS EDIT-01..25');
-}finally{await browser.close();server.kill();await rm(dir,{recursive:true,force:true});}
+ assert.deepEqual(errors,[]);console.log('PASS EDIT-01..26');
+}finally{await browser.close();server.kill();await rm(dir,{recursive:true,force:true});await rm(configDir,{recursive:true,force:true});}

@@ -46,7 +46,7 @@ const MSG={
  usageValidate:{pt:()=>'Uso: validate --outline arquivo.md',en:()=>'Usage: validate --outline file.md'},
  usageCreate:{pt:()=>'Uso: create --outline arquivo.md [--id slug] [--title "..."]',en:()=>'Usage: create --outline file.md [--id slug] [--title "..."]'},
  usageUpload:{pt:()=>'Uso: upload <id> <arquivo>',en:()=>'Usage: upload <id> <file>'},
- usageCommands:{pt:()=>'Comandos: status | serve | validate --outline f.md | create --outline f.md [--id slug] [--replace] | upload <id> <arquivo>',en:()=>'Commands: status | serve | validate --outline f.md | create --outline f.md [--id slug] [--replace] | upload <id> <file>'},
+ usageCommands:{pt:()=>'Comandos: status | serve | validate --outline f.md | create --outline f.md [--id slug] [--dir pasta] [--replace] | upload <id> <arquivo>',en:()=>'Commands: status | serve | validate --outline f.md | create --outline f.md [--id slug] [--dir folder] [--replace] | upload <id> <file>'},
  needTitle:{pt:()=>'Defina um título (# Título no outline ou --title)',en:()=>'Set a title ("# Title" in the outline or --title)'},
  idExists:{pt:id=>`Já existe a apresentação "${id}". Use --replace para sobrescrever ou escolha outro --id.`,en:id=>`Presentation "${id}" already exists. Use --replace to overwrite or choose another --id.`}
 };
@@ -63,7 +63,7 @@ function parseArgs(argv){
 }
 async function api(route,options){
  let res;
- try{res=await fetch(`${BASE}${route}`,options);}catch{die(t('unavailable',BASE,path.join(appRoot,'server.mjs'),path.relative(process.cwd(),path.join(here,'rm.mjs'))),2);}
+ try{res=await fetch(`${BASE}${route}`,{...options,headers:{'x-context-maps':'1',...(options?.headers||{})}});}catch{die(t('unavailable',BASE,path.join(appRoot,'server.mjs'),path.relative(process.cwd(),path.join(here,'rm.mjs'))),2);}
  const type=res.headers.get('content-type')||'';
  const body=type.includes('json')?await res.json():await res.text();
  if(!res.ok)die(t('httpError',res.status,route,typeof body==='string'?body.slice(0,200):body.error||JSON.stringify(body)));
@@ -218,10 +218,10 @@ const commands={
   let id=args.id&&args.id!==true?args.id:null,created;
   if(id){
    const list=await api('/api/presentations');
-   if(!list.some(p=>p.id===id)){created=await api('/api/presentations',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({title:docTitle,id})});id=created.id;}
+   if(!list.some(p=>p.id===id)){created=await api('/api/presentations',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({title:docTitle,id,dir:args.dir&&args.dir!==true?path.resolve(args.dir):undefined})});id=created.id;}
    else if(!args.replace)die(t('idExists',id));
   }else{
-   created=await api('/api/presentations',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({title:docTitle})});id=created.id;
+   created=await api('/api/presentations',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({title:docTitle,dir:args.dir&&args.dir!==true?path.resolve(args.dir):undefined})});id=created.id;
   }
   const report={images:0,diagrams:0,skipped:[]};
   for(const r of roots)await attach(id,r,path.dirname(path.resolve(file)),report);

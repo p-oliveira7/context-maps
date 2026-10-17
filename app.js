@@ -1,6 +1,6 @@
-import {tree as seed,visibleNodes,allBranches,zoomAt,parentOf,findNode,newId,PALETTE} from './model.js?v=14';
-import {cancelMotion,snapshot,animateLayout,hoverEdge,updateEdges} from './motion.js?v=14';
-import * as store from './store.js?v=14';
+import {tree as seed,visibleNodes,allBranches,zoomAt,parentOf,findNode,newId,PALETTE} from './model.js?v=15';
+import {cancelMotion,snapshot,animateLayout,hoverEdge,updateEdges} from './motion.js?v=15';
+import * as store from './store.js?v=15';
 const $=s=>document.querySelector(s), viewport=$('#viewport'), world=$('#world');
 const ROOT_COLOR='#a7a7b8', GAP=64;
 let doc={id:null,title:seed.title,roots:[seed]}, roots=doc.roots, expanded=new Set(['root']), camera={x:0,y:0,scale:1}, reading=false, editing=false, bounds={x:0,y:0,width:1,height:1};
@@ -735,9 +735,18 @@ function setEditing(on){
 }
 async function refreshMenu(){
  const list=await store.list(),menu=$('#doc-list');menu.replaceChildren();
- for(const item of list){
-  const b=document.createElement('button');b.type='button';b.setAttribute('role','menuitem');b.textContent=item.title;b.dataset.id=item.id;if(item.id===doc.id)b.setAttribute('aria-current','true');
+ const addItem=item=>{
+  const b=document.createElement('button');b.type='button';b.setAttribute('role','menuitem');b.textContent=item.title;b.dataset.id=item.id;if(item.folder)b.title=`${item.folder}`;if(item.id===doc.id)b.setAttribute('aria-current','true');
   b.onclick=()=>{closeMenu();if(item.id!==doc.id)openDoc(item.id);};menu.append(b);
+ };
+ list.filter(item=>!item.folder).forEach(addItem);
+ const folders=new Map();list.filter(item=>item.folder).forEach(item=>{if(!folders.has(item.folderKey))folders.set(item.folderKey,{label:item.folderLabel,dir:item.folder,items:[]});folders.get(item.folderKey).items.push(item);});
+ for(const [key,folder] of folders){
+  const head=document.createElement('div');head.className='doc-folder';head.title=folder.dir;head.setAttribute('role','presentation');
+  const name=document.createElement('span');name.textContent=`📁 ${folder.label}`;
+  const remove=document.createElement('button');remove.type='button';remove.textContent='×';remove.setAttribute('aria-label',`Remover a pasta da lista: ${folder.label}`);remove.title='Remover a pasta da lista (os arquivos não são apagados)';
+  remove.onclick=async e=>{e.stopPropagation();try{await store.removeLibrary(key);await refreshMenu();}catch{setStatus('Erro ao remover a pasta','error');}};
+  head.append(name,remove);menu.append(head);folder.items.forEach(addItem);
  }
 }
 let menuTicket=0;
@@ -753,16 +762,56 @@ async function newDoc(){
  const title=prompt('Nome da nova apresentação','Nova apresentação');if(!title)return;
  const created=await store.create(title);await openDoc(created.id);if(!editing)setEditing(true);
 }
-async function saveCopy(switchTo){
- if(!doc.id)return;
- const title=prompt(switchTo?'Salvar como — nome da nova apresentação':'Salvar uma cópia — nome da cópia',`${doc.title} (cópia)`);
- if(!title||!title.trim())return;
+/* Salvar como: escolhe nome e pasta (biblioteca do app ou qualquer pasta da máquina) e se abre a nova apresentação */
+let saveDialog=null;
+async function openSaveDialog(presetMode){
+ if(!doc.id||saveDialog)return;
+ const modal=$('#saveas-modal'),name=$('#saveas-name'),folder=$('#saveas-folder'),custom=$('#saveas-custom'),pathInput=$('#saveas-path'),error=$('#saveas-error'),submit=$('#saveas-submit'),opener=document.activeElement;
+ $('#saveas-heading').textContent=presetMode==='stay'?'Salvar uma cópia':'Salvar como';
+ name.value=`${doc.title} (cópia)`;error.textContent='';pathInput.value='';custom.hidden=true;submit.disabled=false;
+ modal.querySelector(`input[name="saveas-mode"][value="${presetMode}"]`).checked=true;
+ let libs=[];try{libs=await store.libraries();}catch{}
+ folder.replaceChildren();
+ for(const lib of libs.filter(l=>l.main)){const o=document.createElement('option');o.value='';o.textContent=`${lib.label} (presentations/)`;folder.append(o);}
+ for(const lib of libs.filter(l=>!l.main)){const o=document.createElement('option');o.value=lib.dir;o.textContent=`${lib.label} — ${lib.dir}`;folder.append(o);}
+ const other=document.createElement('option');other.value='__other';other.textContent='Outra pasta…';folder.append(other);
+ folder.onchange=()=>{custom.hidden=folder.value!=='__other';if(!custom.hidden)pathInput.focus();};
+ const close=()=>{modal.hidden=true;saveDialog=null;document.removeEventListener('keydown',onKey);opener?.focus?.({preventScroll:true});};
+ const onKey=e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();close();}};
+ $('#saveas-close').onclick=close;$('#saveas-cancel').onclick=close;
+ $('#saveas-pick').onclick=async()=>{ // janela nativa de escolha de pasta (o servidor roda nesta máquina)
+  error.textContent='Aguardando a janela de escolha de pasta…';
+  try{const {path:picked}=await store.pickFolder();error.textContent='';if(picked)pathInput.value=picked;}
+  catch(e){error.textContent=e.message.includes('indispon')?'Seletor de pasta indisponível: digite o caminho completo.':'Não foi possível abrir o seletor: digite o caminho completo.';}
+ };
+ $('#saveas-form').onsubmit=async e=>{
+  e.preventDefault();
+  const title=name.value.trim();if(!title){error.textContent='Informe um nome.';name.focus();return;}
+  const dir=folder.value==='__other'?pathInput.value.trim():folder.value;
+  if(folder.value==='__other'&&!dir){error.textContent='Informe ou escolha a pasta.';pathInput.focus();return;}
+  const mode=modal.querySelector('input[name="saveas-mode"]:checked').value;
+  submit.disabled=true;error.textContent='';
+  try{
+   await flush(); // garante que tudo que está na tela já foi gravado antes de copiar
+   const created=await store.copy(doc.id,title,dir||undefined);
+   close();
+   const where=created.id.includes('~')?`na pasta ${dir||'escolhida'}`:'em presentations/';
+   if(mode==='open'){await openDoc(created.id);showToast(`Agora você está em “${created.title}” (salva ${where})`,false,6000);}
+   else showToast(`Cópia “${created.title}” salva ${where} — você continua nesta apresentação`,false,6000);
+  }catch(err){error.textContent=err.message&&!/^\d+$/.test(err.message)?err.message:'Erro ao salvar a cópia.';submit.disabled=false;}
+ };
+ modal.hidden=false;saveDialog=true;document.addEventListener('keydown',onKey);name.focus();name.select();
+}
+const saveCopy=switchTo=>openSaveDialog(switchTo?'open':'stay');
+async function addFolder(){ // registra uma pasta existente para listar e editar as apresentações que há nela
  try{
-  await flush(); // garante que tudo que está na tela já foi gravado antes de copiar
-  const created=await store.copy(doc.id,title.trim());
-  if(switchTo){await openDoc(created.id);showToast(`Agora você está em “${created.title}” (presentations/${created.id}.json)`,false,6000);}
-  else showToast(`Cópia “${created.title}” salva em presentations/${created.id}.json — você continua nesta apresentação`,false,6000);
- }catch{setStatus('Erro ao salvar a cópia','error');}
+  const {path:picked}=await store.pickFolder();
+  if(!picked)return;
+  await store.addLibrary(picked);await refreshMenu();showToast(`Pasta adicionada: ${picked}`,false,4000);
+ }catch(e){
+  const typed=prompt('Não foi possível abrir o seletor. Digite o caminho completo da pasta:');
+  if(typed&&typed.trim()){try{await store.addLibrary(typed.trim());await refreshMenu();}catch(err){showToast(err.message||'Pasta inválida',false,4000);}}
+ }
 }
 async function deleteDoc(){
  if(!confirm(`Excluir a apresentação "${doc.title}"? O arquivo será removido da pasta presentations.`))return;
@@ -838,6 +887,7 @@ $('#doc-button').onclick=async()=>{ // fechar/editar invalida uma abertura que a
  else closeMenu();
 };
 $('#doc-new').onclick=()=>{closeMenu();newDoc();};
+$('#doc-addfolder').onclick=()=>{closeMenu();addFolder();};
 $('#doc-saveas').onclick=()=>{closeMenu();saveCopy(true);};
 $('#doc-copy').onclick=()=>{closeMenu();saveCopy(false);};
 document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.shiftKey&&e.key.toLowerCase()==='s'&&doc.id){e.preventDefault();saveCopy(true);}});

@@ -306,3 +306,27 @@ body.is-editing #add-root{display:inline-flex}
 .doc-title-input.is-invalid{border-color:#e57373;box-shadow:0 0 0 3px #e5737333}
 .doc-title-error{position:absolute;left:0;top:calc(100% + 6px);z-index:6;padding:.35rem .7rem;border-radius:10px;background:#3a1d1d;border:1px solid #e5737380;color:#ffb4ab;font-size:.72rem;white-space:nowrap}
 .doc-title-error[hidden]{display:none}
+
+/* Salvar como: nome, pasta e o que fazer depois */
+.saveas-card{width:min(540px,100%);height:auto;max-height:100%}
+.saveas-body{display:flex;flex-direction:column;gap:.9rem;padding:1rem}
+.saveas-body label{display:flex;flex-direction:column;gap:.35rem;font-size:.75rem;font-weight:600;color:#ffffffb3}
+.saveas-body input[type=text],.saveas-body select{padding:.55rem .7rem;border-radius:9px;border:1px solid #ffffff2b;background:#121212;color:#fff;font:inherit;font-size:.85rem;font-weight:400;outline:none}
+.saveas-body input[type=text]:focus,.saveas-body select:focus{border-color:#4f9d7a;box-shadow:0 0 0 3px #4f9d7a33}
+.saveas-custom{display:flex;gap:.5rem}
+.saveas-custom input{flex:1;min-width:0}
+.saveas-custom button{padding:0 .9rem;border-radius:9px;background:#ffffff14;border:1px solid #ffffff26;color:#fff;font-size:.8rem}
+.saveas-custom button:hover{background:#ffffff26}
+.saveas-body fieldset{border:0;padding:0;margin:0;display:flex;flex-direction:column;gap:.35rem}
+.saveas-radio{flex-direction:row!important;align-items:center;gap:.5rem!important;font-weight:400!important}
+#saveas-error{min-height:1.1em;font-size:.75rem;color:#ff8a80}
+#saveas-cancel{padding:.4rem 1rem;border-radius:10px;background:#ffffff14;color:#fff;font-size:.8rem}
+#saveas-submit{padding:.4rem 1rem;border-radius:10px;background:#4f9d7a;color:#fff;font-size:.8rem;font-weight:600}
+#saveas-submit:disabled{opacity:.5;cursor:default}
+#saveas-modal footer{display:flex;justify-content:flex-end;gap:.6rem;padding:.6rem 1rem;border-top:1px solid #ffffff14}
+#saveas-modal header button{width:30px;height:30px;font-size:20px;border-radius:8px;color:#ffffffad}
+/* Pastas no menu de apresentações */
+.doc-folder{display:flex;align-items:center;justify-content:space-between;gap:.5rem;padding:.45rem .7rem .2rem;font-size:.68rem;font-weight:600;letter-spacing:.02em;color:#ffffff80;text-transform:uppercase}
+.doc-folder button{width:20px;height:20px;border-radius:6px;font-size:14px;line-height:1;color:#ffffff80}
+.doc-folder button:hover{background:#ffffff1a;color:#fff}
+#doc-list{max-height:min(60vh,420px);overflow:auto}
