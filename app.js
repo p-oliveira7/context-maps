@@ -356,7 +356,8 @@ function toggleRelation(a,b){
 function startRelate(node){
  endRelate();relating={node};document.body.classList.add('is-relating');
  showToast(t('relateHint',nameOf(node)),false,600000);
- setTimeout(()=>{if(relating){document.addEventListener('click',onRelateClick,true);document.addEventListener('keydown',onRelateKey,true);}},0); // o clique que abriu o menu não conta
+ document.addEventListener('keydown',onRelateKey,true); // Esc vale desde já
+ setTimeout(()=>{if(relating)document.addEventListener('click',onRelateClick,true);},0); // o clique que abriu o menu não conta
 }
 
 /* Duplicar, copiar e colar ideias (com tudo abaixo). A área de cópia fica no navegador, então vale entre apresentações. */

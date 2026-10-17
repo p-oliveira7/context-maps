@@ -825,7 +825,8 @@ try{
   await page.keyboard.press('Control+y');assert.equal(await nodes(),2);
   // digitar várias letras no mesmo campo é um passo só
   const rootText=page.locator('[data-id="root"] h1');
-  await rootText.click();await page.keyboard.press('Control+a');await page.keyboard.type('Novo titulo');await page.keyboard.press('Enter');
+  await rootText.click();await page.evaluate(()=>getSelection().selectAllChildren(document.querySelector('[data-id="root"] h1')));await page.keyboard.type('Novo titulo'); // seleciona o texto sem depender de Ctrl+A (no macOS é outro atalho)
+  await page.keyboard.press('Enter');
   await until(async()=>(await diskTitles())[0]==='Novo titulo','título não gravado');
   await page.evaluate(()=>document.activeElement?.blur());
   await page.keyboard.press('Control+z');
@@ -922,7 +923,7 @@ try{
   const flat=n=>[n,...n.children.flatMap(flat)];
   const related=async()=>flat((await onDisk(made.id)).roots[0]);
   await act('a1','Relacionar esta ideia'); // modo "relacionar": Esc cancela sem relacionar
-  assert.equal(await page.evaluate(()=>document.body.classList.contains('is-relating')),true);
+  await page.waitForFunction(()=>document.body.classList.contains('is-relating'));
   await page.keyboard.press('Escape');assert.equal(await page.evaluate(()=>document.body.classList.contains('is-relating')),false);
   assert.equal(await page.locator('#cross-links path').count(),0);
   await act('a1','Relacionar esta ideia');
