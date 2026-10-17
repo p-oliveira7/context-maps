@@ -4,6 +4,7 @@
 
 <br>
 
+[![CI](https://github.com/p-oliveira7/context-maps/actions/workflows/ci.yml/badge.svg)](https://github.com/p-oliveira7/context-maps/actions/workflows/ci.yml)
 [![Node](https://img.shields.io/badge/node-%E2%89%A518-5fa04e?logo=node.js&logoColor=white)](#getting-started)
 [![Dependencies](https://img.shields.io/badge/runtime%20dependencies-0-2ea44f)](#getting-started)
 [![Local first](https://img.shields.io/badge/local--first-127.0.0.1-blue)](#security)
@@ -302,20 +303,25 @@ the registered libraries, only http/https links are accepted, and Mermaid runs w
 
 ## Tests
 
-`npm test` runs the model tests (Node). The rest use Playwright and an installed Chrome:
+`npm test` runs the model tests (Node, no setup). The browser tests use Playwright and an installed Chrome:
 
 ```bash
-export PLAYWRIGHT_MODULE=file:///path/to/playwright-core/index.mjs   # absolute path
-node tests/edit.mjs      # EDIT-01..27  editing, diagrams, media, links, folders (starts a temp server)
-node tests/skill.mjs     # SKILL-01..07 skill CLI (starts a temp server)
-node tests/browser.mjs   # MAP-01..11   navigation, zoom, text mode, mobile, full screen
-node tests/cards.mjs     # CARD-01..06  titles, root, keyboard, images
-node tests/motion.mjs    # MOT-01..05   animations and reduced motion
+npm install --no-save playwright-core   # once; or set PLAYWRIGHT_MODULE to an existing playwright-core
+npm run test:e2e                        # edit, skill, browser, cards and motion, with an isolated temporary server
+node tests/edit.mjs                     # or run a single suite
 ```
 
-`browser`, `cards` and `motion` expect a running server (`PREVIEW_URL`, default `http://127.0.0.1:4173`)
-**with the demo data**: run them against a server with an empty or temporary `PRESENTATIONS_DIR`.
-`BROWSER_EXECUTABLE` selects Chrome/Chromium.
+| Suite | Covers |
+| --- | --- |
+| `edit` EDIT-01..27 | editing, diagrams, media, links, folders, language |
+| `skill` SKILL-01..07 | skill CLI |
+| `browser` MAP-01..11 | navigation, zoom, text mode, mobile, full screen |
+| `cards` CARD-01..06 | titles, root, keyboard, images |
+| `motion` MOT-01..05 | animations and reduced motion |
+
+`BROWSER_EXECUTABLE` selects a specific Chrome/Chromium binary. The same checks run on Linux, macOS and Windows
+for every pull request ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)). To run `browser`, `cards` or
+`motion` on their own, point `PREVIEW_URL` (default `http://127.0.0.1:4173`) at a server with an empty or temporary `PRESENTATIONS_DIR`.
 
 ### Regenerating the screenshots
 

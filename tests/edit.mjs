@@ -5,14 +5,14 @@ import {existsSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-const {chromium}=await import(process.env.PLAYWRIGHT_MODULE||'playwright-core');
+import {launch} from './launch.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const dir=await mkdtemp(path.join(tmpdir(),'context-maps-'));
 const configDir=await mkdtemp(path.join(tmpdir(),'context-maps-config-')),configFile=path.join(configDir,'config.json');
 const port=4190, base=`http://127.0.0.1:${port}`;
 const server=spawn(process.execPath,['server.mjs'],{cwd:root,env:{...process.env,PORT:String(port),PRESENTATIONS_DIR:dir,CONTEXT_MAPS_CONFIG:configFile},stdio:['ignore','pipe','inherit']});
 await new Promise((ok,fail)=>{server.stdout.once('data',ok);server.once('exit',c=>fail(new Error(`server exit ${c}`)));});
-const browser=await chromium.launch({executablePath:process.env.BROWSER_EXECUTABLE||'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});
+const browser=await launch();
 const rawDisk=async id=>JSON.parse(await readFile(path.join(dir,`${id}.json`),'utf8'));
 const onDisk=async id=>{const raw=await rawDisk(id);return {...raw,tree:raw.roots?.[0]??raw.tree};}; // .tree = primeira raiz (formato novo ou antigo)
 const until=async(fn,message)=>{for(let i=0;i<40;i++){if(await fn())return;await new Promise(r=>setTimeout(r,100));}assert.fail(message);};
