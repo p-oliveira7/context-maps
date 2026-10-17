@@ -1,5 +1,9 @@
 /* Cliente de API (estilo Postman/Bruno): painel à direita, coleções no formato Bruno, variáveis de ambiente e envio pelo servidor local. */
 import {t,lang} from './i18n.js?v=1';
+import {activeEntries,resolveVars,buildRaw,resolveRaw,buildRequest,toScriptReq,applyScriptReq,makeScope} from './pipeline.js?v=1';
+import {runAssertions,evalValueExpression} from './assertions.js?v=1';
+import {runScript,sandboxSupported} from './sandbox.js?v=1';
+export {resolveVars,buildRequest};
 
 const $=(s,root=document)=>root.querySelector(s);
 function h(tag,props={},...children){
@@ -27,18 +31,6 @@ async function api(method,route,body){
  return res.headers.get('content-type')?.includes('json')?res.json():res;
 }
 
-/* ---------- variáveis {{nome}} ---------- */
-export function resolveVars(text,vars){
- return String(text??'').replace(/\{\{\s*([\w$.-]+)\s*\}\}/g,(whole,key)=>{
-  if(key==='$timestamp')return String(Math.floor(Date.now()/1000));
-  if(key==='$isoTimestamp')return new Date().toISOString();
-  if(key==='$guid')return crypto.randomUUID();
-  if(key==='$randomInt')return String(Math.floor(Math.random()*1000));
-  return vars.has(key)?vars.get(key):whole;
- });
-}
-const activeEntries=list=>(list||[]).filter(e=>e.enabled!==false&&e.name);
-
 /* ---------- URL <-> parâmetros ---------- */
 const splitUrl=url=>{const at=url.indexOf('?');return at<0?[url,'']:[url.slice(0,at),url.slice(at+1)];};
 export function syncParamsFromUrl(model){
@@ -54,7 +46,7 @@ export function syncUrlFromParams(model){
 }
 
 /* ---------- estado ---------- */
-const state={open:false,collections:[],coll:null,env:null,envVars:new Map(),request:null,reqPath:'',saveTimer:0,saving:Promise.resolve(),response:null,sending:false,abort:null,tab:'params',respTab:'body',pretty:true,expanded:new Set(),filter:'',attach:null};
+const state={open:false,collections:[],coll:null,env:null,envVars:new Map(),runtime:new Map(),scripts:store.get('cm-api-scripts')!=='0',request:null,reqPath:'',saveTimer:0,saving:Promise.resolve(),response:null,sending:false,abort:null,tab:'params',respTab:'body',pretty:true,expanded:new Set(),filter:'',attach:null};
 let panel,els={},hooks={};
 
 /* ---------- carregamento ---------- */
@@ -62,6 +54,7 @@ async function loadCollections(){state.collections=await api('GET','/collections
 async function loadCollection(id){
  if(!id){state.coll=null;state.request=null;state.reqPath='';return;}
  const detail=await api('GET',`/collections/${id}`);
+ if(state.coll?.id!==id)state.runtime=new Map(); // variáveis de execução valem por coleção
  state.coll=detail;store.set('cm-api-coll',id);
  const saved=store.get(`cm-api-env:${id}`);
  state.env=detail.environments.includes(saved)?saved:detail.environments[0]||null;
@@ -98,36 +91,49 @@ function flushSave(){
 
 /* ---------- envio ---------- */
 function collectionVars(){return new Map((state.coll?.defaults?.vars||[]).filter(v=>v.enabled!==false).map(v=>[v.name,v.value]));}
-function allVars(){const vars=collectionVars();for(const [k,v] of state.envVars)vars.set(k,v);for(const e of activeEntries(state.request?.varsPre))vars.set(e.name,e.value);return vars;}
-export function buildRequest(model,vars,collHeaders=[]){
- const r=text=>resolveVars(text,vars);
- let url=r(model.url||'');
- for(const p of activeEntries(model.pathParams))url=url.replace(new RegExp(`/:${p.name}(?=[/?#]|$)`),`/${encodeURIComponent(r(p.value))}`);
- const headers=new Map();
- for(const e of [...activeEntries(collHeaders),...activeEntries(model.headers)])headers.set(e.name.toLowerCase(),{name:e.name,value:r(e.value)});
- if(model.authMode==='bearer'&&model.bearer?.token)headers.set('authorization',{name:'Authorization',value:`Bearer ${r(model.bearer.token)}`});
- if(model.authMode==='basic'&&model.basic)headers.set('authorization',{name:'Authorization',value:`Basic ${btoa(unescape(encodeURIComponent(`${r(model.basic.username)}:${r(model.basic.password)}`)))}`});
- let body;
- const mode=model.bodyMode||'none',setType=type=>{if(!headers.has('content-type'))headers.set('content-type',{name:'Content-Type',value:type});};
- if(mode==='json'){body=r(model.body?.json||'');setType('application/json');}
- else if(mode==='text'){body=r(model.body?.text||'');setType('text/plain');}
- else if(mode==='xml'){body=r(model.body?.xml||'');setType('application/xml');}
- else if(mode==='formUrlEncoded'){body=activeEntries(model.formUrlEncoded).map(e=>`${encodeURIComponent(r(e.name))}=${encodeURIComponent(r(e.value))}`).join('&');setType('application/x-www-form-urlencoded');}
- return {method:String(model.method||'get').toUpperCase(),url,headers:[...headers.values()],body};
+function allVars(){const vars=collectionVars();for(const [k,v] of state.envVars)vars.set(k,v);for(const e of activeEntries(state.request?.varsPre))vars.set(e.name,e.value);for(const [k,v] of state.runtime)vars.set(k,v);return vars;}
+const SCRIPT_MS=5000;
+const requestVarsObject=()=>Object.fromEntries(activeEntries(state.request?.varsPre).map(e=>[e.name,e.value]));
+async function scriptStep(kind,code,input,extra){
+ if(!state.scripts||!String(code||'').trim())return null;
+ if(!sandboxSupported()){extra.errors.push({where:kind,message:t('apiSandboxUnavailable')});return null;}
+ const out=await runScript({code,timeoutMs:SCRIPT_MS,input:{vars:Object.fromEntries(state.runtime),envVars:Object.fromEntries(state.envVars),requestVars:requestVarsObject(),envName:state.env||'',name:state.request?.name||'',authMode:state.request?.authMode||'none',...input}});
+ if(!out.ok){extra.errors.push({where:kind,message:/timeout/.test(out.error)?t('apiScriptTimeout'):out.error});return null;}
+ for(const log of out.logs)extra.logs.push({...log,where:kind});
+ if(out.error)extra.errors.push({where:kind,message:out.error});
+ for(const test of out.tests)extra.tests.push(test);
+ state.runtime=new Map(Object.entries(out.vars));state.envVars=new Map(Object.entries(out.envVars)); // só na memória: o arquivo do ambiente não muda
+ return out;
 }
 async function send(){
  if(!state.request||state.sending)return;
+ const model=state.request;
  state.sending=true;state.response=null;state.abort=new AbortController();renderResponse();
- const started=performance.now();
+ const started=performance.now(),extra={logs:[],tests:[],asserts:[],errors:[]};
  try{
-  const req=buildRequest(state.request,allVars(),state.coll?.defaults?.headers);
-  const res=await fetch('api/send',{method:'POST',headers:{'x-context-maps':'1','x-lang':lang,'content-type':'application/json'},body:JSON.stringify(req),signal:state.abort.signal});
+  // 1) pré-requisição: o script vê o request com as {{variáveis}} ainda por resolver e pode mudar variáveis, URL, cabeçalhos e corpo
+  const raw=buildRaw(model,state.coll?.defaults?.headers);
+  const pre=await scriptStep('pre-request',model.scriptPre,{req:toScriptReq(raw)},extra);
+  if(pre)applyScriptReq(raw,pre.req);
+  // 2) resolver variáveis e enviar pelo servidor
+  const vars=allVars(),req=resolveRaw(raw,vars);
+  const res=await fetch('api/send',{method:'POST',headers:{'x-context-maps':'1','x-lang':lang,'content-type':'application/json'},body:JSON.stringify({...req,timeoutMs:req.timeout}),signal:state.abort.signal});
   const data=await res.json();
-  state.response=res.ok?data:{error:'request',detail:data.error||String(res.status),timeMs:Math.round(performance.now()-started)};
+  if(!res.ok)state.response={error:'request',detail:data.error||String(res.status),timeMs:Math.round(performance.now()-started),extra};
+  else{
+   const response={...data};
+   const scope=makeScope(response,req),interpolate=text=>resolveVars(text,allVars());
+   // 3) variáveis pós-resposta, script pós-resposta, asserts e testes
+   for(const e of activeEntries(model.varsPost)){const v=evalValueExpression(e.value,scope,interpolate);state.runtime.set(e.name,v===undefined?'':typeof v==='object'?JSON.stringify(v):String(v));}
+   await scriptStep('post-response',model.scriptPost,{req:toScriptReq({method:req.method,url:req.url,headers:req.headers,body:req.body}),res:{...scope.res}},extra);
+   extra.asserts=runAssertions(model.assertions,scope,interpolate);
+   await scriptStep('tests',model.tests,{req:toScriptReq({method:req.method,url:req.url,headers:req.headers,body:req.body}),res:{...scope.res}},extra);
+   state.response={...response,extra};
+  }
  }catch(error){
-  state.response=error?.name==='AbortError'?{error:'cancelled',timeMs:Math.round(performance.now()-started)}:{error:'network',detail:String(error?.message||error),timeMs:Math.round(performance.now()-started)};
+  state.response=error?.name==='AbortError'?{error:'cancelled',timeMs:Math.round(performance.now()-started),extra}:{error:'network',detail:String(error?.message||error),timeMs:Math.round(performance.now()-started),extra};
  }
- state.sending=false;state.abort=null;renderResponse();
+ state.sending=false;state.abort=null;renderResponse();if(state.tab==='vars')renderTab();
 }
 
 /* ---------- tabelas chave/valor ---------- */
@@ -216,7 +222,7 @@ async function deleteItem(item){
 function toast(message){hooks.toast?.(message);}
 
 /* ---------- editor de request ---------- */
-const TABS=['params','headers','body','auth','vars','docs','scripts'];
+const TABS=['params','headers','body','auth','vars','assert','scripts','docs'];
 function renderMain(){
  const main=els.main;if(!main)return;
  const m=state.request;
@@ -230,11 +236,12 @@ function renderMain(){
  const methodSel=h('select',{class:'api-method-select api-m-'+m.method,'aria-label':t('apiMethod'),onChange:e=>{m.method=e.target.value;e.target.className=`api-method-select api-m-${m.method}`;markDirty();}},...METHODS.map(x=>h('option',{value:x,selected:x===m.method},x.toUpperCase())));
  const nameInput=h('div',{class:'api-req-title'},h('strong',{},m.name),els.save);
  els.sendBtn=h('button',{type:'button',class:'api-send',onClick:()=>state.sending?state.abort?.abort():send()},state.sending?t('apiCancel'):t('apiSend'));
+ els.scriptsToggle=h('label',{class:'api-scripts-toggle',title:t('apiScriptsOnTitle')},h('input',{type:'checkbox',checked:state.scripts,onChange:e=>{state.scripts=e.target.checked;store.set('cm-api-scripts',state.scripts?'1':'0');}}),h('span',{},t('apiScriptsOn')));
  els.urlInput=urlInput;
  els.tabs=h('div',{class:'api-tabs',role:'tablist'},...TABS.map(id=>h('button',{type:'button',role:'tab',id:`api-tab-${id}`,'aria-selected':String(state.tab===id),'aria-controls':'api-tabpanel',class:state.tab===id?'is-active':'',onClick:()=>{state.tab=id;els.tabs.querySelectorAll('[role=tab]').forEach(b=>{const on=b.id===`api-tab-${id}`;b.setAttribute('aria-selected',String(on));b.classList.toggle('is-active',on);});renderTab();}},t(`apiTab_${id}`))));
  els.tabpanel=h('div',{class:'api-tabpanel',id:'api-tabpanel',role:'tabpanel'});
  els.response=h('div',{class:'api-response','aria-live':'polite'});
- main.replaceChildren(nameInput,h('div',{class:'api-urlbar'},methodSel,urlInput,els.sendBtn),els.tabs,els.tabpanel,els.response);
+ main.replaceChildren(nameInput,h('div',{class:'api-urlbar'},methodSel,urlInput,els.sendBtn),els.scriptsToggle,els.tabs,els.tabpanel,els.response);
  renderTab();renderResponse();
 }
 function textArea(value,onInput,placeholder,{readonly=false,rows=8}={}){
@@ -268,12 +275,24 @@ function renderTab(){
   else if(m.authMode==='basic'){m.basic||={username:'',password:''};box.append(labelled(t('apiUsername'),h('input',{type:'text',value:m.basic.username,onInput:e=>{m.basic.username=e.target.value;changed();}})),labelled(t('apiPassword'),h('input',{type:'password',value:m.basic.password,onInput:e=>{m.basic.password=e.target.value;changed();}})));}
   else if(m.authMode==='inherit')box.append(h('p',{class:'api-hint'},t('apiAuthInheritNote')));
  }else if(state.tab==='vars'){
-  m.varsPre||=[];box.replaceChildren(h('p',{class:'api-hint'},t('apiVarsNote')),kvTable(m.varsPre,{onChange:changed}),h('h4',{},t('apiResolved')),resolvedPreview());
+  m.varsPre||=[];m.varsPost||=[];
+  const runtime=[...state.runtime].map(([k,v])=>`${k} = ${v}`).join('\n');
+  box.replaceChildren(h('p',{class:'api-hint'},t('apiVarsNote')),kvTable(m.varsPre,{onChange:changed}),
+   h('h4',{},t('apiVarsPost')),h('p',{class:'api-hint'},t('apiVarsPostNote')),kvTable(m.varsPost,{onChange:changed}),
+   h('h4',{},t('apiRuntimeVars')),h('pre',{class:'api-pre'},runtime||t('apiNoRuntimeVars')),
+   state.runtime.size?h('button',{type:'button',class:'api-btn',onClick:()=>{state.runtime=new Map();renderTab();}},t('apiClearVars')):null,
+   h('h4',{},t('apiResolved')),resolvedPreview());
+ }else if(state.tab==='assert'){
+  m.assertions||=[];
+  box.replaceChildren(h('p',{class:'api-hint'},t('apiAssertNote')),kvTable(m.assertions,{onChange:changed,namePlaceholder:t('apiAssertName'),valuePlaceholder:t('apiAssertValue')}));
  }else if(state.tab==='docs'){
   box.replaceChildren(textArea(m.docs||'',v=>{m.docs=v;changed();},t('apiDocsPlaceholder'),{rows:12}));
  }else{
-  const parts=[[t('apiScriptPre'),m.scriptPre],[t('apiScriptPost'),m.scriptPost],[t('apiTests'),m.tests]].filter(([,v])=>v);
-  box.replaceChildren(h('p',{class:'api-hint'},t('apiScriptsNote')),...(parts.length?parts.flatMap(([label,value])=>[h('h4',{},label),textArea(value,()=>{},'',{readonly:true,rows:6})]):[h('p',{class:'api-hint'},t('apiNoScripts'))]));
+  const editor=(label,key,placeholder)=>[h('h4',{},label),textArea(m[key]||'',v=>{if(v.trim())m[key]=v;else delete m[key];changed();},placeholder,{rows:7})];
+  box.replaceChildren(h('p',{class:'api-hint'},`${t('apiScriptsSandboxNote')} ${t('apiScriptsNote')}`),
+   ...editor(t('apiScriptPre'),'scriptPre',"req.setHeader('X-Run', Date.now());\nbru.setVar('token', 'abc');"),
+   ...editor(t('apiScriptPost'),'scriptPost',"bru.setVar('id', res.body.id);"),
+   ...editor(t('apiTests'),'tests',"test('status is 200', () => {\n  expect(res.status).to.equal(200);\n});"));
  }
 }
 function resolvedPreview(){
@@ -295,19 +314,41 @@ function renderResponse(){
  const r=state.response;
  if(state.sending){box.replaceChildren(h('p',{class:'api-hint'},t('apiSending')));return;}
  if(!r){box.replaceChildren(h('p',{class:'api-hint'},t('apiNoResponse')));return;}
+ const extra=r.extra||{logs:[],tests:[],asserts:[],errors:[]};
+ const summary=extraSummary(extra);
  if(r.error){
   const text=r.error==='timeout'?t('apiTimeout',r.detail):r.error==='cancelled'?t('apiCancelled'):`${t('apiFailed')}: ${r.detail||r.error}`;
-  box.replaceChildren(h('div',{class:'api-status is-error',role:'alert'},text,h('span',{},`${r.timeMs} ms`)));return;
+  box.replaceChildren(h('div',{class:'api-status is-error',role:'alert'},text,h('span',{},`${r.timeMs} ms`)),...(extra.errors.length?[consoleView(extra)]:[]));return;
  }
  const kind=r.status>=500?'is-error':r.status>=400?'is-warn':r.status>=300?'is-redirect':'is-ok';
- const body=h('pre',{class:'api-pre api-resp-body',tabindex:'0'},state.respTab==='headers'?r.headers.map(([k,v])=>`${k}: ${v}`).join('\n'):prettyBody(r));
+ const tabs=[['body',t('apiRespBody')],['headers',t('apiRespHeaders')]];
+ if(summary.total)tabs.push(['tests',`${t('apiRespTests')} ${summary.passed}/${summary.total}`]);
+ if(extra.logs.length||extra.errors.length)tabs.push(['console',`${t('apiRespConsole')}${extra.errors.length?' !':''}`]);
+ if(!tabs.some(([id])=>id===state.respTab))state.respTab='body';
+ const body=state.respTab==='tests'?testsView(extra):state.respTab==='console'?consoleView(extra):h('pre',{class:'api-pre api-resp-body',tabindex:'0'},state.respTab==='headers'?r.headers.map(([k,v])=>`${k}: ${v}`).join('\n'):prettyBody(r));
  box.replaceChildren(
-  h('div',{class:`api-status ${kind}`},h('strong',{},`${r.status} ${r.statusText||''}`),h('span',{},`${r.timeMs} ms`),h('span',{},fmtSize(r.size)),r.truncated?h('span',{},t('apiTruncated')):null),
+  h('div',{class:`api-status ${kind}`},h('strong',{},`${r.status} ${r.statusText||''}`),h('span',{},`${r.timeMs} ms`),h('span',{},fmtSize(r.size)),r.truncated?h('span',{},t('apiTruncated')):null,
+   summary.total?h('span',{class:summary.failed?'api-tests-bad':'api-tests-ok'},`${summary.failed?'✗':'✓'} ${t('apiTestsSummary',summary.passed,summary.total)}`):null),
   h('div',{class:'api-resp-tabs',role:'tablist'},
-   ...['body','headers'].map(id=>h('button',{type:'button',role:'tab','aria-selected':String(state.respTab===id),class:state.respTab===id?'is-active':'',onClick:()=>{state.respTab=id;renderResponse();}},t(id==='body'?'apiRespBody':'apiRespHeaders'))),
+   ...tabs.map(([id,label])=>h('button',{type:'button',role:'tab','aria-selected':String(state.respTab===id),class:state.respTab===id?'is-active':'',onClick:()=>{state.respTab=id;renderResponse();}},label)),
    state.respTab==='body'?h('button',{type:'button',class:'api-btn',onClick:()=>{state.pretty=!state.pretty;renderResponse();}},state.pretty?t('apiRaw'):t('apiPretty')):null,
    h('button',{type:'button',class:'api-btn',onClick:async e=>{try{await navigator.clipboard.writeText(body.textContent);e.target.textContent=t('apiCopied');setTimeout(()=>{e.target.textContent=t('apiCopy');},1200);}catch{}}},t('apiCopy'))),
   body);
+}
+function extraSummary(extra){
+ const all=[...extra.asserts,...extra.tests],passed=all.filter(x=>x.passed).length;
+ return {total:all.length,passed,failed:all.length-passed};
+}
+function testsView(extra){
+ const row=x=>h('li',{class:x.passed?'is-pass':'is-fail'},h('span',{class:'api-mark','aria-hidden':'true'},x.passed?'✓':'✗'),h('span',{},x.name||`${x.expression} ${x.assertion}`),x.error?h('small',{},x.error):null);
+ return h('div',{class:'api-tests'},
+  ...(extra.asserts.length?[h('h4',{},t('apiAssertionsTitle')),h('ul',{},...extra.asserts.map(row))]:[]),
+  ...(extra.tests.length?[h('h4',{},t('apiTestsTitle')),h('ul',{},...extra.tests.map(row))]:[]),
+  ...(!extra.asserts.length&&!extra.tests.length?[h('p',{class:'api-hint'},t('apiNoTests'))]:[]));
+}
+function consoleView(extra){
+ const lines=[...extra.errors.map(e=>({level:'error',text:`${t('apiScriptError')} (${e.where}): ${e.message}`})),...extra.logs.map(l=>({level:l.level,text:`[${l.where}] ${l.text}`}))];
+ return h('div',{class:'api-console',role:'log'},...lines.map(l=>h('div',{class:`api-log is-${l.level}`},l.text)));
 }
 
 /* ---------- ambientes ---------- */

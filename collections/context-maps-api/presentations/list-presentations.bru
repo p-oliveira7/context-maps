@@ -10,6 +10,25 @@ get {
   auth: none
 }
 
+vars:post-response {
+  firstId: res.body[0].id
+}
+
+assert {
+  res.status: eq 200
+  res.body: isArray
+}
+
+tests {
+  test("every presentation has an id and a title", function() {
+    expect(res.body).to.be.an("array");
+    for (const item of res.body) {
+      expect(item).to.have.property("id");
+      expect(item).to.have.property("title");
+    }
+  });
+}
+
 docs {
   Returns id, title and updatedAt of every presentation.
 }

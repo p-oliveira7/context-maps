@@ -40,7 +40,7 @@ export function stringifyBlocks(blocks){
 const dict=(blocks,name)=>blocks.find(b=>b.name===name&&b.kind==='dict')?.entries;
 const text=(blocks,name)=>blocks.find(b=>b.name===name&&b.kind==='text')?.text;
 const get=(entries,key)=>entries?.find(e=>e.name===key)?.value;
-const KNOWN=new Set(['meta','params:query','params:path','headers','auth','auth:bearer','auth:basic','body:json','body:text','body:xml','body:form-urlencoded','body:multipart-form','vars:pre-request','vars:post-response','script:pre-request','script:post-response','tests','docs',...METHODS]);
+const KNOWN=new Set(['meta','params:query','params:path','headers','auth','auth:bearer','auth:basic','body:json','body:text','body:xml','body:form-urlencoded','body:multipart-form','vars:pre-request','vars:post-response','assert','script:pre-request','script:post-response','tests','docs',...METHODS]);
 
 export function toModel(blocks){
  const meta=dict(blocks,'meta')||[],m={name:get(meta,'name')||'',type:get(meta,'type')||'http'};
@@ -59,6 +59,7 @@ export function toModel(blocks){
  if(list('body:multipart-form'))m.multipartForm=list('body:multipart-form');
  if(list('vars:pre-request'))m.varsPre=list('vars:pre-request');
  if(list('vars:post-response'))m.varsPost=list('vars:post-response');
+ if(list('assert'))m.assertions=list('assert');
  if(text(blocks,'script:pre-request')!==undefined)m.scriptPre=text(blocks,'script:pre-request');
  if(text(blocks,'script:post-response')!==undefined)m.scriptPost=text(blocks,'script:post-response');
  if(text(blocks,'tests')!==undefined)m.tests=text(blocks,'tests');
@@ -82,7 +83,7 @@ export function fromModel(m){
  if(m.basic)dictBlock('auth:basic',[{name:'username',value:m.basic.username||'',enabled:true},{name:'password',value:m.basic.password||'',enabled:true}]);
  textBlock('body:json',m.body?.json);textBlock('body:text',m.body?.text);textBlock('body:xml',m.body?.xml);
  dictBlock('body:form-urlencoded',m.formUrlEncoded);dictBlock('body:multipart-form',m.multipartForm);
- dictBlock('vars:pre-request',m.varsPre);dictBlock('vars:post-response',m.varsPost);
+ dictBlock('vars:pre-request',m.varsPre);dictBlock('vars:post-response',m.varsPost);dictBlock('assert',m.assertions);
  textBlock('script:pre-request',m.scriptPre);textBlock('script:post-response',m.scriptPost);textBlock('tests',m.tests);textBlock('docs',m.docs);
  for(const extra of m.extras||[])blocks.push(extra);
  return blocks;

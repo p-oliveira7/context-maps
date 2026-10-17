@@ -88,7 +88,7 @@ try{
  await page.locator('.api-url').fill('{{host}}/echo');
  await page.locator('#api-tab-body').click();await page.locator('#api-tabpanel select').selectOption('json');
  await page.locator('.api-textarea').fill('{"id": {{id}}, "when": "{{$isoTimestamp}}"}');
- await page.locator('#api-tab-vars').click();await page.locator('.api-add').click();
+ await page.locator('#api-tab-vars').click();await page.locator('.api-add').first().click();
  const inputs=page.locator('.api-kv-row input[type=text]');await inputs.nth(0).fill('id');await inputs.nth(1).fill('7');
  await page.locator('.api-send').click();
  await page.locator('.api-status strong',{hasText:'200'}).waitFor().catch(async e=>{throw new Error(`${e.message}
@@ -220,6 +220,69 @@ try{
   await call('DELETE',`/presentations/${made.id}`);
   await page.goto(base);await page.locator('.node').first().waitFor();
  }
+ // API-11: scripts (pré, pós, testes), asserts e variáveis pós-resposta, executados no sandbox
+ {
+  await call('POST','/collections',{name:'Scripts'});
+  await call('PUT','/collections/scripts/environments/local',{vars:[{name:'host',value:host,enabled:true}]});
+  const made=await call('POST','/collections/scripts/items',{type:'request',name:'Com scripts',method:'post',url:'{{host}}/echo'});
+  const model=await call('GET',`/collections/scripts/request?path=${made.path}`);
+  Object.assign(model,{
+   bodyMode:'json',body:{json:'{"n": {{n}}}'},headers:[{name:'X-Stamp',value:'{{stamp}}',enabled:true}],varsPre:[{name:'n',value:'5',enabled:true}],
+   varsPost:[{name:'got',value:'res.body.headers.x-stamp',enabled:true},{name:'literal',value:'fixo-{{n}}',enabled:true}],
+   assertions:[{name:'res.status',value:'eq 200',enabled:true},{name:'res.body.method',value:'eq POST',enabled:true},{name:'res.headers.x-echo',value:'eq 1',enabled:true},{name:'res.body.url',value:'eq /echo',enabled:true},{name:'res.status',value:'eq 404',enabled:true}],
+   scriptPre:"req.setHeader('X-Run','pre');\nbru.setVar('stamp','42');\nconsole.log('pre-request ok');",
+   scriptPost:"bru.setVar('seen', res.body.method);\nconsole.warn('post-response', res.status);",
+   tests:"test('status is 200', () => { expect(res.status).to.equal(200); });\ntest('echo has the stamp', () => { expect(res('headers.x-stamp')).to.equal('42'); });\ntest('this one fails', () => { expect(res.body.method).to.equal('GET'); });"
+  });
+  assert.equal((await fetch(`${base}/api/collections/scripts/request?path=${made.path}`,{method:'PUT',headers:H,body:JSON.stringify(model)})).status,200);
+  await page.locator('#api-btn').click();await page.locator('#api-panel').waitFor({state:'visible'});
+  await page.locator('#api-panel select[aria-label="Coleção"]').selectOption('scripts');
+  await page.locator('.api-row-name',{hasText:'Com scripts'}).click();
+  await page.locator('.api-req-title strong',{hasText:'Com scripts'}).waitFor();
+  const before=seen.length;
+  await page.locator('.api-send').click();
+  await page.locator('.api-status strong',{hasText:'200'}).waitFor();
+  const got=seen.slice(before).at(-1);
+  assert.equal(got.headers['x-run'],'pre');assert.equal(got.headers['x-stamp'],'42'); // a variável criada pelo script vale na mesma request
+  assert.equal(JSON.parse(got.body).n,5);
+  assert.match(await page.locator('.api-status').textContent(),/✗ 6\/8 passaram/); // 4 de 5 asserts + 2 de 3 testes
+  await page.locator('.api-resp-tabs button[role=tab]',{hasText:'Testes'}).click();
+  const tests=page.locator('.api-tests');
+  await tests.locator('li.is-pass',{hasText:'res.status eq 200'}).waitFor();
+  assert.equal(await tests.locator('li.is-fail').count(),2);
+  assert.match(await tests.locator('li.is-fail',{hasText:'eq 404'}).textContent(),/expected res\.status \(200\) to eq 404/);
+  assert.match(await tests.locator('li.is-fail',{hasText:'this one fails'}).textContent(),/expected "POST" to equal "GET"/);
+  await page.locator('.api-resp-tabs button[role=tab]',{hasText:'Console'}).click();
+  const consoleText=await page.locator('.api-console').textContent();
+  assert.match(consoleText,/\[pre-request\] pre-request ok/);assert.match(consoleText,/\[post-response\] post-response 200/);
+  // variáveis de execução ficam visíveis na aba Variáveis
+  await page.locator('#api-tab-vars').click();
+  const runtime=await page.locator('#api-tabpanel .api-pre').first().textContent();
+  assert.match(runtime,/stamp = 42/);assert.match(runtime,/got = 42/);assert.match(runtime,/literal = fixo-5/);assert.match(runtime,/seen = POST/);
+  // desligar "Scripts": o request sai sem o cabeçalho do pré-script e sem testes de script (os asserts declarativos continuam)
+  await page.locator('.api-scripts-toggle input').uncheck();
+  const mark=seen.length;
+  await page.locator('.api-send').click();
+  await page.locator('.api-status strong',{hasText:'200'}).waitFor();
+  assert.equal('x-run' in seen.slice(mark).at(-1).headers,false);
+  assert.match(await page.locator('.api-status').textContent(),/4\/5 passaram/);
+  await page.locator('.api-scripts-toggle input').check();
+  // editar os scripts pela interface grava os blocos no .bru
+  await page.locator('#api-tab-scripts').click();
+  await page.locator('#api-tabpanel textarea').first().fill("req.setHeader('X-Edited','yes');");
+  const scriptFile=path.join(collections,'scripts','com-scripts.bru');
+  for(let i=0;i<40&&!(await readFile(scriptFile,'utf8')).includes('X-Edited');i++)await new Promise(r=>setTimeout(r,100));
+  const bru=await readFile(scriptFile,'utf8');
+  assert.ok(bru.includes("script:pre-request {\n  req.setHeader('X-Edited','yes');\n}")&&bru.includes('assert {\n  res.status: eq 200')&&bru.includes('vars:post-response {'),bru);
+  // módulo não disponível: o erro aparece no console e o envio acontece mesmo assim
+  await page.locator('#api-tabpanel textarea').first().fill("require('lodash');");
+  await page.locator('.api-send').click();
+  await page.locator('.api-status strong',{hasText:'200'}).waitFor();
+  await page.locator('.api-resp-tabs button[role=tab]',{hasText:/Console/}).click();
+  assert.match(await page.locator('.api-console').textContent(),/Erro no script \(pre-request\).*not available in the sandbox/);
+  await page.locator('#api-panel button[aria-label="Fechar o cliente de API"]').click();
+  await page.locator('#api-panel').waitFor({state:'hidden'});
+ }
  // API-09: o proxy só aceita http/https e exige o cabeçalho do app
  assert.equal((await fetch(`${base}/api/send`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({url:`${host}/x`})})).status,403);
  assert.equal((await fetch(`${base}/api/send`,{method:'POST',headers:H,body:JSON.stringify({url:'file:///etc/passwd'})})).status,400);
@@ -228,5 +291,5 @@ try{
  assert.equal(seen.some(s=>s.url==='/x'),false);
  assert.equal(existsSync(path.join(collections,'.secrets')),true);
  assert.deepEqual(errors,[]);
- console.log('PASS API-01..10 API client panel');
+ console.log('PASS API-01..11 API client panel');
 }finally{await browser.close();server.kill();target.close();await rm(work,{recursive:true,force:true});}

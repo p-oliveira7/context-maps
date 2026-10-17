@@ -212,7 +212,8 @@ The **API** button in the bottom bar splits the screen: the map stays on the lef
 - **Requests.** Method, URL (query and `:path` params stay in sync with the URL), headers, bodies (JSON, text, XML, form URL-encoded), bearer and basic auth, request variables and docs. Changes are saved automatically to the `.bru` file. **Ctrl+Enter** sends.
 - **Variables and environments.** Use `{{name}}` anywhere (order: collection < environment < request variables) plus `{{$timestamp}}`, `{{$isoTimestamp}}`, `{{$guid}}` and `{{$randomInt}}`. The **Vars** tab shows the resolved request. Environments are edited with ⚙; mark a value as **Secret** and it is stored only on this machine (`collections/.secrets/`, git-ignored) — never in the `.bru` files, ZIP exports or the repository.
 - **Sending.** Requests go through the local server (no CORS limits; only `http`/`https`, 30 s timeout, 10 MB response). The response shows status, time, size, headers and a formatted body.
-- **Scripts and tests** (`script:`, `tests`, `assert` blocks) are preserved in the file, so Bruno can run them, but they are **not executed** by this client yet.
+- **Scripts, tests and assertions.** The **Scripts** tab edits the pre-request script, the post-response script and `tests`; the **Assert** tab edits the declarative `assert` block (`res.status eq 200`, `res.body.items length 3`, `res.headers.content-type contains json`… 30 operators); the **Vars** tab also takes post-response variables (`token = res.body.token`). Everything is stored in the `.bru` file, so Bruno runs it too. Results appear in the **Tests** tab (pass/fail summary next to the status) and the **Console**.
+- **Scripts run in an isolated sandbox.** Each script runs in a sandboxed iframe (opaque origin, CSP `default-src 'none'`) inside a Worker that is stopped after 5 s: **no network, no storage, no access to the app or its data**, so a collection you imported cannot read or leak anything. Available: `bru` (`getVar`/`setVar`, `getEnvVar`/`setEnvVar`, `interpolate`, `sleep`…), `req` (`getUrl`/`setUrl`, `setHeader`, `setBody`…), `res` (`res.status`, `res.body`, `res('path')`…), `test`, `expect` (Chai-style) and `require("chai")`. A pre-request script runs before `{{variables}}` are resolved, so `bru.setVar` can feed the same request. Not available: `bru.sendRequest`/`runRequest`, `axios`, `lodash` and other modules. The **Scripts** switch next to Send turns script execution off.
 - **Reorder** requests and folders by dragging them in the tree.
 
 **Attach to a card.** Drag a collection or folder from the panel onto a card (edit mode), or open the card's wheel, choose **API** and press ⤓ on a collection or folder. The card shows a tile, like an image, with the first requests; clicking it opens the client at that folder. The tile keeps a saved snapshot, so it still reads in text mode and in exported HTML (where it is not clickable, since there is no server).
@@ -343,7 +344,7 @@ Listens on `127.0.0.1` only. Every route answers JSON with `Cache-Control: no-st
 
 Every request that changes something must carry the `x-context-maps: 1` header (other web pages cannot send
 it to your local server) and the `Host` must be local. There is no access to files outside the app folder and
-the registered libraries, only http/https links are accepted, and Mermaid runs with `securityLevel: strict`. `POST /api/send` (the API client proxy) is protected the same way, but note that it can reach any host your machine can — including `localhost` services — so use the app only on a machine and network you trust.
+the registered libraries, only http/https links are accepted, and Mermaid runs with `securityLevel: strict`. `POST /api/send` (the API client proxy) is protected the same way, but note that it can reach any host your machine can — including `localhost` services — so use the app only on a machine and network you trust. Collection scripts, in contrast, run in a no-network sandbox (see above).
 
 ## Tests
 
@@ -351,7 +352,7 @@ the registered libraries, only http/https links are accepted, and Mermaid runs w
 
 ```bash
 npm install --no-save playwright-core   # once; or set PLAYWRIGHT_MODULE to an existing playwright-core
-npm run test:e2e                        # edit, skill, collections, api, browser, cards, motion and a11y, with an isolated temporary server
+npm run test:e2e                        # edit, skill, collections, sandbox, api, browser, cards, motion and a11y, with an isolated temporary server
 node tests/edit.mjs                     # or run a single suite
 ```
 
@@ -362,8 +363,9 @@ node tests/edit.mjs                     # or run a single suite
 | `browser` MAP-01..11 | navigation, zoom, text mode, mobile, full screen |
 | `cards` CARD-01..06 | titles, root, keyboard, images |
 | `motion` MOT-01..05 | animations and reduced motion |
+| `sandbox` SBX-01..05 · `scripting` SCR-01..07 | script sandbox (no network, timeouts), expect, asserts, request pipeline |
 | `collections` COLL-01..06 · `bru` BRU-01..05 | Bruno format, collections API, secrets, ZIP |
-| `api` API-01..10 | split-view client, environments, sending, attaching to cards |
+| `api` API-01..11 | split-view client, environments, sending, attaching to cards |
 | `a11y` A11Y-01..07 | tree semantics, keyboard navigation, accessible names, dialog focus, pinch zoom |
 
 `BROWSER_EXECUTABLE` selects a specific Chrome/Chromium binary. The same checks run on Linux, macOS and Windows

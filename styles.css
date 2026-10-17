@@ -478,3 +478,14 @@ body.api-resizing{cursor:col-resize;user-select:none}
 .api-row .api-attach{color:#8fd1b0}
 .api-collection-row .api-attach{color:#8fd1b0}
 body.is-editing .node.drop-target{outline:2px dashed #4f9d7a;outline-offset:6px;border-radius:12px}
+
+/* Scripts, asserts e testes */
+.api-scripts-toggle{display:inline-flex;align-items:center;gap:.4rem;align-self:flex-start;color:#ffffff99;font-size:.72rem;cursor:pointer}
+.api-tests h4{margin:.5rem 0 .2rem}
+.api-tests ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.2rem}
+.api-tests li{display:flex;flex-wrap:wrap;gap:.4rem;align-items:baseline;padding:.25rem .4rem;border-radius:6px;background:#ffffff08}
+.api-tests li small{flex-basis:100%;color:#e57373;font-family:Consolas,'Cascadia Mono',monospace;font-size:.7rem}
+.api-tests .is-pass .api-mark{color:#6fcf97}.api-tests .is-fail .api-mark{color:#e57373}
+.api-tests-ok{color:#6fcf97!important}.api-tests-bad{color:#e57373!important}
+.api-console{display:flex;flex-direction:column;gap:.15rem;padding:.5rem;background:#0e0e0e;border:1px solid #ffffff17;border-radius:8px;font-family:Consolas,'Cascadia Mono',monospace;font-size:.74rem;max-height:40vh;overflow:auto}
+.api-log.is-error{color:#e57373}.api-log.is-warn{color:#e4c583}.api-log.is-info{color:#6fa3d6}
