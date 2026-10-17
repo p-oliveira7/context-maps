@@ -5,6 +5,7 @@ import {mkdtemp,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
+const NL=String.fromCharCode(10),CR=String.fromCharCode(13);
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const wanted=process.argv.slice(2),all=['edit','skill','browser','cards','motion'],suites=wanted.length?wanted:all;
 const work=await mkdtemp(path.join(tmpdir(),'cm-e2e-')),port=4193;
@@ -21,13 +22,9 @@ try{
   if(res.status!==0){
    failed.push(name);
    if(process.env.GITHUB_ACTIONS){ // aparece como anotação na página da execução (os logs completos exigem login)
-    const tail=`${res.error?`${res.error.message}
-`:''}${res.stdout||''}
-${res.stderr||''}`.trim().split('
-').slice(-18).join('
-').slice(-1800);
-    console.log(`::error title=${name} (${process.platform})::${tail.replace(/%/g,'%25').replace(//g,'').replace(/
-/g,'%0A')}`);
+    const text=[res.error?.message,res.stdout,res.stderr].filter(Boolean).join(NL).trim();
+    const tail=text.split(NL).slice(-18).join(NL).slice(-1800);
+    console.log(`::error title=${name} (${process.platform})::${tail.replaceAll('%','%25').replaceAll(CR,'').replaceAll(NL,'%0A')}`);
    }
   }
  }
