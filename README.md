@@ -36,7 +36,7 @@ publishes the finished map with images, diagrams and links.
 - [Why Context Maps](#why-context-maps)
 - [How it fits together](#how-it-fits-together)
 - [Getting started](#getting-started)
-- [Features](#features) — [navigate](#navigate-and-read) · [edit](#edit) · [diagrams](#images-diagrams-and-links) · [save as](#save-as-and-folders)
+- [Features](#features) — [navigate](#navigate-and-read) · [edit](#edit) · [diagrams](#images-diagrams-and-links) · [export](#export-import-and-share) · [save as](#save-as-and-folders)
 - [Agent skill](#agent-skill)
 - [Data format](#data-format) · [Server API](#server-api) · [Security](#security)
 - [Tests](#tests) · [Regenerating the screenshots](#regenerating-the-screenshots)
@@ -181,6 +181,12 @@ follows every move.
 (the lines leaving that card) or **The whole branch below**. The card itself, its children and the line
 arriving at it never change.
 
+### Export, import and share
+
+- **Export as HTML…** downloads a single `.html` file with the viewer, the map and all images inside. It opens offline in any browser, read-only — send it by e-mail or attach it to a ticket.
+- **Export as ZIP…** downloads the presentation files: `<name>.json` plus the `<name>/assets/` folder with its images. Unzip it into a repository folder (and **Add folder…**) or hand it to a teammate.
+- **Import…** (same menu) reads a **ZIP package** or an **exported HTML file** and opens the result as a new presentation. Names stay unique (a repeated name gets " (2)"), images are copied into `presentations/<id>/assets/`, and references to files that are not in the package are dropped. Nothing in the file is executed.
+
 ### Save as and folders
 
 <p align="center">
@@ -292,6 +298,8 @@ Listens on `127.0.0.1` only. Every route answers JSON with `Cache-Control: no-st
 | `POST /api/presentations/:id/copy` | Copy under a new name (`{title, dir?}`), including images, into the library or another folder |
 | `GET/POST /api/libraries`, `DELETE /api/libraries/:key` | List, add or forget extra folders |
 | `POST /api/pick-folder` | Opens the system folder picker and returns the chosen path |
+| `GET /api/presentations/:id/export?format=html\|zip` | Download the presentation as one self-contained HTML file or as a ZIP package |
+| `POST /api/import?name=…` | Import a ZIP package or an exported HTML file (raw body) as a new presentation |
 | `DELETE /api/presentations/:id` | Remove the file and its images |
 | `POST /api/presentations/:id/assets?name=…` | Upload an image (png, jpg, webp, gif, svg; up to 15 MB) |
 
@@ -313,7 +321,7 @@ node tests/edit.mjs                     # or run a single suite
 
 | Suite | Covers |
 | --- | --- |
-| `edit` EDIT-01..27 | editing, diagrams, media, links, folders, language |
+| `edit` EDIT-01..28 | editing, diagrams, media, links, folders, language, export, import |
 | `skill` SKILL-01..07 | skill CLI |
 | `browser` MAP-01..11 | navigation, zoom, text mode, mobile, full screen |
 | `cards` CARD-01..06 | titles, root, keyboard, images |

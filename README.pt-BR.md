@@ -36,7 +36,7 @@ decisões — e publica o mapa pronto, com imagens, diagramas e links.
 - [Por que Context Maps](#por-que-context-maps)
 - [Como as peças se encaixam](#como-as-peças-se-encaixam)
 - [Começando](#começando)
-- [Recursos](#recursos) — [navegar](#navegar-e-ler) · [editar](#editar) · [diagramas](#imagens-diagramas-e-links) · [salvar como](#salvar-como-e-pastas)
+- [Recursos](#recursos) — [navegar](#navegar-e-ler) · [editar](#editar) · [diagramas](#imagens-diagramas-e-links) · [exportar](#exportar-importar-e-compartilhar) · [salvar como](#salvar-como-e-pastas)
 - [Skill para agentes](#skill-para-agentes)
 - [Formato dos dados](#formato-dos-dados) · [API do servidor](#api-do-servidor) · [Segurança](#segurança)
 - [Testes](#testes) · [Regenerando as imagens](#regenerando-as-imagens)
@@ -181,6 +181,12 @@ aparece **Desfazer**.
 linhas que saem daquele card) ou **Toda a ramificação abaixo**. O próprio card, as filhas e a linha que
 chega até ele nunca mudam.
 
+### Exportar, importar e compartilhar
+
+- **Exportar como HTML…** baixa um único arquivo `.html` com o visualizador, o mapa e todas as imagens dentro. Ele abre offline em qualquer navegador, somente leitura — dá para mandar por e-mail ou anexar a um chamado.
+- **Exportar como ZIP…** baixa os arquivos da apresentação: `<nome>.json` mais a pasta `<nome>/assets/` com as imagens. Descompacte numa pasta de um repositório (e use **Adicionar pasta…**) ou entregue a um colega.
+- **Importar…** (no mesmo menu) lê um **pacote ZIP** ou um **HTML exportado** e abre o resultado como uma apresentação nova. Os nomes continuam únicos (um nome repetido ganha " (2)"), as imagens são copiadas para `presentations/<id>/assets/` e referências a arquivos que não estão no pacote são descartadas. Nada do arquivo é executado.
+
 ### Salvar como e pastas
 
 <p align="center">
@@ -292,6 +298,8 @@ Escuta apenas em `127.0.0.1`. Todas as rotas respondem JSON e `Cache-Control: no
 | `POST /api/presentations/:id/copy` | Copia com um novo nome (`{title, dir?}`), incluindo as imagens, para a biblioteca ou outra pasta |
 | `GET/POST /api/libraries`, `DELETE /api/libraries/:key` | Lista, adiciona ou esquece pastas extras |
 | `POST /api/pick-folder` | Abre o seletor de pastas do sistema e devolve o caminho escolhido |
+| `GET /api/presentations/:id/export?format=html\|zip` | Baixa a apresentação como um HTML único e autocontido ou como pacote ZIP |
+| `POST /api/import?name=…` | Importa um pacote ZIP ou um HTML exportado (corpo bruto) como uma apresentação nova |
 | `DELETE /api/presentations/:id` | Remove o arquivo e as imagens |
 | `POST /api/presentations/:id/assets?name=…` | Envia imagem (png, jpg, webp, gif, svg; até 15 MB) |
 
@@ -313,7 +321,7 @@ node tests/edit.mjs                     # ou rode uma suíte só
 
 | Suíte | Cobre |
 | --- | --- |
-| `edit` EDIT-01..27 | edição, diagramas, mídias, links, pastas, idioma |
+| `edit` EDIT-01..28 | edição, diagramas, mídias, links, pastas, idioma, exportação, importação |
 | `skill` SKILL-01..07 | CLI da skill |
 | `browser` MAP-01..11 | navegação, zoom, modo texto, mobile, tela cheia |
 | `cards` CARD-01..06 | títulos, raiz, teclado, imagens |

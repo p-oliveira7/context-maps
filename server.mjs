@@ -8,6 +8,8 @@ import {createHash} from 'node:crypto';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {tree as seed} from './model.js';
+import {buildHtml} from './export.mjs';
+import {writeZip,readZip} from './zip.mjs';
 
 const root=path.dirname(fileURLToPath(import.meta.url));
 const dataDir=path.resolve(process.env.PRESENTATIONS_DIR||path.join(root,'presentations'));
@@ -16,7 +18,7 @@ const port=Number(process.env.PORT||4173);
 const MIME={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.webp':'image/webp','.gif':'image/gif'};
 const IMAGE_EXT=new Set(['.png','.jpg','.jpeg','.webp','.gif','.svg']);
 const SLUG=/^[a-z0-9][a-z0-9-]{0,60}$/;
-const MAX_JSON=5*1024*1024, MAX_IMAGE=15*1024*1024;
+const MAX_JSON=5*1024*1024, MAX_IMAGE=15*1024*1024, MAX_IMPORT=150*1024*1024;
 
 const slug=text=>text.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,50)||'apresentacao';
 const send=(res,status,body,type='application/json; charset=utf-8')=>{res.writeHead(status,{'content-type':type,'cache-control':'no-store'});res.end(typeof body==='string'||Buffer.isBuffer(body)?body:JSON.stringify(body));};
@@ -29,7 +31,7 @@ const EN={
  'Rota inexistente':'Route not found','Identificador inválido ou já existente':'Invalid or already existing identifier',
  'Identificador inválido':'Invalid identifier','Apresentação inexistente':'Presentation not found',
  'Formato de imagem não suportado':'Unsupported image format','Informe um nome para a cópia':'Enter a name for the copy',
- 'Estrutura inválida':'Invalid structure','Não encontrado':'Not found','Erro interno':'Internal error'
+ 'Estrutura inválida':'Invalid structure','Formato de exportação inválido':'Invalid export format','Arquivo de importação inválido':'Invalid import file','Pacote sem apresentação (.json)':'Package has no presentation (.json)','Não encontrado':'Not found','Erro interno':'Internal error'
 };
 const wantsEnglish=req=>{const l=String(req?.headers?.['x-lang']||req?.headers?.['accept-language']||'').toLowerCase();return !(l.startsWith('pt'));};
 const fail=(res,status,message)=>send(res,status,{error:res.req&&wantsEnglish(res.req)&&EN[message]?EN[message]:message});
@@ -180,6 +182,10 @@ async function api(req,res,url){
   if(picked.unsupported)return fail(res,501,'Seletor de pasta indisponível neste sistema; digite o caminho');
   return send(res,200,{path:picked.path});
  }
+ if(parts[0]==='import'){
+  if(req.method!=='POST')return fail(res,405,'Método não permitido');
+  return importDoc(req,res);
+ }
  if(parts[0]!=='presentations')return fail(res,404,'Rota inexistente');
  const id=parts[1];
  if(!id){
@@ -229,6 +235,10 @@ async function api(req,res,url){
   await writeJson(fileOf(next),{...toStored({id:next.id,title,roots:structuredClone(copyRoots)},next),id:lib.main?next.id:name});
   return send(res,201,doc);
  }
+ if(parts[2]==='export'){
+  if(req.method!=='GET')return fail(res,405,'Método não permitido');
+  return exportDoc(res,r,id,file,url.searchParams.get('format')||'html');
+ }
  if(req.method==='GET'){
   if(!existsSync(file))return fail(res,404,'Apresentação inexistente');
   const doc=toApi(JSON.parse(await readFile(file,'utf8')),r);doc.id=id;return send(res,200,doc);
@@ -248,8 +258,8 @@ async function api(req,res,url){
  return fail(res,405,'Método não permitido');
 }
 
-async function serveStatic(res,pathname){
- let rel=decodeURIComponent(pathname);if(rel.endsWith('/'))rel+='index.html';
+// Caminho (já decodificado) -> arquivo servível, ou null se estiver fora das áreas permitidas.
+function staticFile(rel){
  let file,base;
  if(rel.startsWith('/presentations/')){
   const tail=rel.slice('/presentations/'.length),idPart=tail.split('/')[0],r=resolveId(idPart);
@@ -259,11 +269,83 @@ async function serveStatic(res,pathname){
  const resolved=path.resolve(file);
  const relative=path.relative(base,resolved);
  const blocked=relative.startsWith('..')||path.isAbsolute(relative)||relative.split(path.sep).some(p=>p.startsWith('.'))||(base===root&&/^(node_modules|presentations|tests|server\.mjs)/.test(relative));
- if(blocked)return fail(res,404,'Não encontrado');
+ return blocked?null:resolved;
+}
+async function serveStatic(res,pathname){
+ let rel=decodeURIComponent(pathname);if(rel.endsWith('/'))rel+='index.html';
+ const resolved=staticFile(rel);
+ if(!resolved)return fail(res,404,'Não encontrado');
  try{
   const info=await stat(resolved);if(!info.isFile())throw new Error('not file');
   send(res,200,await readFile(resolved),MIME[path.extname(resolved).toLowerCase()]||'application/octet-stream');
  }catch{fail(res,404,'Não encontrado');}
+}
+// Exportação: HTML único (imagens embutidas) ou pacote ZIP (o JSON + a pasta de imagens, no formato portátil de pastas extras), como download.
+const localMedia=doc=>{const out=[];const walk=n=>{for(const m of n.images||[])if(typeof m.src==='string'&&!/^(https?:|data:)/i.test(m.src))out.push(m);n.children.forEach(walk);};rootsOf(doc).forEach(walk);return out;};
+async function exportDoc(res,r,id,file,format){
+ if(!existsSync(file))return fail(res,404,'Apresentação inexistente');
+ const doc=toApi(JSON.parse(await readFile(file,'utf8')),r);doc.id=id;doc.title=titleOf(doc);doc.roots=rootsOf(doc);delete doc.tree;
+ const name=slug(doc.title);
+ const readAsset=async src=>{const f=staticFile(src.startsWith('/')?src:`/${src}`);if(!f)throw new Error('fora da área permitida');return readFile(f);};
+ let body,type;
+ if(format==='html'){body=await buildHtml({doc,appRoot:root,readAsset});type='text/html; charset=utf-8';}
+ else if(format==='zip'){
+  const entries=[],used=new Set(),copy=structuredClone(doc);
+  for(const m of localMedia(copy)){
+   const bytes=await readAsset(m.src).catch(()=>null);if(!bytes)continue;
+   const ext=path.extname(m.src.split('?')[0]).toLowerCase();let base=slug(path.basename(m.src.split('?')[0],ext))||'imagem',file2=`${base}${ext}`,n=2;
+   while(used.has(file2))file2=`${base}-${n++}${ext}`;
+   used.add(file2);entries.push({name:`${name}/assets/${file2}`,data:bytes});m.src=`${name}/assets/${file2}`;
+  }
+  entries.unshift({name:`${name}.json`,data:Buffer.from(JSON.stringify({id:name,title:copy.title,roots:copy.roots},null,2)+'\n')});
+  body=writeZip(entries);type='application/zip';
+ }else return fail(res,400,'Formato de exportação inválido');
+ res.writeHead(200,{'content-type':type,'cache-control':'no-store','content-disposition':`attachment; filename="${name}.${format}"`});res.end(body);
+}
+// Importação: pacote ZIP (JSON + imagens) ou HTML exportado (JSON e imagens embutidos). Nada é executado: só se lê o JSON e se gravam imagens.
+const MIME_EXT={'image/png':'.png','image/jpeg':'.jpg','image/webp':'.webp','image/gif':'.gif','image/svg+xml':'.svg'};
+async function importDoc(req,res){
+ const body=await readBody(req,MAX_IMPORT);
+ let doc,lookup;
+ if(body.length>3&&body[0]===0x50&&body[1]===0x4b){
+  let entries;try{entries=readZip(body);}catch{return fail(res,400,'Arquivo de importação inválido');}
+  const jsons=entries.filter(e=>!e.name.includes('/')&&e.name.endsWith('.json'));
+  if(!jsons.length)return fail(res,400,'Pacote sem apresentação (.json)');
+  try{doc=JSON.parse(jsons[0].data.toString('utf8'));}catch{return fail(res,400,'Arquivo de importação inválido');}
+  const byName=new Map(entries.map(e=>[e.name,e.data])),oldBase=jsons[0].name.slice(0,-5);
+  lookup=src=>{
+   const clean=src.split('?')[0].replace(/^\/+/,'');
+   const bytes=byName.get(clean)||byName.get(`${oldBase}/assets/${path.posix.basename(clean)}`)||[...byName].find(([k])=>k.endsWith(`/assets/${path.posix.basename(clean)}`))?.[1];
+   return bytes?{bytes,ext:path.extname(clean).toLowerCase()}:null;
+  };
+ }else{
+  const m=/<script type="application\/json" id="cm-doc">([\s\S]*?)<\/script>/.exec(body.toString('utf8'));
+  if(!m)return fail(res,400,'Arquivo de importação inválido');
+  try{doc=JSON.parse(m[1]);}catch{return fail(res,400,'Arquivo de importação inválido');}
+  lookup=src=>{const d=/^data:([\w/+.-]+);base64,([A-Za-z0-9+/=]+)$/.exec(src);return d&&MIME_EXT[d[1]]?{bytes:Buffer.from(d[2],'base64'),ext:MIME_EXT[d[1]]}:null;};
+ }
+ if(!validDoc(doc))return fail(res,400,'Estrutura inválida');
+ const roots=structuredClone(rootsOf(doc)),title=await uniqueTitle(String((typeof doc.title==='string'&&doc.title.trim())||roots[0].title).trim().slice(0,200)||'Importada');
+ const lib=MAIN,name=freeSlug(lib,slug(title)),r=resolveId(idFor(lib,name)),dir=assetsDirOf(r);
+ let count=0;
+ const walk=async n=>{
+  const kept=[];
+  for(const m of [...(n.images||[]),...(n.image?[n.image]:[])]){
+   if(typeof m.src!=='string')continue;
+   if(/^https?:/i.test(m.src)){kept.push(m);continue;}
+   const found=lookup(m.src);
+   if(!found||!IMAGE_EXT.has(found.ext)||found.bytes.length>MAX_IMAGE)continue; // imagem ausente ou inválida: descartada
+   await mkdir(dir,{recursive:true});
+   const file=`${slug(path.basename(m.src.split('?')[0],found.ext).slice(0,40))||'imagem'}-${(++count).toString(36)}${found.ext}`;
+   await writeFile(path.join(dir,file),found.bytes);m.src=`presentations/${r.id}/assets/${file}`;kept.push(m);
+  }
+  if(kept.length)n.images=kept;else delete n.images;delete n.image;
+  for(const c of n.children)await walk(c);
+ };
+ for(const root of roots)await walk(root);
+ await mkdir(lib.dir,{recursive:true});
+ await writeJson(fileOf(r),{id:r.id,title,roots});
+ return send(res,201,{id:r.id,title});
 }
 
 await loadConfig();

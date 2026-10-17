@@ -818,6 +818,12 @@ async function addFolder(){ // registra uma pasta existente para listar e editar
   if(typed&&typed.trim()){try{await store.addLibrary(typed.trim());await refreshMenu();}catch(err){showToast(err.message||t('invalidFolder'),false,4000);}}
  }
 }
+async function exportDoc(format){ // o servidor monta o arquivo (imagens embutidas no HTML); o navegador baixa
+ if(!doc.id)return;
+ await flush();
+ const link=document.createElement('a');link.href=`api/presentations/${encodeURIComponent(doc.id)}/export?format=${format}`;link.download='';
+ document.body.append(link);link.click();link.remove();
+}
 async function deleteDoc(){
  if(!confirm(t('confirmDeletePres',doc.title)))return;
  await store.remove(doc.id);doc={...doc,id:null};
@@ -825,6 +831,8 @@ async function deleteDoc(){
  if(list.length)await openDoc(list[0].id);else{const created=await store.create(t('newPres'));await openDoc(created.id);}
 }
 async function initStore(){
+ const embedded=document.getElementById('cm-doc'); // arquivo HTML exportado: dados embutidos, somente leitura (sem servidor)
+ if(embedded){useDoc(normalizeDoc(JSON.parse(embedded.textContent)));showDocTitle();return true;}
  if(!await store.available())return false;
  const list=await store.list();
  const wanted=new URLSearchParams(location.search).get('p');
@@ -896,6 +904,14 @@ $('#doc-addfolder').onclick=()=>{closeMenu();addFolder();};
 $('#doc-saveas').onclick=()=>{closeMenu();saveCopy(true);};
 $('#doc-copy').onclick=()=>{closeMenu();saveCopy(false);};
 document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.shiftKey&&e.key.toLowerCase()==='s'&&doc.id){e.preventDefault();saveCopy(true);}});
+$('#doc-export-html').onclick=()=>{closeMenu();exportDoc('html');};
+$('#doc-export-zip').onclick=()=>{closeMenu();exportDoc('zip');};
+$('#doc-import').onclick=()=>{closeMenu();$('#import-input').click();};
+$('#import-input').onchange=async e=>{ // importa um .zip (pacote) ou um .html exportado; abre a apresentação criada
+ const input=e.target,file=input.files[0];input.value='';if(!file)return;
+ try{await flush();const created=await store.importFile(file);await openDoc(created.id);showToast(t('imported',created.title),false,5000);}
+ catch(err){showToast(err.message&&!/^\d+$/.test(err.message)?err.message:t('importError'),false,6000);}
+};
 $('#doc-delete').onclick=()=>{closeMenu();deleteDoc();};
 document.addEventListener('pointerdown',e=>{if(!e.target.closest('#doc-bar'))closeMenu();if(!e.target.closest('.node-badges'))closeLinkMenus();});
 window.addEventListener('beforeunload',()=>{if(doc.id&&saveTimer)flush();});

@@ -8,6 +8,7 @@ How to cut a release: [`docs/releasing.md`](docs/releasing.md).
 ## [Unreleased]
 
 ### Added
+- **Export and import** from the presentation menu: **Export as HTML…** downloads one self-contained file (the viewer, the data and every image inlined) that opens offline in any browser, read-only; **Export as ZIP…** downloads the presentation files (`<name>.json` + `<name>/assets/`), the same portable layout used by extra folders. **Import…** reads either a ZIP package or an exported HTML file and opens the result as a new presentation (names stay unique; images missing from the package are dropped). API: `GET /api/presentations/:id/export?format=html|zip` and `POST /api/import?name=file.zip|file.html`.
 - **Continuous integration** (GitHub Actions) running the model, browser and skill tests on Linux, macOS and Windows for every push to `main` and every pull request.
 - `npm run test:e2e` runs all browser and skill tests in one go, using an isolated temporary server.
 
