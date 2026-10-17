@@ -62,7 +62,7 @@ try{
 
  await page.locator('[data-id="mobility"] p').fill('Mobilidade urbana'); // EDIT-03: edição inline e autosave
  await until(async()=>(await onDisk(id)).tree.children[0].title==='Mobilidade urbana','título não salvo');
- assert.equal(await page.locator('#save-status').getAttribute('data-state'),'saved');
+ await until(async()=>(await page.locator('#save-status').getAttribute('data-state'))==='saved','status deveria voltar a "salvo"'); // o status muda depois que a gravação termina
 
  await act('mobility','Adicionar filho'); // EDIT-04: adicionar filho
  assert.equal((await ids()).length,9);

@@ -68,12 +68,12 @@ try {
  await page.setViewportSize({width:1280,height:720}); await page.reload(); await page.locator('.node').first().waitFor();
  const fullscreen=page.locator('#fullscreen'), nodesBefore=await count();
  assert.equal(await fullscreen.getAttribute('aria-pressed'),'false');
- await fullscreen.click(); await page.waitForFunction(()=>!!document.fullscreenElement);
+ await fullscreen.click(); await page.waitForFunction(()=>!!document.fullscreenElement&&document.querySelector('#fullscreen').getAttribute('aria-pressed')==='true');
  assert.equal(await fullscreen.getAttribute('aria-pressed'),'true');
  assert.equal(await page.locator('#fullscreen-label').textContent(),'Sair da tela cheia');
  assert.equal(await count(),nodesBefore);
  await page.getByRole('button',{name:'Expandir tudo',exact:true}).click(); assert.equal(await count(),17); // continua interativo
- await fullscreen.click(); await page.waitForFunction(()=>!document.fullscreenElement);
+ await fullscreen.click(); await page.waitForFunction(()=>!document.fullscreenElement&&document.querySelector('#fullscreen').getAttribute('aria-pressed')==='false'); // o botão acompanha o evento fullscreenchange
  assert.equal(await fullscreen.getAttribute('aria-pressed'),'false');
  // MAP-10: destaque no hover (cresce e a imagem fica maior), só na exibição e sem movimento reduzido
  await page.setViewportSize({width:1280,height:720}); await page.reload(); await page.locator('.node').first().waitFor();
