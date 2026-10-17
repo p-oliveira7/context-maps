@@ -16,8 +16,20 @@ try{
  }
  for(const name of suites){
   console.log(`\n▶ ${name}`);
-  const res=spawnSync(process.execPath,[path.join('tests',`${name}.mjs`)],{cwd:root,stdio:'inherit',env:{...process.env,PREVIEW_URL:`http://127.0.0.1:${port}`}});
-  if(res.status!==0)failed.push(name);
+  const res=spawnSync(process.execPath,[path.join('tests',`${name}.mjs`)],{cwd:root,encoding:'utf8',maxBuffer:64*1024*1024,env:{...process.env,PREVIEW_URL:`http://127.0.0.1:${port}`}});
+  process.stdout.write(res.stdout||'');process.stderr.write(res.stderr||'');
+  if(res.status!==0){
+   failed.push(name);
+   if(process.env.GITHUB_ACTIONS){ // aparece como anotação na página da execução (os logs completos exigem login)
+    const tail=`${res.error?`${res.error.message}
+`:''}${res.stdout||''}
+${res.stderr||''}`.trim().split('
+').slice(-18).join('
+').slice(-1800);
+    console.log(`::error title=${name} (${process.platform})::${tail.replace(/%/g,'%25').replace(//g,'').replace(/
+/g,'%0A')}`);
+   }
+  }
  }
 }finally{server?.kill();await rm(work,{recursive:true,force:true});}
 console.log(failed.length?`\nFALHOU: ${failed.join(', ')}`:`\nTodos os testes passaram (${suites.join(', ')})`);
