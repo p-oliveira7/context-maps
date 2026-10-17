@@ -283,6 +283,92 @@ try{
   await page.locator('#api-panel button[aria-label="Fechar o cliente de API"]').click();
   await page.locator('#api-panel').waitFor({state:'hidden'});
  }
+ // API-12: {{variáveis}} coloridas (vermelho sem valor, verde com valor), painel ao passar o mouse e edição do valor
+ {
+  await call('POST','/collections',{name:'Vars'});
+  await call('PUT','/collections/vars/environments/dev',{vars:[{name:'host',value:host,enabled:true},{name:'key',value:'SECRET1',secret:true,enabled:true}]});
+  const made=await call('POST','/collections/vars/items',{type:'request',name:'Com variáveis',method:'get',url:'{{host}}/v?a={{missing}}&k={{key}}&t={{$timestamp}}'});
+  const model=await call('GET',`/collections/vars/request?path=${made.path}`);
+  Object.assign(model,{headers:[{name:'X-Req',value:'{{reqVar}}',enabled:true},{name:'X-Ghost',value:'{{ghost}}',enabled:true}],varsPre:[{name:'reqVar',value:'rv',enabled:true}],bodyMode:'json',body:{json:'{"x":"{{nope}}"}'}});
+  assert.equal((await fetch(`${base}/api/collections/vars/request?path=${made.path}`,{method:'PUT',headers:H,body:JSON.stringify(model)})).status,200);
+  await page.locator('#api-btn').click();await page.locator('#api-panel').waitFor({state:'visible'});
+  await page.locator('#api-panel select[aria-label="Coleção"]').selectOption('vars');
+  await page.locator('.api-row-name',{hasText:'Com variáveis'}).click();
+  await page.locator('.api-req-title strong',{hasText:'Com variáveis'}).waitFor();
+  const urlVars=page.locator('.api-urlbar .api-var');
+  await urlVars.first().waitFor();
+  const kinds=async()=>Object.fromEntries(await urlVars.evaluateAll(els=>els.map(e=>[e.dataset.name,e.className.replace('api-var ','')])));
+  assert.deepEqual(await kinds(),{host:'is-defined',missing:'is-undefined',key:'is-defined','$timestamp':'is-dynamic'});
+  const color=name=>urlVars.filter({hasText:`{{${name}}}`}).evaluate(e=>getComputedStyle(e).color);
+  assert.equal(await color('missing'),'rgb(229, 115, 115)');assert.equal(await color('host'),'rgb(111, 207, 151)'); // vermelho e verde
+  const hover=async locator=>{const b=await locator.boundingBox();await page.mouse.move(b.x+b.width/2,b.y+b.height/2);};
+  const pop=page.locator('.api-var-pop');
+
+  // passar o mouse em uma variável com valor mostra o valor e deixa editar (salva no ambiente)
+  await hover(urlVars.filter({hasText:'{{host}}'}));await pop.waitFor();
+  assert.match(await pop.locator('.api-var-pop-head').textContent(),/\{\{host\}\}.*Ambiente/);
+  assert.equal(await pop.locator('input').inputValue(),host);
+  await pop.locator('input').fill(`${host}/`);await pop.getByRole('button',{name:'Salvar'}).click();
+  await pop.waitFor({state:'detached'});
+  assert.match(await readFile(path.join(collections,'vars','environments','dev.bru'),'utf8'),new RegExp(`host: ${host.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}/`));
+  assert.equal((await kinds()).host,'is-defined');
+
+  // sem valor: o painel avisa e escolhe onde guardar; ao salvar na request a variável fica verde
+  await page.mouse.move(5,5);await pop.waitFor({state:'detached'});
+  await hover(urlVars.filter({hasText:'{{missing}}'}));await pop.waitFor();
+  assert.match(await pop.locator('.api-var-pop-head').textContent(),/Sem valor ainda/);
+  assert.equal(await pop.locator('select').inputValue(),'env'); // com ambiente escolhido, o padrão é o ambiente
+  await pop.locator('select').selectOption('request');await pop.locator('input').fill('xyz');await pop.getByRole('button',{name:'Salvar'}).click();
+  await pop.waitFor({state:'detached'});
+  assert.equal((await kinds()).missing,'is-defined');
+  for(let i=0;i<40&&!(await readFile(path.join(collections,'vars','com-variaveis.bru'),'utf8')).includes('missing: xyz');i++)await new Promise(r=>setTimeout(r,100));
+  assert.match(await readFile(path.join(collections,'vars','com-variaveis.bru'),'utf8'),/vars:pre-request \{\n  reqVar: rv\n  missing: xyz\n\}/);
+  const mark=seen.length;
+  await page.locator('.api-send').click();await page.locator('.api-status strong',{hasText:'200'}).waitFor();
+  const sentUrl=seen.slice(mark).at(-1);assert.match(sentUrl.url,/^\/\/v\?a=xyz&k=SECRET1&t=\d+$/); // host terminava em "/", daí "//v"
+  assert.equal(sentUrl.headers['x-req'],'rv');
+
+  // segredo: o valor vem escondido, dá para mostrar e editar; o arquivo do ambiente continua sem o valor
+  await page.mouse.move(5,5);await pop.waitFor({state:'detached'});
+  await hover(urlVars.filter({hasText:'{{key}}'}));await pop.waitFor();
+  assert.equal(await pop.locator('input').getAttribute('type'),'password');
+  await pop.getByRole('button',{name:'Mostrar'}).click();assert.equal(await pop.locator('input').getAttribute('type'),'text');
+  assert.equal(await pop.locator('input').inputValue(),'SECRET1');
+  await pop.locator('input').fill('SECRET2');await pop.getByRole('button',{name:'Salvar'}).click();await pop.waitFor({state:'detached'});
+  assert.ok(!(await readFile(path.join(collections,'vars','environments','dev.bru'),'utf8')).includes('SECRET'));
+  assert.ok((await readFile(path.join(collections,'.secrets','vars.json'),'utf8')).includes('SECRET2'));
+
+  // variável embutida: informa que é dinâmica
+  await page.mouse.move(5,5);await pop.waitFor({state:'detached'});
+  await hover(urlVars.filter({hasText:'{{$timestamp}}'}));await pop.waitFor();
+  assert.match(await pop.textContent(),/Embutida.*Gerada a cada envio/);
+  await page.mouse.move(5,5);await pop.waitFor({state:'detached'});
+
+  // teclado: Ctrl+. com o cursor dentro da variável abre o painel já no valor; Esc fecha e devolve o foco
+  const urlInput=page.locator('.api-url');await urlInput.focus();
+  await urlInput.evaluate(el=>{const at=el.value.indexOf('{{missing}}')+3;el.setSelectionRange(at,at);});
+  await page.keyboard.press('Control+.');await pop.waitFor();
+  assert.equal(await page.evaluate(()=>document.activeElement.closest('.api-var-pop')!==null),true);
+  await page.keyboard.press('Escape');await pop.waitFor({state:'detached'});
+  assert.equal(await page.evaluate(()=>document.activeElement.classList.contains('api-url')),true);
+
+  // cabeçalhos, corpo e digitação: o destaque acompanha o texto
+  await page.locator('#api-tab-headers').click();
+  const headerVars=page.locator('#api-tabpanel .api-var');
+  assert.deepEqual(await headerVars.evaluateAll(els=>els.map(e=>[e.dataset.name,e.className.replace('api-var ','')])),[['reqVar','is-defined'],['ghost','is-undefined']]);
+  await page.locator('#api-tab-body').click();
+  assert.equal(await page.locator('#api-tabpanel .api-var.is-undefined').first().textContent(),'{{nope}}');
+  await page.locator('.api-textarea').focus();await page.keyboard.press('Control+End');await page.keyboard.type(' {{reqVar}}');
+  await page.waitForFunction(()=>[...document.querySelectorAll('#api-tabpanel .api-var')].some(e=>e.textContent==='{{reqVar}}'&&e.classList.contains('is-defined')));
+
+  // trocar para "sem ambiente" deixa as variáveis do ambiente vermelhas; voltar deixa verdes
+  await page.locator('#api-panel select[aria-label="Ambiente"]').selectOption('');
+  await page.waitForFunction(()=>document.querySelector('.api-urlbar .api-var[data-name="host"]')?.classList.contains('is-undefined'));
+  await page.locator('#api-panel select[aria-label="Ambiente"]').selectOption('dev');
+  await page.waitForFunction(()=>document.querySelector('.api-urlbar .api-var[data-name="host"]')?.classList.contains('is-defined'));
+  await page.locator('#api-panel button[aria-label="Fechar o cliente de API"]').click();
+  await page.locator('#api-panel').waitFor({state:'hidden'});
+ }
  // API-09: o proxy só aceita http/https e exige o cabeçalho do app
  assert.equal((await fetch(`${base}/api/send`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({url:`${host}/x`})})).status,403);
  assert.equal((await fetch(`${base}/api/send`,{method:'POST',headers:H,body:JSON.stringify({url:'file:///etc/passwd'})})).status,400);
@@ -291,5 +377,5 @@ try{
  assert.equal(seen.some(s=>s.url==='/x'),false);
  assert.equal(existsSync(path.join(collections,'.secrets')),true);
  assert.deepEqual(errors,[]);
- console.log('PASS API-01..11 API client panel');
+ console.log('PASS API-01..12 API client panel');
 }finally{await browser.close();server.kill();target.close();await rm(work,{recursive:true,force:true});}

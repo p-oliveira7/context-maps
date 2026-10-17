@@ -3,6 +3,7 @@ import {t,lang} from './i18n.js?v=1';
 import {activeEntries,resolveVars,buildRaw,resolveRaw,buildRequest,toScriptReq,applyScriptReq,makeScope} from './pipeline.js?v=1';
 import {runAssertions,evalValueExpression} from './assertions.js?v=1';
 import {runScript,sandboxSupported} from './sandbox.js?v=1';
+import {createVarFields} from './var-field.js?v=1';
 export {resolveVars,buildRequest};
 
 const $=(s,root=document)=>root.querySelector(s);
@@ -46,8 +47,40 @@ export function syncUrlFromParams(model){
 }
 
 /* ---------- estado ---------- */
-const state={open:false,collections:[],coll:null,env:null,envVars:new Map(),runtime:new Map(),scripts:store.get('cm-api-scripts')!=='0',request:null,reqPath:'',saveTimer:0,saving:Promise.resolve(),response:null,sending:false,abort:null,tab:'params',respTab:'body',pretty:true,expanded:new Set(),filter:'',attach:null};
+const state={open:false,collections:[],coll:null,env:null,envVars:new Map(),envMeta:new Map(),runtime:new Map(),scripts:store.get('cm-api-scripts')!=='0',request:null,reqPath:'',saveTimer:0,saving:Promise.resolve(),response:null,sending:false,abort:null,tab:'params',respTab:'body',pretty:true,expanded:new Set(),filter:'',attach:null};
 let panel,els={},hooks={};
+
+/* ---------- variáveis {{nome}}: de onde vêm, como salvar, e os campos que as destacam ---------- */
+function varInfo(name){ // precedência igual à do envio: sessão > request > ambiente > coleção
+ if(name.startsWith('$'))return {scope:'dynamic',value:resolveVars(`{{${name}}}`,new Map())};
+ if(state.runtime.has(name))return {scope:'runtime',value:state.runtime.get(name)};
+ const own=activeEntries(state.request?.varsPre).find(e=>e.name===name);
+ if(own)return {scope:'request',value:own.value};
+ if(state.envVars.has(name))return {scope:'env',value:state.envVars.get(name),secret:!!state.envMeta?.get(name)?.secret};
+ const coll=(state.coll?.defaults?.vars||[]).find(v=>v.enabled!==false&&v.name===name);
+ if(coll)return {scope:'collection',value:coll.value};
+ return {scope:'none',value:''};
+}
+function scopeOptions(){
+ const list=[];
+ if(state.env)list.push({id:'env',label:t('apiScopeEnv',state.env)});
+ list.push({id:'request',label:t('apiScopeRequest')},{id:'runtime',label:t('apiScopeRuntime')});
+ return list;
+}
+async function saveVar(name,value,{scope,secret}){
+ if(scope==='runtime'){state.runtime.set(name,value);}
+ else if(scope==='request'&&state.request){
+  const list=(state.request.varsPre||=[]),found=list.find(e=>e.name===name);
+  if(found){found.value=value;found.enabled=true;}else list.push({name,value,enabled:true});
+  markDirty();if(state.tab==='vars')renderTab();
+ }else if(scope==='env'&&state.env){
+  const route=`/collections/${state.coll.id}/environments/${encodeURIComponent(state.env)}`,env=await api('GET',route),found=env.vars.find(v=>v.name===name);
+  if(found){found.value=value;found.enabled=true;}else env.vars.push({name,value,enabled:true,secret:!!secret});
+  await api('PUT',route,{vars:env.vars});await loadEnv();
+ }else throw new Error(t('apiVarNoValue'));
+}
+const vf=createVarFields({info:varInfo,save:saveVar,scopes:scopeOptions,t});
+const refreshVars=()=>vf.refresh();
 
 /* ---------- carregamento ---------- */
 async function loadCollections(){state.collections=await api('GET','/collections');}
@@ -63,9 +96,10 @@ async function loadCollection(id){
  state.expanded=new Set([''].concat(detail.tree.filter(i=>i.type==='folder').map(i=>i.path)));
 }
 async function loadEnv(){
- state.envVars=new Map();
- if(!state.env)return;
- try{const env=await api('GET',`/collections/${state.coll.id}/environments/${encodeURIComponent(state.env)}`);for(const v of env.vars)if(v.enabled!==false&&v.name)state.envVars.set(v.name,v.value);}catch{}
+ state.envVars=new Map();state.envMeta=new Map();
+ if(!state.env){refreshVars();return;}
+ try{const env=await api('GET',`/collections/${state.coll.id}/environments/${encodeURIComponent(state.env)}`);for(const v of env.vars)if(v.enabled!==false&&v.name){state.envVars.set(v.name,v.value);state.envMeta.set(v.name,{secret:!!v.secret});}}catch{}
+ refreshVars();
 }
 async function openRequest(path){
  await flushSave();
@@ -77,6 +111,7 @@ async function openRequest(path){
 /* ---------- salvar ---------- */
 function markDirty(){
  if(!state.request)return;
+ refreshVars();
  setSaveState(t('unsaved'),'dirty');clearTimeout(state.saveTimer);state.saveTimer=setTimeout(flushSave,600);
 }
 function setSaveState(text,kind=''){const el=els.save;if(el){el.textContent=text;el.dataset.state=kind;}}
@@ -143,7 +178,7 @@ function kvTable(list,{onChange,toggle=true,namePlaceholder=t('apiName'),valuePl
   body.replaceChildren(...[...list.map((entry,i)=>h('div',{class:'api-kv-row'},
    toggle?h('input',{type:'checkbox','aria-label':t('apiEnabled'),checked:entry.enabled!==false,onChange:e=>{entry.enabled=e.target.checked;onChange();}}):null,
    h('input',{type:'text',value:entry.name,placeholder:namePlaceholder,'aria-label':namePlaceholder,spellcheck:'false',readonly:lockedNames||null,onInput:e=>{entry.name=e.target.value;onChange();}}),
-   h('input',{type:'text',value:entry.value,placeholder:valuePlaceholder,'aria-label':valuePlaceholder,spellcheck:'false',onInput:e=>{entry.value=e.target.value;onChange();}}),
+   vf.varField(h('input',{type:'text',value:entry.value,placeholder:valuePlaceholder,'aria-label':valuePlaceholder,spellcheck:'false',onInput:e=>{entry.value=e.target.value;onChange();}})),
    lockedNames?null:h('button',{type:'button',class:'api-icon-btn','aria-label':t('apiRemove'),title:t('apiRemove'),onClick:()=>{list.splice(i,1);draw();onChange();}},'×')
   )),lockedNames?null:h('button',{type:'button',class:'api-add',onClick:()=>{list.push({name:'',value:'',enabled:true});draw();body.querySelector('.api-kv-row:last-of-type input[type=text]')?.focus();onChange();}},`+ ${addLabel}`)].filter(Boolean));
  };
@@ -241,7 +276,7 @@ function renderMain(){
  els.tabs=h('div',{class:'api-tabs',role:'tablist'},...TABS.map(id=>h('button',{type:'button',role:'tab',id:`api-tab-${id}`,'aria-selected':String(state.tab===id),'aria-controls':'api-tabpanel',class:state.tab===id?'is-active':'',onClick:()=>{state.tab=id;els.tabs.querySelectorAll('[role=tab]').forEach(b=>{const on=b.id===`api-tab-${id}`;b.setAttribute('aria-selected',String(on));b.classList.toggle('is-active',on);});renderTab();}},t(`apiTab_${id}`))));
  els.tabpanel=h('div',{class:'api-tabpanel',id:'api-tabpanel',role:'tabpanel'});
  els.response=h('div',{class:'api-response','aria-live':'polite'});
- main.replaceChildren(nameInput,h('div',{class:'api-urlbar'},methodSel,urlInput,els.sendBtn),els.scriptsToggle,els.tabs,els.tabpanel,els.response);
+ main.replaceChildren(nameInput,h('div',{class:'api-urlbar'},methodSel,vf.varField(urlInput),els.sendBtn),els.scriptsToggle,els.tabs,els.tabpanel,els.response);
  renderTab();renderResponse();
 }
 function textArea(value,onInput,placeholder,{readonly=false,rows=8}={}){
@@ -264,15 +299,15 @@ function renderTab(){
   const sel=h('select',{'aria-label':t('apiTab_body'),onChange:e=>{m.bodyMode=e.target.value;changed();renderTab();}},...modes.map(([v,l])=>h('option',{value:v,selected:v===(m.bodyMode||'none')},l)));
   const mode=m.bodyMode||'none';
   box.replaceChildren(h('div',{class:'api-field-row'},sel));
-  if(mode==='json'||mode==='text'||mode==='xml'){m.body||={};box.append(textArea(m.body[mode],v=>{m.body[mode]=v;changed();},mode==='json'?'{ "key": "value" }':'',{rows:12}));
+  if(mode==='json'||mode==='text'||mode==='xml'){m.body||={};box.append(vf.varField(textArea(m.body[mode],v=>{m.body[mode]=v;changed();},mode==='json'?'{ "key": "value" }':'',{rows:12})));
    if(mode==='json')box.append(h('button',{type:'button',class:'api-btn',onClick:()=>{try{m.body.json=JSON.stringify(JSON.parse(resolveVars(m.body.json||'',new Map())),null,2);changed();renderTab();}catch{toast(t('apiInvalidJson'));}}},t('apiPrettify')));}
   else if(mode==='formUrlEncoded'){m.formUrlEncoded||=[];box.append(kvTable(m.formUrlEncoded,{onChange:changed}));}
   else if(mode==='multipartForm')box.append(h('p',{class:'api-hint'},t('apiMultipartNote')));
  }else if(state.tab==='auth'){
   const sel=h('select',{'aria-label':t('apiTab_auth'),onChange:e=>{m.authMode=e.target.value;changed();renderTab();}},...[['none',t('apiAuthNone')],['bearer',t('apiAuthBearer')],['basic',t('apiAuthBasic')],['inherit',t('apiAuthInherit')]].map(([v,l])=>h('option',{value:v,selected:v===(m.authMode||'none')},l)));
   box.replaceChildren(h('div',{class:'api-field-row'},sel));
-  if(m.authMode==='bearer'){m.bearer||={token:''};box.append(labelled(t('apiToken'),h('input',{type:'text',value:m.bearer.token,spellcheck:'false',onInput:e=>{m.bearer.token=e.target.value;changed();}})));}
-  else if(m.authMode==='basic'){m.basic||={username:'',password:''};box.append(labelled(t('apiUsername'),h('input',{type:'text',value:m.basic.username,onInput:e=>{m.basic.username=e.target.value;changed();}})),labelled(t('apiPassword'),h('input',{type:'password',value:m.basic.password,onInput:e=>{m.basic.password=e.target.value;changed();}})));}
+  if(m.authMode==='bearer'){m.bearer||={token:''};box.append(labelled(t('apiToken'),vf.varField(h('input',{type:'text',value:m.bearer.token,spellcheck:'false',onInput:e=>{m.bearer.token=e.target.value;changed();}}))));}
+  else if(m.authMode==='basic'){m.basic||={username:'',password:''};box.append(labelled(t('apiUsername'),vf.varField(h('input',{type:'text',value:m.basic.username,onInput:e=>{m.basic.username=e.target.value;changed();}}))),labelled(t('apiPassword'),h('input',{type:'password',value:m.basic.password,onInput:e=>{m.basic.password=e.target.value;changed();}})));}
   else if(m.authMode==='inherit')box.append(h('p',{class:'api-hint'},t('apiAuthInheritNote')));
  }else if(state.tab==='vars'){
   m.varsPre||=[];m.varsPost||=[];
@@ -310,6 +345,7 @@ function prettyBody(res){
 }
 function renderResponse(){
  const box=els.response;if(!box)return;
+ refreshVars();
  if(els.sendBtn)els.sendBtn.textContent=state.sending?t('apiCancel'):t('apiSend');
  const r=state.response;
  if(state.sending){box.replaceChildren(h('p',{class:'api-hint'},t('apiSending')));return;}
@@ -481,7 +517,7 @@ export async function openApiPanel({collection,path}={}){
 }
 export async function closeApiPanel(){
  if(!panel||!state.open)return;
- await flushSave();state.open=false;panel.hidden=true;document.body.classList.remove('api-open');
+ await flushSave();vf.closePopover();state.open=false;panel.hidden=true;document.body.classList.remove('api-open');
  window.dispatchEvent(new Event('resize'));hooks.onClose?.();
 }
 export const API_DRAG_TYPE=API_TYPE;
