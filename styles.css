@@ -299,6 +299,11 @@ body.is-editing .edit-fab{display:flex}
 /* Vários cards raiz */
 #add-root{display:none}
 body.is-editing #add-root{display:inline-flex}
+#history-controls{display:none;gap:.25rem}
+body.is-editing #history-controls{display:inline-flex}
+#history-controls button{padding:.28rem .55rem;font-size:.9rem;line-height:1}
+#history-controls button:disabled{opacity:.35;cursor:default}
+#history-controls button:disabled:hover{background:#ffffff0d;color:#ffffffad;border-color:#ffffff1c}
 .doc-title-input{position:absolute;left:0;top:0;z-index:5;padding:0 .8rem;border:1px solid #4f9d7a;border-radius:14px;background:#161616;color:#fff;font:inherit;font-size:.75rem;font-weight:500;outline:none;box-shadow:0 0 0 3px #4f9d7a33}
 .drag-ghost.ghost-free::after{content:attr(data-free);display:block;margin-top:2px;padding-left:.3rem;font-size:11px;color:#8fd1b0}
 .drag-ghost.ghost-free{border-color:#8fd1b0}

@@ -155,6 +155,7 @@ a **wheel of actions** opens around it (it closes with **Esc**, ×, or by clicki
 | Diagrams | **+ Diagram** opens the Mermaid editor; **Edit** reopens it |
 | Title-less cards | Clear the title of a card that has an image/diagram or a subtitle: it then shows only that content |
 | Subtitle · Links | Type in the "Subtitle" field under the title; **+ Link** accepts http/https, with chips and **×** to remove |
+| Undo / redo | **↶ ↷** buttons in the bottom bar, or **Ctrl+Z** / **Ctrl+Shift+Z** (**Ctrl+Y**). Works for every edit, up to 100 steps; typing in one field is a single step |
 | Delete | **Delete** (asks for confirmation when there are ideas below) |
 
 **Autosave** is on (status next to the name: *Saved / Saving… / Save error*).
@@ -321,7 +322,7 @@ node tests/edit.mjs                     # or run a single suite
 
 | Suite | Covers |
 | --- | --- |
-| `edit` EDIT-01..28 | editing, diagrams, media, links, folders, language, export, import |
+| `edit` EDIT-01..29 | editing, diagrams, media, links, folders, language, export, import |
 | `skill` SKILL-01..07 | skill CLI |
 | `browser` MAP-01..11 | navigation, zoom, text mode, mobile, full screen |
 | `cards` CARD-01..06 | titles, root, keyboard, images |

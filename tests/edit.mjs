@@ -800,6 +800,56 @@ try{
   await page.request.delete(`${base}/api/presentations/${made.id}`);
   await page.goto(`${base}/`);await page.locator('.node').first().waitFor();
  }
+ // EDIT-29: desfazer e refazer (botões, atalhos, digitação agrupada, nome, exclusão e gravação em disco)
+ {
+  const made=await (await page.request.post(`${base}/api/presentations`,{data:{title:'Histórico'}})).json();
+  await page.goto(`${base}/?p=${made.id}`);await page.locator('.node').first().waitFor();
+  await page.locator('#edit-switch').click();
+  const undoBtn=page.locator('#undo-btn'),redoBtn=page.locator('#redo-btn');
+  assert.equal(await undoBtn.isDisabled(),true);assert.equal(await redoBtn.isDisabled(),true); // nada a desfazer
+  const nodes=()=>page.locator('.node').count();
+  const diskTitles=async()=>{const d=await onDisk(made.id);const out=[];(function walk(n){out.push(n.title);n.children.forEach(walk);})(d.roots[0]);return out;};
+  await act('root','Adicionar filho');await page.waitForTimeout(100);
+  await page.keyboard.press('Escape');await page.evaluate(()=>document.activeElement?.blur()); // sai do campo de texto
+  assert.equal(await nodes(),2);assert.equal(await undoBtn.isDisabled(),false);
+  await undoBtn.click();assert.equal(await nodes(),1);
+  await until(async()=>(await diskTitles()).length===1,'desfazer deveria gravar em disco');
+  assert.equal(await undoBtn.isDisabled(),true);assert.equal(await redoBtn.isDisabled(),false);
+  await redoBtn.click();assert.equal(await nodes(),2);
+  await until(async()=>(await diskTitles()).length===2,'refazer deveria gravar em disco');
+  // atalhos fora de campos de texto: Ctrl+Z desfaz, Ctrl+Shift+Z e Ctrl+Y refazem
+  await page.evaluate(()=>document.activeElement?.blur());
+  await page.keyboard.press('Control+z');assert.equal(await nodes(),1);
+  await page.keyboard.press('Control+Shift+z');assert.equal(await nodes(),2);
+  await page.keyboard.press('Control+z');assert.equal(await nodes(),1);
+  await page.keyboard.press('Control+y');assert.equal(await nodes(),2);
+  // digitar várias letras no mesmo campo é um passo só
+  const rootText=page.locator('[data-id="root"] h1');
+  await rootText.click();await page.keyboard.press('Control+a');await page.keyboard.type('Novo titulo');await page.keyboard.press('Enter');
+  await until(async()=>(await diskTitles())[0]==='Novo titulo','título não gravado');
+  await page.evaluate(()=>document.activeElement?.blur());
+  await page.keyboard.press('Control+z');
+  assert.equal(await rootText.textContent(),'Histórico'); // voltou de uma vez, não letra por letra
+  await page.keyboard.press('Control+y');assert.equal(await rootText.textContent(),'Novo titulo');
+  // dentro de um campo de texto o atalho é do próprio campo (o app não desfaz o mapa)
+  await rootText.click();const before=await nodes();await page.keyboard.press('Control+z');assert.equal(await nodes(),before);await page.keyboard.press('Escape');
+  await page.evaluate(()=>document.activeElement?.blur());
+  // excluir um filho e desfazer
+  page.once('dialog',d=>d.accept());
+  const child=(await page.locator('.node:not(.root)').first().getAttribute('data-id'));
+  await act(child,'Excluir');await until(async()=>(await nodes())===1,'filho não excluído');
+  await page.keyboard.press('Control+z');await page.waitForTimeout(150);
+  assert.equal(await nodes(),2);
+  // nova ação depois de desfazer descarta o "refazer"
+  await page.keyboard.press('Control+z');assert.equal(await redoBtn.isDisabled(),false);
+  await act('root','Adicionar filho');await page.keyboard.press('Escape');
+  assert.equal(await redoBtn.isDisabled(),true);
+  // trocar de apresentação zera o histórico
+  await page.goto(`${base}/?p=${made.id}`);await page.locator('.node').first().waitFor();await page.locator('#edit-switch').click();
+  assert.equal(await undoBtn.isDisabled(),true);
+  await page.request.delete(`${base}/api/presentations/${made.id}`);
+  await page.goto(`${base}/`);await page.locator('.node').first().waitFor();
+ }
  // EDIT-27: idioma da interface segue o do navegador (inglês por padrão; pt-BR no Brasil) e ?lang= força um deles
  {
   const open=async(locale,query='')=>{const ctx=await browser.newContext({locale,viewport:{width:1280,height:800},extraHTTPHeaders:{'x-context-maps':'1'}});const pg=await ctx.newPage();await pg.goto(`${base}/${query}`);await pg.locator('.node').first().waitFor();return {ctx,pg};};
@@ -833,5 +883,5 @@ try{
   assert.equal((await other.pg.locator('#edit-switch').textContent()).trim(),'Edit');
   await other.ctx.close();
  }
- assert.deepEqual(errors,[]);console.log('PASS EDIT-01..28');
+ assert.deepEqual(errors,[]);console.log('PASS EDIT-01..29');
 }finally{await browser.close();server.kill();await rm(dir,{recursive:true,force:true});await rm(configDir,{recursive:true,force:true});}

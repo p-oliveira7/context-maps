@@ -18,7 +18,7 @@ function normalizeDoc(raw){ // aceita o formato antigo ({tree}) e o novo ({title
  list.forEach(migrate);
  return {id:raw.id,title:(raw.title&&raw.title.trim())||list[0].title,roots:list};
 }
-function useDoc(next){doc=next;roots=next.roots;expanded=new Set(roots.map(r=>r.id));}
+function useDoc(next){doc=next;roots=next.roots;expanded=new Set(roots.map(r=>r.id));resetHistory();}
 function showDocTitle(){$('#doc-title').textContent=doc.title;document.title=`${doc.title} · ${t('pageTitle')}`;}
 
 function updateCamera(){world.style.transform=`translate(${camera.x}px, ${camera.y}px) scale(${camera.scale})`;$('#zoom-level').textContent=`${Math.round(camera.scale*100)}%`;}
@@ -160,8 +160,42 @@ function addLink(node){
 
 /* Persistência (apenas com server.mjs) */
 function setStatus(text,state=''){const s=$('#save-status');s.textContent=text;s.dataset.state=state;}
-function commit(){
+/* Desfazer/refazer: cada commit() grava um instantâneo (nome + árvores). Digitar no mesmo campo vira um passo só. */
+const HISTORY_LIMIT=100, TYPING_WINDOW=1500;
+let hist={undo:[],redo:[],cur:null,lastKey:'',lastAt:0};
+const takeSnapshot=()=>({roots:JSON.stringify(roots),title:doc.title,expanded:[...expanded]});
+function resetHistory(){hist={undo:[],redo:[],cur:takeSnapshot(),lastKey:'',lastAt:0};updateHistoryButtons();}
+function record(key,expandedBefore){
+ const next=takeSnapshot();
+ if(hist.cur&&next.roots===hist.cur.roots&&next.title===hist.cur.title)return; // nada mudou (ou é o próprio desfazer)
+ const now=Date.now(),merge=!!key&&key===hist.lastKey&&now-hist.lastAt<TYPING_WINDOW;
+ if(!merge){
+  if(expandedBefore)hist.cur={...hist.cur,expanded:[...expandedBefore],exact:true};
+  hist.undo.push(hist.cur);if(hist.undo.length>HISTORY_LIMIT)hist.undo.shift();
+ }
+ hist.redo=[];hist.cur=next;hist.lastKey=key||'';hist.lastAt=now;updateHistoryButtons();
+}
+function updateHistoryButtons(){
+ const undoBtn=$('#undo-btn'),redoBtn=$('#redo-btn');
+ if(undoBtn)undoBtn.disabled=!hist.undo.length;if(redoBtn)redoBtn.disabled=!hist.redo.length;
+}
+function restoreSnapshot(s){
+ closeRadial();closeColorPanel();hideToast();
+ roots=doc.roots=JSON.parse(s.roots);doc.title=s.title;
+ expanded=s.exact?new Set(s.expanded):new Set([...expanded,...s.expanded]); // sem "exact", mantém o que já estava aberto
+ showDocTitle();commit();render();updateHistoryButtons();
+}
+function undo(){
+ if(!doc.id||!hist.undo.length||moving)return;
+ hist.redo.push(hist.cur);hist.cur=hist.undo.pop();hist.lastKey='';restoreSnapshot(hist.cur);
+}
+function redo(){
+ if(!doc.id||!hist.redo.length||moving)return;
+ hist.undo.push(hist.cur);hist.cur=hist.redo.pop();hist.lastKey='';restoreSnapshot(hist.cur);
+}
+function commit(key,expandedBefore){
  if(!doc.id)return;
+ record(key,expandedBefore);
  setStatus(t('unsaved'),'dirty');clearTimeout(saveTimer);
  saveTimer=setTimeout(flush,500);
 }
@@ -308,7 +342,7 @@ function radialItems(node,depth,picker,anchor){
   {icon:'↧',label:t('sibling'),aria:t('addSibling'),run:()=>addSibling(node)},
   {icon:'↥',label:t('before'),aria:t('insertBefore'),run:()=>addBefore(node)},
   {icon:'⇱',label:t('parent'),aria:t('insertParent'),run:()=>addParent(node)},
-  {icon:'⎋',label:t('makeRoot'),aria:t('toRoot'),run:()=>{const before=snapshotForUndo();detachNode(node);lastMove=before;commit();render();revealNode(node.id);showToast(t('becameRoot',nameOf(node)),true);}});
+  {icon:'⎋',label:t('makeRoot'),aria:t('toRoot'),run:()=>{const before=[...expanded];detachNode(node);commit(null,before);render();revealNode(node.id);showToast(t('becameRoot',nameOf(node)),true);}});
  items.push(
   {icon:'▣',label:t('image'),aria:t('addImage'),run:()=>picker.click()},
   {icon:'◇',label:t('diagram'),aria:t('addDiagram'),run:()=>openDiagramEditor(node,null)},
@@ -415,11 +449,10 @@ function openDiagramEditor(node,index=null){
 /* Mover cards: arraste a alça (⋮⋮). O card sai do mapa e o conjunto inteiro (ele + tudo abaixo) acompanha o cursor.
    Soltar sobre um card = vira filho; na borda de cima/baixo = vira irmão. Ao pairar sobre um ramo fechado ele abre sozinho,
    para você percorrer as ramificações. Botão do meio do mouse move o quadro durante o arraste; Esc cancela. */
-let moving=null, lastMove=null, toastTimer=0;
+let moving=null, toastTimer=0;
 const isInside=(root,id)=>root.id===id||root.children.some(c=>isInside(c,id));
 const countBelow=n=>n.children.reduce((a,c)=>a+1+countBelow(c),0);
 const ancestorIds=id=>{const out=new Set();let p=parentAny(id);while(p){out.add(p.id);p=parentAny(p.id);}return out;};
-const snapshotForUndo=()=>({tree:JSON.stringify(roots),expanded:[...expanded]});
 const OPEN_DELAY=450, CLOSE_DELAY=700;
 const GRIP='<svg viewBox="0 0 10 16" aria-hidden="true"><g fill="currentColor"><circle cx="3" cy="3" r="1.3"/><circle cx="7" cy="3" r="1.3"/><circle cx="3" cy="8" r="1.3"/><circle cx="7" cy="8" r="1.3"/><circle cx="3" cy="13" r="1.3"/><circle cx="7" cy="13" r="1.3"/></g></svg>';
 function showToast(text,undo,ms=7000){
@@ -547,10 +580,10 @@ function onMoveEnd(e){
 }
 function placeAtPointer(node,clientX,clientY,startExpanded){
  const v=viewport.getBoundingClientRect(),at={x:Math.round((clientX-v.left-camera.x)/camera.scale),y:Math.round((clientY-v.top-camera.y)/camera.scale)-30};
- const before={tree:JSON.stringify(roots),expanded:[...(startExpanded||expanded)]};
+ const before=JSON.stringify(roots),expandedBefore=[...(startExpanded||expanded)];
  if(isRootNode(node)){node.x=at.x;node.y=at.y;}else detachNode(node,at);
- if(JSON.stringify(roots)===before.tree){render();return;}
- lastMove=before;commit();render();revealNode(node.id);
+ if(JSON.stringify(roots)===before){render();return;}
+ commit(null,expandedBefore);render();revealNode(node.id);
  showToast(isRootNode(node)&&roots.length>1&&roots.indexOf(node)>0?t('becameRoot',nameOf(node)):t('repositioned',nameOf(node)),true);
 }
 function startMove(e,node,el){
@@ -569,7 +602,7 @@ function revealNode(id){
  }
 }
 function moveNode(source,drop,startExpanded){
- const before={tree:JSON.stringify(roots),expanded:[...(startExpanded||expanded)]};
+ const before=JSON.stringify(roots),expandedBefore=[...(startExpanded||expanded)];
  const oldParent=parentAny(source.id);
  if(oldParent){oldParent.children.splice(oldParent.children.indexOf(source),1);if(!oldParent.children.length)expanded.delete(oldParent.id);}
  else{roots.splice(roots.indexOf(source),1);delete source.x;delete source.y;} // uma raiz passa a ser filha de outro card
@@ -578,17 +611,11 @@ function moveNode(source,drop,startExpanded){
   const parent=parentAny(drop.target.id);
   parent.children.splice(parent.children.indexOf(drop.target)+(drop.zone==='after'?1:0),0,source);
  }
- if(JSON.stringify(roots)===before.tree){render();return;} // soltou no mesmo lugar
- lastMove=before;commit();render();revealNode(source.id);
+ if(JSON.stringify(roots)===before){render();return;} // soltou no mesmo lugar
+ commit(null,expandedBefore);render();revealNode(source.id);
  const below=countBelow(source);
  showToast(t('moved',nameOf(source),below),true);
 }
-function undoMove(){
- if(!lastMove)return;
- roots=doc.roots=JSON.parse(lastMove.tree);expanded=new Set(lastMove.expanded);lastMove=null;
- hideToast();commit();render();
-}
-
 /* Renderização */
 function render(){
  cancelMotion();
@@ -609,7 +636,7 @@ function render(){
   if(!titled&&!editing){text.hidden=true;el.classList.add('no-title');}
   if(editing){
    text.contentEditable='plaintext-only';text.spellcheck=false;text.textContent=node.title;text.setAttribute('aria-label',t('ideaText'));text.dataset.placeholder=t('titlePlaceholder');
-   text.addEventListener('input',()=>{node.title=text.textContent;commit();});
+   text.addEventListener('input',()=>{node.title=text.textContent;commit(`title:${node.id}`);});
    text.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key==='Escape'){e.preventDefault();text.blur();}});
    text.addEventListener('blur',()=>{
     const hasContent=imagesOf(node).length>0||!!(node.subtitle&&node.subtitle.trim());
@@ -629,7 +656,7 @@ function render(){
    if(editing){
     hint.contentEditable='plaintext-only';hint.spellcheck=false;hint.textContent=node.subtitle||'';
     hint.dataset.placeholder=t('subtitlePlaceholder');hint.setAttribute('aria-label',t('ideaSubtitle'));
-    hint.addEventListener('input',()=>{if(hint.textContent.trim())node.subtitle=hint.textContent;else delete node.subtitle;commit();});
+    hint.addEventListener('input',()=>{if(hint.textContent.trim())node.subtitle=hint.textContent;else delete node.subtitle;commit(`subtitle:${node.id}`);});
     hint.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key==='Escape'){e.preventDefault();hint.blur();}});
    }else hint.textContent=node.subtitle;
    el.append(hint);
@@ -847,7 +874,7 @@ async function initStore(){
 $('#expand').onclick=()=>{expanded=roots.reduce((set,r)=>new Set([...set,...allBranches(r)]),new Set());render();fit();};
 $('#collapse').onclick=()=>{expanded=new Set(roots.map(r=>r.id));render();fit();};
 $('#fit').onclick=fit;$('#zoom-in').onclick=()=>zoom(1.2);$('#zoom-out').onclick=()=>zoom(1/1.2);
-$('#mode').onclick=()=>{reading=!reading;if(reading)buildReading();viewport.hidden=reading;$('#reading').hidden=!reading;for(const id of ['tree-controls','zoom-controls','edit-switch','add-root'])$('#'+id).hidden=reading;$('#mode-label').textContent=reading?t('mindMap'):t('textMode');$('#mode').setAttribute('aria-pressed',String(reading));};
+$('#mode').onclick=()=>{reading=!reading;if(reading)buildReading();viewport.hidden=reading;$('#reading').hidden=!reading;for(const id of ['tree-controls','zoom-controls','edit-switch','add-root','history-controls'])$('#'+id).hidden=reading;$('#mode-label').textContent=reading?t('mindMap'):t('textMode');$('#mode').setAttribute('aria-pressed',String(reading));};
 $('#edit-switch').onclick=()=>setEditing(!editing);
 $('#add-root').onclick=addRoot;
 /* Nome da apresentação (separado do texto dos cards raiz): duplo clique no menu do topo */
@@ -873,14 +900,15 @@ function editDocTitle(){
    if(mode==='enter'){note.textContent=t('nameTaken');note.hidden=false;input.classList.add('is-invalid');input.focus();return;}
    close();showToast(t('nameKept',value,doc.title),false,5000);return;
   }
-  close();doc.title=value;showDocTitle();commit();
+  close();doc.title=value;showDocTitle();commit('docTitle');
  };
  input.addEventListener('input',()=>{note.hidden=true;input.classList.remove('is-invalid');});
  input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();finish('enter');}else if(e.key==='Escape'){e.preventDefault();e.stopPropagation();finish('cancel');}});
  input.addEventListener('blur',()=>finish('blur'));
 }
 $('#doc-button').addEventListener('dblclick',editDocTitle);
-$('#toast-undo').onclick=undoMove;
+$('#toast-undo').onclick=undo;
+$('#undo-btn').onclick=undo;$('#redo-btn').onclick=redo;
 /* Tela cheia do navegador: o mapa continua igual, só ganha toda a tela */
 const fullscreenButton=$('#fullscreen');
 if(!document.fullscreenEnabled)fullscreenButton.hidden=true;
@@ -904,6 +932,15 @@ $('#doc-addfolder').onclick=()=>{closeMenu();addFolder();};
 $('#doc-saveas').onclick=()=>{closeMenu();saveCopy(true);};
 $('#doc-copy').onclick=()=>{closeMenu();saveCopy(false);};
 document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.shiftKey&&e.key.toLowerCase()==='s'&&doc.id){e.preventDefault();saveCopy(true);}});
+document.addEventListener('keydown',e=>{
+ if(!editing||!(e.ctrlKey||e.metaKey)||e.altKey)return;
+ const key=e.key.toLowerCase();if(key!=='z'&&key!=='y')return;
+ const el=document.activeElement;
+ if(el&&(el.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)))return; // dentro de um campo vale o desfazer do próprio campo
+ if(document.querySelector('.modal:not([hidden])')||document.querySelector('dialog[open]'))return;
+ e.preventDefault();
+ if(key==='y'||e.shiftKey)redo();else undo();
+});
 $('#doc-export-html').onclick=()=>{closeMenu();exportDoc('html');};
 $('#doc-export-zip').onclick=()=>{closeMenu();exportDoc('zip');};
 $('#doc-import').onclick=()=>{closeMenu();$('#import-input').click();};
