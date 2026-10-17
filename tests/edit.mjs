@@ -17,7 +17,7 @@ const rawDisk=async id=>JSON.parse(await readFile(path.join(dir,`${id}.json`),'u
 const onDisk=async id=>{const raw=await rawDisk(id);return {...raw,tree:raw.roots?.[0]??raw.tree};}; // .tree = primeira raiz (formato novo ou antigo)
 const until=async(fn,message)=>{for(let i=0;i<40;i++){if(await fn())return;await new Promise(r=>setTimeout(r,100));}assert.fail(message);};
 try{
- const page=await browser.newPage({viewport:{width:1280,height:800},extraHTTPHeaders:{'x-context-maps':'1'}});page.setDefaultTimeout(5000);
+ const page=await browser.newPage({locale:'pt-BR',viewport:{width:1280,height:800},extraHTTPHeaders:{'x-context-maps':'1'}});page.setDefaultTimeout(5000);
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  let confirmAnswer=true,promptAnswer='Minha apresentação';
  page.on('dialog',d=>d.type()==='prompt'?d.accept(promptAnswer):confirmAnswer?d.accept():d.dismiss());
@@ -722,5 +722,37 @@ try{
 
  const traversal=await page.request.get(`${base}/presentations/..%2fserver.mjs`);assert.equal(traversal.status(),404); // segurança básica
  assert.equal((await page.request.get(`${base}/server.mjs`)).status(),404);
- assert.deepEqual(errors,[]);console.log('PASS EDIT-01..26');
+ // EDIT-27: idioma da interface segue o do navegador (inglês por padrão; pt-BR no Brasil) e ?lang= força um deles
+ {
+  const open=async(locale,query='')=>{const ctx=await browser.newContext({locale,viewport:{width:1280,height:800},extraHTTPHeaders:{'x-context-maps':'1'}});const pg=await ctx.newPage();await pg.goto(`${base}/${query}`);await pg.locator('.node').first().waitFor();return {ctx,pg};};
+  const en=await open('en-US');
+  assert.equal(await en.pg.locator('html').getAttribute('lang'),'en');
+  assert.equal((await en.pg.locator('#edit-switch').textContent()).trim(),'Edit');
+  assert.equal((await en.pg.locator('#expand').textContent()).trim(),'Expand all');
+  assert.equal((await en.pg.locator('#mode-label').textContent()).trim(),'Text mode');
+  await en.pg.locator('#edit-switch').click();
+  await en.pg.locator('#doc-button').click();await en.pg.locator('#doc-saveas').waitFor();
+  assert.equal((await en.pg.locator('#doc-saveas').textContent()).trim(),'Save as…');
+  await en.pg.locator('#doc-saveas').click();await en.pg.locator('#saveas-modal').waitFor();
+  assert.equal((await en.pg.locator('#saveas-heading').textContent()).trim(),'Save as');
+  await en.pg.locator('#saveas-folder').selectOption('__other');await en.pg.locator('#saveas-path').fill('relative/path');await en.pg.locator('#saveas-submit').click();
+  await en.pg.locator('#saveas-error:not(:empty)').waitFor();
+  assert.match(await en.pg.locator('#saveas-error').textContent(),/full folder path/i); // erro do servidor também em inglês
+  await en.pg.keyboard.press('Escape');
+  await en.pg.locator('.node').first().hover();await en.pg.locator('.node .edit-fab').first().click();
+  const wheel=await en.pg.locator('#radial-menu .ri-label').allTextContents();
+  for(const label of ['Child','Image','Diagram','Link'])assert.ok(wheel.includes(label),`roda em inglês sem "${label}": ${wheel}`);
+  await en.ctx.close();
+  const forced=await open('en-US','?lang=pt');
+  assert.equal((await forced.pg.locator('#edit-switch').textContent()).trim(),'Editar');
+  await forced.ctx.close();
+  const pt=await open('pt-BR');
+  assert.equal(await pt.pg.locator('html').getAttribute('lang'),'pt-BR');
+  assert.equal((await pt.pg.locator('#expand').textContent()).trim(),'Expandir tudo');
+  await pt.ctx.close();
+  const other=await open('fr-FR'); // idioma sem tradução cai no inglês
+  assert.equal((await other.pg.locator('#edit-switch').textContent()).trim(),'Edit');
+  await other.ctx.close();
+ }
+ assert.deepEqual(errors,[]);console.log('PASS EDIT-01..27');
 }finally{await browser.close();server.kill();await rm(dir,{recursive:true,force:true});await rm(configDir,{recursive:true,force:true});}

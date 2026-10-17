@@ -92,6 +92,8 @@ Abra <http://127.0.0.1:4173>. Na primeira execução o servidor cria a apresenta
 > Sem o servidor (por exemplo `python -m http.server`), o app abre **somente em exibição**, com o mapa
 > de demonstração embutido. Não abra o `index.html` por `file://` (usa módulos ES).
 
+**Idioma:** a interface segue o idioma do navegador — português (BR) ou inglês (qualquer outro idioma cai no inglês). Acrescente `?lang=pt` ou `?lang=en` à URL para forçar um deles; a escolha fica guardada no navegador. O conteúdo das apresentações é seu e nunca é traduzido (o exemplo que acompanha o projeto está em português).
+
 `presentations/cidades-para-pessoas.json` acompanha o repositório e mostra **todos os recursos** num só
 lugar: abra, expanda tudo e ligue o modo *Editar*.
 
@@ -303,7 +305,7 @@ das bibliotecas registradas, só links http/https são aceitos e o Mermaid roda 
 
 ```bash
 export PLAYWRIGHT_MODULE=file:///caminho/para/playwright-core/index.mjs   # caminho absoluto
-node tests/edit.mjs      # EDIT-01..26  edição, diagramas, mídias, links, pastas (sobe servidor temporário)
+node tests/edit.mjs      # EDIT-01..27  edição, diagramas, mídias, links, pastas (sobe servidor temporário)
 node tests/skill.mjs     # SKILL-01..07 CLI da skill (sobe servidor temporário)
 node tests/browser.mjs   # MAP-01..11   navegação, zoom, modo texto, mobile, tela cheia
 node tests/cards.mjs     # CARD-01..06  títulos, raiz, teclado, imagens

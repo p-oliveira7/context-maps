@@ -3,7 +3,7 @@ import {tree} from '../model.js';
 const {chromium}=await import(process.env.PLAYWRIGHT_MODULE || 'playwright-core');
 const browser=await chromium.launch({executablePath:process.env.BROWSER_EXECUTABLE||'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});
 try {
- const page=await browser.newPage({viewport:{width:1280,height:720}});
+ const page=await browser.newPage({locale:'pt-BR',viewport:{width:1280,height:720}});
  const errors=[]; page.on('pageerror',e=>errors.push(e.message));
  await page.goto(process.env.PREVIEW_URL||'http://127.0.0.1:4173');
  await page.locator('.node').first().waitFor();

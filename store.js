@@ -1,8 +1,9 @@
+import {lang} from './i18n.js?v=1';
 // Cliente da API local de apresentações. `available()` é falso em servidores estáticos (sem server.mjs).
 // Toda requisição que altera algo leva o cabeçalho x-context-maps: o servidor recusa pedidos vindos de outras páginas.
 const json=async(url,options={})=>{
- const res=await fetch(url,{...options,headers:{'x-context-maps':'1',...(options.headers||{})}});
- if(!res.ok){let message=`${res.status}`;try{message=(await res.json()).error||message;}catch{}throw new Error(message);}
+ const res=await fetch(url,{...options,headers:{'x-context-maps':'1','x-lang':lang,...(options.headers||{})}});
+ if(!res.ok){let message=`${res.status}`;try{message=(await res.json()).error||message;}catch{}throw Object.assign(new Error(message),{status:res.status});}
  return res.json();
 };
 const base='api/presentations';

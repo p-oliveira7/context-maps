@@ -92,6 +92,8 @@ Open <http://127.0.0.1:4173>. On first run the server creates the demo presentat
 > Without the server (for example `python -m http.server`) the app opens in **view mode only**, with the
 > built-in demo map. Do not open `index.html` through `file://` (it uses ES modules).
 
+**Language:** the interface follows your browser's language — Portuguese (BR) or English (any other language falls back to English). Add `?lang=pt` or `?lang=en` to the URL to force one; the choice is remembered in the browser. Presentation content is yours and is never translated (the bundled example is in Portuguese).
+
 `presentations/cidades-para-pessoas.json` ships with the repository and shows **every feature** in one
 place: open it, expand everything and switch on *Edit* mode.
 
@@ -303,7 +305,7 @@ the registered libraries, only http/https links are accepted, and Mermaid runs w
 
 ```bash
 export PLAYWRIGHT_MODULE=file:///path/to/playwright-core/index.mjs   # absolute path
-node tests/edit.mjs      # EDIT-01..26  editing, diagrams, media, links, folders (starts a temp server)
+node tests/edit.mjs      # EDIT-01..27  editing, diagrams, media, links, folders (starts a temp server)
 node tests/skill.mjs     # SKILL-01..07 skill CLI (starts a temp server)
 node tests/browser.mjs   # MAP-01..11   navigation, zoom, text mode, mobile, full screen
 node tests/cards.mjs     # CARD-01..06  titles, root, keyboard, images

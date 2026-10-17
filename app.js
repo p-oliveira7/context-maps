@@ -1,6 +1,8 @@
 import {tree as seed,visibleNodes,allBranches,zoomAt,parentOf,findNode,newId,PALETTE} from './model.js?v=16';
 import {cancelMotion,snapshot,animateLayout,hoverEdge,updateEdges} from './motion.js?v=16';
-import * as store from './store.js?v=16';
+import * as store from './store.js?v=17';
+import {t,applyStatic,lang} from './i18n.js?v=1';
+applyStatic();
 const $=s=>document.querySelector(s), viewport=$('#viewport'), world=$('#world');
 const ROOT_COLOR='#a7a7b8', GAP=64;
 let doc={id:null,title:seed.title,roots:[seed]}, roots=doc.roots, expanded=new Set(['root']), camera={x:0,y:0,scale:1}, reading=false, editing=false, bounds={x:0,y:0,width:1,height:1};
@@ -15,7 +17,7 @@ function normalizeDoc(raw){ // aceita o formato antigo ({tree}) e o novo ({title
  return {id:raw.id,title:(raw.title&&raw.title.trim())||list[0].title,roots:list};
 }
 function useDoc(next){doc=next;roots=next.roots;expanded=new Set(roots.map(r=>r.id));}
-function showDocTitle(){$('#doc-title').textContent=doc.title;document.title=`${doc.title} · Context Maps`;}
+function showDocTitle(){$('#doc-title').textContent=doc.title;document.title=`${doc.title} · ${t('pageTitle')}`;}
 
 function updateCamera(){world.style.transform=`translate(${camera.x}px, ${camera.y}px) scale(${camera.scale})`;$('#zoom-level').textContent=`${Math.round(camera.scale*100)}%`;}
 function fit(){const side=40,top=40,bottom=100,availH=viewport.clientHeight-top-bottom;camera.scale=Math.max(.1,Math.min(1,(viewport.clientWidth-side*2)/bounds.width,availH/bounds.height));camera.x=(viewport.clientWidth-bounds.width*camera.scale)/2-bounds.x*camera.scale;camera.y=top+(availH-bounds.height*camera.scale)/2-bounds.y*camera.scale;updateCamera();}
@@ -23,7 +25,7 @@ function zoom(factor,p={x:viewport.clientWidth/2,y:viewport.clientHeight/2}){cam
 
 /* Imagens e diagramas: cada ideia pode ter várias (node.images) */
 const imagesOf=node=>node.images||[];
-const nameOf=n=>(n.title&&n.title.trim())||(n.subtitle&&n.subtitle.trim())||'ideia sem título';
+const nameOf=n=>(n.title&&n.title.trim())||(n.subtitle&&n.subtitle.trim())||t('untitled');
 function migrate(node){
  if(node.image){node.images=[...(node.images||[]),node.image];delete node.image;}
  node.children.forEach(migrate);
@@ -44,13 +46,13 @@ function stepGallery(delta){const n=gallery.images.length;if(n<2)return;gallery.
 function imageButton(node,image,index){
  const button=document.createElement('button');button.className='image-button';
  const many=imagesOf(node).length>1,suffix=many?` (${index+1})`:'';
- button.setAttribute('aria-label',node===roots[0]&&index===0?'Ampliar ilustração':`Ampliar imagem: ${nameOf(node)}${suffix}`);button.append(imageFor(image));
+ button.setAttribute('aria-label',node===roots[0]&&index===0?t('enlargeIllustration'):t('enlargeImage',nameOf(node),suffix));button.append(imageFor(image));
  if(image.kind==='diagram')button.classList.add('is-diagram');
  button.onclick=()=>openImage(node,index);return button;
 }
 function imageBadge(node){
  const count=imagesOf(node).length,button=document.createElement('button');button.className='node-badge';
- button.setAttribute('aria-label',count>1?`Ver ${count} imagens: ${nameOf(node)}`:`Ver imagem: ${nameOf(node)}`);button.title=count>1?'Ver imagens':'Ver imagem';
+ button.setAttribute('aria-label',count>1?t('viewImages',count,nameOf(node)):t('viewImage',nameOf(node)));button.title=count>1?t('viewImagesTitle'):t('viewImageTitle');
  button.innerHTML=`<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="3" width="12" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="6" cy="7" r="1.2" fill="currentColor"/><path d="m3 12 3.5-3.5 2.5 2.5 2-2 2 2.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>${count}`;
  button.onclick=()=>openImage(node,0);return button;
 }
@@ -60,17 +62,17 @@ function imageItem(node,image,index){
  const item=document.createElement('div');item.className='image-item';item.append(button);
  const tools=document.createElement('div');tools.className='image-tools';
  if(image.kind==='diagram'){
-  const edit=document.createElement('button');edit.type='button';edit.textContent='Editar';edit.setAttribute('aria-label',`Editar diagrama: ${nameOf(node)}${imagesOf(node).length>1?` (${index+1})`:''}`);
+  const edit=document.createElement('button');edit.type='button';edit.textContent=t('edit');edit.setAttribute('aria-label',t('editDiagram',nameOf(node),imagesOf(node).length>1?` (${index+1})`:''));
   edit.onclick=()=>openDiagramEditor(node,index);tools.append(edit);
  }
- const remove=document.createElement('button');remove.type='button';remove.textContent='×';remove.className='danger';remove.setAttribute('aria-label',`Remover imagem: ${nameOf(node)}${imagesOf(node).length>1?` (${index+1})`:''}`);
+ const remove=document.createElement('button');remove.type='button';remove.textContent='×';remove.className='danger';remove.setAttribute('aria-label',t('removeImage',nameOf(node),imagesOf(node).length>1?` (${index+1})`:''));
  remove.onclick=()=>{node.images.splice(index,1);if(!node.images.length)delete node.images;commit();render();};
  const total=imagesOf(node).length,suffix=total>1?` (${index+1})`:'';
  if(total>1){
   // reordenar: alça (arrastar) + botões ↑ ↓
-  const grip=document.createElement('button');grip.type='button';grip.className='img-grip';grip.textContent='⋮⋮';grip.title='Arraste para reordenar';grip.setAttribute('aria-label',`Reordenar imagem: ${nameOf(node)}${suffix}`);
-  const up=document.createElement('button');up.type='button';up.textContent='↑';up.dataset.move='up';up.setAttribute('aria-label',`Mover imagem para cima: ${nameOf(node)}${suffix}`);up.disabled=index===0;
-  const down=document.createElement('button');down.type='button';down.textContent='↓';down.dataset.move='down';down.setAttribute('aria-label',`Mover imagem para baixo: ${nameOf(node)}${suffix}`);down.disabled=index===total-1;
+  const grip=document.createElement('button');grip.type='button';grip.className='img-grip';grip.textContent='⋮⋮';grip.title=t('dragReorder');grip.setAttribute('aria-label',t('reorderImage',nameOf(node),suffix));
+  const up=document.createElement('button');up.type='button';up.textContent='↑';up.dataset.move='up';up.setAttribute('aria-label',t('moveImageUp',nameOf(node),suffix));up.disabled=index===0;
+  const down=document.createElement('button');down.type='button';down.textContent='↓';down.dataset.move='down';down.setAttribute('aria-label',t('moveImageDown',nameOf(node),suffix));down.disabled=index===total-1;
   up.onclick=()=>reorderImage(node,index,index-1);down.onclick=()=>reorderImage(node,index,index+1);
   tools.prepend(grip,up,down);
   enableImageReorder(item,grip,node,index);
@@ -123,9 +125,9 @@ function anchorFor(link,className){
 }
 function linkBadge(node){
  const links=linksOf(node),button=document.createElement('button');button.type='button';button.className='node-badge link-badge';
- button.innerHTML=`${LINK_ICON}${links.length} ${links.length===1?'link':'links'}`;
- button.title=links.length===1?links[0].url:'Links';
- button.setAttribute('aria-label',links.length===1?`Abrir link: ${linkLabel(links[0])}`:`Ver ${links.length} links: ${nameOf(node)}`);
+ button.innerHTML=`${LINK_ICON}${t('linkCount',links.length)}`;
+ button.title=links.length===1?links[0].url:t('links');
+ button.setAttribute('aria-label',links.length===1?t('openLink',linkLabel(links[0])):t('viewLinks',links.length,nameOf(node)));
  button.onclick=e=>{
   e.stopPropagation();
   if(links.length===1){window.open(links[0].url,'_blank','noopener,noreferrer');return;}
@@ -142,15 +144,15 @@ function linkChips(node){
  linksOf(node).forEach((link,i)=>{
   const chip=document.createElement('span');chip.className='link-chip';
   chip.append(anchorFor(link));
-  const remove=document.createElement('button');remove.type='button';remove.textContent='×';remove.setAttribute('aria-label',`Remover link: ${linkLabel(link)}`);
+  const remove=document.createElement('button');remove.type='button';remove.textContent='×';remove.setAttribute('aria-label',t('removeLink',linkLabel(link)));
   remove.onclick=e=>{e.stopPropagation();node.links.splice(i,1);if(!node.links.length)delete node.links;commit();render();};
   chip.append(remove);wrap.append(chip);
  });
  return wrap;
 }
 function addLink(node){
- const raw=prompt('Endereço do link (https://…)');if(raw===null||!raw.trim())return;
- const url=safeUrl(raw);if(!url){setStatus('Link inválido (use http ou https)','error');return;}
+ const raw=prompt(t('linkPrompt'));if(raw===null||!raw.trim())return;
+ const url=safeUrl(raw);if(!url){setStatus(t('linkInvalid'),'error');return;}
  (node.links||=[]).push({url});commit();render();
 }
 
@@ -158,14 +160,14 @@ function addLink(node){
 function setStatus(text,state=''){const s=$('#save-status');s.textContent=text;s.dataset.state=state;}
 function commit(){
  if(!doc.id)return;
- setStatus('Alterações não salvas','dirty');clearTimeout(saveTimer);
+ setStatus(t('unsaved'),'dirty');clearTimeout(saveTimer);
  saveTimer=setTimeout(flush,500);
 }
 function flush(){
  clearTimeout(saveTimer);saveTimer=0;if(!doc.id)return saving;
  const snapshotDoc={id:doc.id,title:doc.title,roots:JSON.parse(JSON.stringify(roots))};
- setStatus('Salvando…','saving');
- saving=saving.then(()=>store.save(snapshotDoc)).then(()=>{if(!saveTimer)setStatus('Salvo','saved');},()=>setStatus('Erro ao salvar','error'));
+ setStatus(t('saving'),'saving');
+ saving=saving.then(()=>store.save(snapshotDoc)).then(()=>{if(!saveTimer)setStatus(t('saved'),'saved');},()=>setStatus(t('saveError'),'error'));
  return saving;
 }
 
@@ -177,19 +179,19 @@ function focusText(id){
  if(r.left<v.left||r.right>v.right||r.top<v.top||r.bottom>v.bottom)fit();
 }
 function addChild(node){
- const child={id:newId(),title:'Nova ideia',children:[]};node.children.push(child);expanded.add(node.id);commit();render();focusText(child.id);
+ const child={id:newId(),title:t('newIdea'),children:[]};node.children.push(child);expanded.add(node.id);commit();render();focusText(child.id);
 }
 function addSibling(node){
  const parent=parentAny(node.id);if(!parent)return;
- const sibling={id:newId(),title:'Nova ideia',children:[]};parent.children.splice(parent.children.indexOf(node)+1,0,sibling);commit();render();focusText(sibling.id);
+ const sibling={id:newId(),title:t('newIdea'),children:[]};parent.children.splice(parent.children.indexOf(node)+1,0,sibling);commit();render();focusText(sibling.id);
 }
 function addBefore(node){
  const parent=parentAny(node.id);if(!parent)return;
- const sibling={id:newId(),title:'Nova ideia',children:[]};parent.children.splice(parent.children.indexOf(node),0,sibling);commit();render();focusText(sibling.id);
+ const sibling={id:newId(),title:t('newIdea'),children:[]};parent.children.splice(parent.children.indexOf(node),0,sibling);commit();render();focusText(sibling.id);
 }
 function addParent(node){
  const parent=parentAny(node.id);if(!parent)return;
- const wrapper={id:newId(),title:'Nova ideia',children:[node]};
+ const wrapper={id:newId(),title:t('newIdea'),children:[node]};
  if(node.color){wrapper.color=node.color;delete node.color;}
  parent.children[parent.children.indexOf(node)]=wrapper;
  expanded.add(wrapper.id);commit();render();focusText(wrapper.id);
@@ -198,7 +200,7 @@ function removeNode(node){
  const parent=parentAny(node.id);
  if(!parent&&roots.length<2)return; // a última raiz não pode ser excluída
  const count=(n)=>1+n.children.reduce((a,c)=>a+count(c),0);
- if(node.children.length&&!confirm(`Excluir "${nameOf(node)}" e ${count(node)-1} ideia(s) abaixo dela?`))return;
+ if(node.children.length&&!confirm(t('confirmDeleteIdea',nameOf(node),count(node)-1)))return;
  if(parent){parent.children.splice(parent.children.indexOf(node),1);if(!parent.children.length)expanded.delete(parent.id);}
  else roots.splice(roots.indexOf(node),1);
  commit();render();
@@ -206,7 +208,7 @@ function removeNode(node){
 /* Cards raiz: pontos de partida independentes, com posição livre no mapa */
 const freeSpot=()=>({x:Math.round(bounds.x),y:Math.round(bounds.y+bounds.height+120)}); // abaixo de tudo o que já existe, sem sobrepor
 function addRoot(){
- const c=freeSpot(),root={id:newId(),title:'Novo card raiz',children:[],x:c.x,y:c.y};
+ const c=freeSpot(),root={id:newId(),title:t('newRoot'),children:[],x:c.x,y:c.y};
  roots.push(root);expanded.add(root.id);commit();render();revealNode(root.id);focusText(root.id);
 }
 function detachNode(node,at){ // vira um card raiz (leva as filhas junto)
@@ -219,7 +221,7 @@ async function addImages(node,files){
  try{
   for(const file of files){const src=await store.upload(doc.id,file);(node.images||=[]).push({src,alt:nameOf(node)});}
   commit();render();
- }catch{setStatus('Erro ao enviar imagem','error');commit();render();}
+ }catch{setStatus(t('uploadError'),'error');commit();render();}
 }
 /* Arrastar e soltar: arquivos de imagem soltos num card viram cópias em presentations/<id>/assets */
 const isImageFile=f=>/^image\/(png|jpe?g|webp|gif|svg\+xml)$/.test(f.type)||/\.(png|jpe?g|webp|gif|svg)$/i.test(f.name);
@@ -233,7 +235,7 @@ function enableDrop(el,node){
   e.preventDefault();e.stopPropagation();el.classList.remove('drop-target');
   const files=[...e.dataTransfer.files],images=files.filter(isImageFile);
   if(images.length)addImages(node,images);
-  if(images.length<files.length)setStatus('Só imagens são aceitas (png, jpg, webp, gif ou svg)','error');
+  if(images.length<files.length)setStatus(t('onlyImages'),'error');
  });
 }
 // Soltar um arquivo fora de um card não deve abrir o arquivo no navegador.
@@ -257,14 +259,14 @@ function openColorPanel(anchor,node){
  closeColorPanel();
  let chosen; // undefined = nada escolhido, null = padrão, string = cor
  const direct=node.children.length,all=countBelow(node);
- const el=document.createElement('div');el.id='color-panel';el.className='color-panel';el.setAttribute('role','dialog');el.setAttribute('aria-label',`Cor das ligações: ${nameOf(node)}`);
- el.innerHTML=`<div class="cp-head"><strong>Cor das ligações</strong><button type="button" class="cp-close" aria-label="Fechar">×</button></div>
-  <div class="cp-step">1. Escolha a cor</div><div class="cp-swatches"></div>
-  <label class="cp-custom">Outra cor <input type="color" class="color-input" aria-label="Cor personalizada" value="#4f9d7a"></label>
-  <div class="cp-step">2. Aplicar em</div>
+ const el=document.createElement('div');el.id='color-panel';el.className='color-panel';el.setAttribute('role','dialog');el.setAttribute('aria-label',t('lineColorOf',nameOf(node)));
+ el.innerHTML=`<div class="cp-head"><strong>${t('lineColor')}</strong><button type="button" class="cp-close" aria-label="${t('close')}">×</button></div>
+  <div class="cp-step">${t('step1')}</div><div class="cp-swatches"></div>
+  <label class="cp-custom">${t('anotherColor')} <input type="color" class="color-input" aria-label="${t('customColor')}" value="#4f9d7a"></label>
+  <div class="cp-step">${t('step2')}</div>
   <div class="cp-actions">
-   <button type="button" data-scope="children" disabled><b>Só filhos diretos</b><span>${direct} ligaç${direct===1?'ão':'ões'} a partir deste card</span></button>
-   <button type="button" data-scope="all" disabled><b>Toda a ramificação abaixo</b><span>${all} ligaç${all===1?'ão':'ões'} neste card e em todos abaixo</span></button>
+   <button type="button" data-scope="children" disabled><b>${t('onlyDirect')}</b><span>${t('direct',direct)}</span></button>
+   <button type="button" data-scope="all" disabled><b>${t('wholeBranch')}</b><span>${t('branchLines',all)}</span></button>
   </div>`;
  const swatches=el.querySelector('.cp-swatches'),custom=el.querySelector('.color-input'),actions=[...el.querySelectorAll('[data-scope]')];
  const select=value=>{
@@ -272,10 +274,10 @@ function openColorPanel(anchor,node){
   swatches.querySelectorAll('.cp-swatch').forEach(b=>b.setAttribute('aria-pressed',String((b.dataset.color||null)===value||(b.hasAttribute('data-default')&&value===null))));
   actions.forEach(b=>b.disabled=false);
  };
- const def=document.createElement('button');def.type='button';def.className='cp-swatch cp-default';def.dataset.default='';def.textContent='↺';def.title='Cor padrão';def.setAttribute('aria-label','Cor padrão');def.setAttribute('aria-pressed','false');
+ const def=document.createElement('button');def.type='button';def.className='cp-swatch cp-default';def.dataset.default='';def.textContent='↺';def.title=t('defaultColor');def.setAttribute('aria-label',t('defaultColor'));def.setAttribute('aria-pressed','false');
  def.onclick=()=>select(null);swatches.append(def);
  for(const color of SWATCHES){
-  const b=document.createElement('button');b.type='button';b.className='cp-swatch';b.dataset.color=color;b.style.background=color;b.title=color;b.setAttribute('aria-label',`Cor ${color}`);b.setAttribute('aria-pressed','false');
+  const b=document.createElement('button');b.type='button';b.className='cp-swatch';b.dataset.color=color;b.style.background=color;b.title=color;b.setAttribute('aria-label',t('colorName',color));b.setAttribute('aria-pressed','false');
   b.onclick=()=>select(color);swatches.append(b);
  }
  custom.addEventListener('input',()=>select(custom.value));
@@ -299,18 +301,18 @@ function closeRadial(){
  document.removeEventListener('pointerdown',r.onDown,true);document.removeEventListener('keydown',r.onKey,true);document.removeEventListener('wheel',r.onWheel,true);
 }
 function radialItems(node,depth,picker,anchor){
- const items=[{icon:'↳',label:'Filho',aria:'Adicionar filho',run:()=>addChild(node)}];
+ const items=[{icon:'↳',label:t('child'),aria:t('addChild'),run:()=>addChild(node)}];
  if(depth>0)items.push(
-  {icon:'↧',label:'Irmão',aria:'Adicionar irmão',run:()=>addSibling(node)},
-  {icon:'↥',label:'Antes',aria:'Inserir antes de',run:()=>addBefore(node)},
-  {icon:'⇱',label:'Pai',aria:'Inserir pai de',run:()=>addParent(node)},
-  {icon:'⎋',label:'Virar raiz',aria:'Transformar em card raiz',run:()=>{const before=snapshotForUndo();detachNode(node);lastMove=before;commit();render();revealNode(node.id);showToast(`“${nameOf(node)}” virou um card raiz`,true);}});
+  {icon:'↧',label:t('sibling'),aria:t('addSibling'),run:()=>addSibling(node)},
+  {icon:'↥',label:t('before'),aria:t('insertBefore'),run:()=>addBefore(node)},
+  {icon:'⇱',label:t('parent'),aria:t('insertParent'),run:()=>addParent(node)},
+  {icon:'⎋',label:t('makeRoot'),aria:t('toRoot'),run:()=>{const before=snapshotForUndo();detachNode(node);lastMove=before;commit();render();revealNode(node.id);showToast(t('becameRoot',nameOf(node)),true);}});
  items.push(
-  {icon:'▣',label:'Imagem',aria:'Adicionar imagem',run:()=>picker.click()},
-  {icon:'◇',label:'Diagrama',aria:'Adicionar diagrama',run:()=>openDiagramEditor(node,null)},
-  {icon:'↗',label:'Link',aria:'Adicionar link',run:()=>addLink(node)});
- if(node.children.length)items.push({icon:'◐',label:'Cor linhas',aria:'Cor das ligações',run:()=>openColorPanel(anchor,node)});
- if(depth>0||roots.length>1)items.push({icon:'✕',label:'Excluir',aria:'Excluir ideia',danger:true,run:()=>removeNode(node)});
+  {icon:'▣',label:t('image'),aria:t('addImage'),run:()=>picker.click()},
+  {icon:'◇',label:t('diagram'),aria:t('addDiagram'),run:()=>openDiagramEditor(node,null)},
+  {icon:'↗',label:t('link'),aria:t('addLink'),run:()=>addLink(node)});
+ if(node.children.length)items.push({icon:'◐',label:t('colorLines'),aria:t('lineColor'),run:()=>openColorPanel(anchor,node)});
+ if(depth>0||roots.length>1)items.push({icon:'✕',label:t('del'),aria:t('deleteIdea'),danger:true,run:()=>removeNode(node)});
  return items;
 }
 function openRadial(fab,card,node,depth,picker){
@@ -322,7 +324,7 @@ function openRadial(fab,card,node,depth,picker){
  const cy=Math.min(Math.max(fr.top+fr.height/2,pad),window.innerHeight-pad-70);
  const el=document.createElement('div');el.id='radial-menu';el.className='radial-menu';el.setAttribute('role','menu');
  el.style.left=`${cx}px`;el.style.top=`${cy}px`;
- const center=document.createElement('button');center.type='button';center.className='radial-center';center.textContent='×';center.setAttribute('aria-label','Fechar menu de edição');
+ const center=document.createElement('button');center.type='button';center.className='radial-center';center.textContent='×';center.setAttribute('aria-label',t('closeEditMenu'));
  center.onclick=closeRadial;el.append(center);
  items.forEach((item,k)=>{
   const angle=-Math.PI/2+k*(2*Math.PI/n),dx=Math.cos(angle)*R,dy=Math.sin(angle)*R;
@@ -347,13 +349,12 @@ function editControls(card,node,depth){
  picker.onchange=()=>{if(picker.files.length)addImages(node,[...picker.files]);};
  card.append(picker);
  const fab=document.createElement('button');fab.type='button';fab.className='edit-fab';fab.textContent='✎';
- fab.title='Editar: abre a roda de ações';fab.setAttribute('aria-label',`Editar: ${nameOf(node)}`);fab.setAttribute('aria-haspopup','menu');fab.setAttribute('aria-expanded','false');
+ fab.title=t('editWheel');fab.setAttribute('aria-label',t('editNode',nameOf(node)));fab.setAttribute('aria-haspopup','menu');fab.setAttribute('aria-expanded','false');
  fab.onclick=e=>{e.stopPropagation();if(radial&&radial.card===card)closeRadial();else openRadial(fab,card,node,depth,picker);};
  card.append(fab);
 }
 
 /* Diagramas (Mermaid carregado sob demanda; o SVG renderizado é salvo como imagem do nó) */
-const DEFAULT_DIAGRAM='flowchart TD\n  A[Início] --> B{Decisão}\n  B -->|Sim| C[Fim]\n  B -->|Não| A';
 let mermaidReady=null, renderSeq=0;
 function loadMermaid(){
  if(mermaidReady)return mermaidReady;
@@ -361,16 +362,16 @@ function loadMermaid(){
   const s=document.createElement('script');s.src='vendor/mermaid.min.js?v=12.2.0';
   s.onload=()=>{
    const g=window.__esbuild_esm_mermaid_nm?.mermaid,m=window.mermaid||g?.default||g;
-   if(!m?.render){mermaidReady=null;return fail(new Error('Mermaid indisponível'));}
+   if(!m?.render){mermaidReady=null;return fail(new Error(t('mermaidMissing')));}
    m.initialize({startOnLoad:false,theme:'dark',securityLevel:'strict'});ok(m);
   };
-  s.onerror=()=>{mermaidReady=null;fail(new Error('Não foi possível carregar o Mermaid'));};
+  s.onerror=()=>{mermaidReady=null;fail(new Error(t('mermaidLoad')));};
   document.head.append(s);
  });
  return mermaidReady;
 }
 async function renderDiagram(source){
- if(!source.trim())throw new Error('Escreva o código do diagrama');
+ if(!source.trim())throw new Error(t('writeDiagram'));
  const mermaid=await loadMermaid(),id=`mm-${++renderSeq}`;
  try{
   await mermaid.parse(source);
@@ -383,10 +384,10 @@ function openDiagramEditor(node,index=null){
  const modal=$('#diagram-editor'),ta=$('#diagram-source'),preview=$('#diagram-preview'),error=$('#diagram-error'),apply=$('#diagram-apply');
  const opener=document.activeElement;
  // A pré-visualização é uma <img> (como o card): o CSS do app não vaza para o SVG do Mermaid e o que se vê é o que será salvo.
- const showPreview=markup=>{const img=document.createElement('img');img.alt='Pré-visualização do diagrama';img.src=`data:image/svg+xml;charset=utf-8,${encodeURIComponent(markup)}`;preview.replaceChildren(img);};
+ const showPreview=markup=>{const img=document.createElement('img');img.alt=t('diagramPreview');img.src=`data:image/svg+xml;charset=utf-8,${encodeURIComponent(markup)}`;preview.replaceChildren(img);};
  let svg=null,timer=0,seq=0;
  const current=index===null?null:node.images?.[index];
- ta.value=current?.kind==='diagram'&&current.source?current.source:DEFAULT_DIAGRAM;
+ ta.value=current?.kind==='diagram'&&current.source?current.source:t('defaultDiagram');
  const close=()=>{modal.hidden=true;document.removeEventListener('keydown',onKey);clearTimeout(timer);ta.oninput=null;opener?.focus?.({preventScroll:true});};
  const onKey=e=>{if(e.key==='Escape'){e.preventDefault();close();}};
  const update=async()=>{
@@ -400,10 +401,10 @@ function openDiagramEditor(node,index=null){
   if(!svg)return;apply.disabled=true;
   try{
    const src=await store.upload(doc.id,new File([svg],'diagrama.svg',{type:'image/svg+xml'}));
-   const entry={src,alt:`Diagrama: ${nameOf(node)}`,kind:'diagram',source:ta.value};
+   const entry={src,alt:t('diagramAlt',nameOf(node)),kind:'diagram',source:ta.value};
    if(current)node.images[index]=entry;else(node.images||=[]).push(entry);
    close();commit();render();
-  }catch{error.textContent='Erro ao salvar o diagrama';apply.disabled=false;}
+  }catch{error.textContent=t('diagramSaveError');apply.disabled=false;}
  };
  preview.replaceChildren();error.textContent='';apply.disabled=true;
  modal.hidden=false;document.addEventListener('keydown',onKey);ta.focus();update();
@@ -467,7 +468,7 @@ function refreshDrop(){
  moving.drop=pickDrop(x,y,moving.node);markDrop(moving.drop,x,y);
  const drop=moving.drop,target=drop&&!drop.invalid?drop.target:null;
  const free=!drop&&!!document.elementFromPoint(x,y)?.closest('#viewport');
- moving.ghost.classList.toggle('ghost-free',free);moving.ghost.dataset.free=isRootNode(moving.node)?'soltar aqui: reposicionar':'soltar aqui: novo card raiz';
+ moving.ghost.classList.toggle('ghost-free',free);moving.ghost.dataset.free=isRootNode(moving.node)?t('dropReposition'):t('dropNewRoot');
  // pairar sobre um ramo fechado: abre as filhas dinamicamente
  const wantsOpen=target&&drop.zone==='into'&&target.children.length&&!expanded.has(target.id);
  if(wantsOpen){
@@ -517,12 +518,12 @@ function onMoveDrag(e){
   const ghost=document.createElement('div');ghost.className='drag-ghost';
   const below=countBelow(moving.node);
   ghost.append(ghostTree(moving.node));
-  if(below){const badge=document.createElement('div');badge.className='ghost-count';badge.textContent=`${below+1} ideias`;ghost.append(badge);}
+  if(below){const badge=document.createElement('div');badge.className='ghost-count';badge.textContent=t('ideasCount',below+1);ghost.append(badge);}
   document.body.append(ghost);moving.ghost=ghost;
   const maxH=window.innerHeight*.7,maxW=window.innerWidth*.55;
   moving.ghostScale=Math.min(1,maxH/ghost.offsetHeight,maxW/ghost.offsetWidth);
   render(); // o conjunto "desplugou": sai do mapa e o layout se reorganiza
-  showToast('Botão do meio move o quadro · roda do mouse dá zoom · Esc cancela',false,60000);
+  showToast(t('dragHint'),false,60000);
  }
  if(e.buttons&4&&moving.lastX!==undefined){camera.x+=e.clientX-moving.lastX;camera.y+=e.clientY-moving.lastY;updateCamera();}
  moving.lastX=e.clientX;moving.lastY=e.clientY;
@@ -548,7 +549,7 @@ function placeAtPointer(node,clientX,clientY,startExpanded){
  if(isRootNode(node)){node.x=at.x;node.y=at.y;}else detachNode(node,at);
  if(JSON.stringify(roots)===before.tree){render();return;}
  lastMove=before;commit();render();revealNode(node.id);
- showToast(isRootNode(node)&&roots.length>1&&roots.indexOf(node)>0?`“${nameOf(node)}” é agora um card raiz`:`“${nameOf(node)}” reposicionado`,true);
+ showToast(isRootNode(node)&&roots.length>1&&roots.indexOf(node)>0?t('becameRoot',nameOf(node)):t('repositioned',nameOf(node)),true);
 }
 function startMove(e,node,el){
  if(e.button!==0||moving)return;
@@ -578,7 +579,7 @@ function moveNode(source,drop,startExpanded){
  if(JSON.stringify(roots)===before.tree){render();return;} // soltou no mesmo lugar
  lastMove=before;commit();render();revealNode(source.id);
  const below=countBelow(source);
- showToast(`“${nameOf(source)}”${below?` e mais ${below} ideia(s)`:''} movido`,true);
+ showToast(t('moved',nameOf(source),below),true);
 }
 function undoMove(){
  if(!lastMove)return;
@@ -605,12 +606,12 @@ function render(){
   const titled=node.title.trim().length>0;
   if(!titled&&!editing){text.hidden=true;el.classList.add('no-title');}
   if(editing){
-   text.contentEditable='plaintext-only';text.spellcheck=false;text.textContent=node.title;text.setAttribute('aria-label','Texto da ideia');text.dataset.placeholder='Título (opcional)';
+   text.contentEditable='plaintext-only';text.spellcheck=false;text.textContent=node.title;text.setAttribute('aria-label',t('ideaText'));text.dataset.placeholder=t('titlePlaceholder');
    text.addEventListener('input',()=>{node.title=text.textContent;commit();});
    text.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key==='Escape'){e.preventDefault();text.blur();}});
    text.addEventListener('blur',()=>{
     const hasContent=imagesOf(node).length>0||!!(node.subtitle&&node.subtitle.trim());
-    if(!node.title.trim()&&(isRoot||!hasContent)){node.title='Nova ideia';text.textContent=node.title;commit();}
+    if(!node.title.trim()&&(isRoot||!hasContent)){node.title=t('newIdea');text.textContent=node.title;commit();}
    });
   }
   if(node.children.length){
@@ -619,13 +620,13 @@ function render(){
     if(titled){const title=document.createElement('button');title.className='node-title';title.textContent=node.title;title.setAttribute('aria-expanded',String(expanded.has(node.id)));title.onclick=()=>change('.node-title');text.append(title);}
    }
    const open=expanded.has(node.id);
-   const toggle=document.createElement('button');toggle.className=open?'toggle':'toggle is-collapsed';toggle.innerHTML=`<span class="toggle-stack" aria-hidden="true">${open?'':'<i></i><i></i>'}<b>${open?MINUS:CHEVRON}</b></span>`;toggle.setAttribute('aria-expanded',String(open));toggle.setAttribute('aria-label',`${open?'Recolher':'Expandir'}: ${nameOf(node)}`);toggle.title=open?'Recolher filhos':'Expandir filhos';toggle.onclick=()=>change('.toggle');el.append(toggle);
+   const toggle=document.createElement('button');toggle.className=open?'toggle':'toggle is-collapsed';toggle.innerHTML=`<span class="toggle-stack" aria-hidden="true">${open?'':'<i></i><i></i>'}<b>${open?MINUS:CHEVRON}</b></span>`;toggle.setAttribute('aria-expanded',String(open));toggle.setAttribute('aria-label',open?t('collapse',nameOf(node)):t('expand',nameOf(node)));toggle.title=open?t('collapseChildren'):t('expandChildren');toggle.onclick=()=>change('.toggle');el.append(toggle);
   }else if(!editing)text.textContent=node.title;
   if(editing||node.subtitle){
    const hint=document.createElement('div');hint.className='node-subtitle';
    if(editing){
     hint.contentEditable='plaintext-only';hint.spellcheck=false;hint.textContent=node.subtitle||'';
-    hint.dataset.placeholder='Subtítulo (aparece ao passar o mouse)';hint.setAttribute('aria-label','Subtítulo da ideia');
+    hint.dataset.placeholder=t('subtitlePlaceholder');hint.setAttribute('aria-label',t('ideaSubtitle'));
     hint.addEventListener('input',()=>{if(hint.textContent.trim())node.subtitle=hint.textContent;else delete node.subtitle;commit();});
     hint.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key==='Escape'){e.preventDefault();hint.blur();}});
    }else hint.textContent=node.subtitle;
@@ -642,7 +643,7 @@ function render(){
    editControls(el,node,depth);enableDrop(el,node);
    if(!isRoot||roots.length>1){
     const grip=document.createElement('button');grip.type='button';grip.className='drag-handle';grip.innerHTML=GRIP;
-    grip.title=isRoot?'Arraste para reposicionar ou conectar a outro card':'Arraste para mover este card e tudo abaixo dele (solte no espaço vazio para criar uma nova raiz)';grip.setAttribute('aria-label',`Mover: ${nameOf(node)}`);
+    grip.title=isRoot?t('gripRoot'):t('gripNode');grip.setAttribute('aria-label',t('moveNode',nameOf(node)));
     grip.addEventListener('pointerdown',e=>startMove(e,node,el));el.append(grip);
    }
   }
@@ -720,7 +721,7 @@ function render(){
 
 function buildReading(){
  const article=$('#reading');article.replaceChildren();
- const intro=document.createElement('span');intro.className='eyebrow';intro.textContent='LEITURA LINEAR';article.append(intro);
+ const intro=document.createElement('span');intro.className='eyebrow';intro.textContent=t('linearReading');article.append(intro);
  const walk=(node,depth)=>{
   if(node.title.trim()){const h=document.createElement(depth===0?'h1':depth===1?'h2':'h3');h.textContent=node.title;if(depth===1)h.style.color=colors.get(node.id);article.append(h);}
   if(node.subtitle){const sp=document.createElement('p');sp.className='reading-subtitle';sp.textContent=node.subtitle;article.append(sp);}
@@ -746,8 +747,8 @@ async function refreshMenu(){
  for(const [key,folder] of folders){
   const head=document.createElement('div');head.className='doc-folder';head.title=folder.dir;head.setAttribute('role','presentation');
   const name=document.createElement('span');name.textContent=`📁 ${folder.label}`;
-  const remove=document.createElement('button');remove.type='button';remove.textContent='×';remove.setAttribute('aria-label',`Remover a pasta da lista: ${folder.label}`);remove.title='Remover a pasta da lista (os arquivos não são apagados)';
-  remove.onclick=async e=>{e.stopPropagation();try{await store.removeLibrary(key);await refreshMenu();}catch{setStatus('Erro ao remover a pasta','error');}};
+  const remove=document.createElement('button');remove.type='button';remove.textContent='×';remove.setAttribute('aria-label',t('removeFolder',folder.label));remove.title=t('removeFolderTitle');
+  remove.onclick=async e=>{e.stopPropagation();try{await store.removeLibrary(key);await refreshMenu();}catch{setStatus(t('removeFolderError'),'error');}};
   head.append(name,remove);menu.append(head);folder.items.forEach(addItem);
  }
 }
@@ -758,10 +759,10 @@ async function openDoc(id){
  useDoc(normalizeDoc(await store.load(id)));
  history.replaceState(null,'',`?p=${encodeURIComponent(id)}`);
  showDocTitle();
- setStatus('Salvo','saved');render();fit();
+ setStatus(t('saved'),'saved');render();fit();
 }
 async function newDoc(){
- const title=prompt('Nome da nova apresentação','Nova apresentação');if(!title)return;
+ const title=prompt(t('newPresPrompt'),t('newPres'));if(!title)return;
  const created=await store.create(title);await openDoc(created.id);if(!editing)setEditing(true);
 }
 /* Salvar como: escolhe nome e pasta (biblioteca do app ou qualquer pasta da máquina) e se abre a nova apresentação */
@@ -769,38 +770,38 @@ let saveDialog=null;
 async function openSaveDialog(presetMode){
  if(!doc.id||saveDialog)return;
  const modal=$('#saveas-modal'),name=$('#saveas-name'),folder=$('#saveas-folder'),custom=$('#saveas-custom'),pathInput=$('#saveas-path'),error=$('#saveas-error'),submit=$('#saveas-submit'),opener=document.activeElement;
- $('#saveas-heading').textContent=presetMode==='stay'?'Salvar uma cópia':'Salvar como';
- name.value=`${doc.title} (cópia)`;error.textContent='';pathInput.value='';custom.hidden=true;submit.disabled=false;
+ $('#saveas-heading').textContent=presetMode==='stay'?t('saveCopy'):t('saveAs');
+ name.value=`${doc.title} (${t('copySuffix')})`;error.textContent='';pathInput.value='';custom.hidden=true;submit.disabled=false;
  modal.querySelector(`input[name="saveas-mode"][value="${presetMode}"]`).checked=true;
  let libs=[];try{libs=await store.libraries();}catch{}
  folder.replaceChildren();
- for(const lib of libs.filter(l=>l.main)){const o=document.createElement('option');o.value='';o.textContent=`${lib.label} (presentations/)`;folder.append(o);}
+ for(const lib of libs.filter(l=>l.main)){const o=document.createElement('option');o.value='';o.textContent=`${t('mainLibrary')} (presentations/)`;folder.append(o);}
  for(const lib of libs.filter(l=>!l.main)){const o=document.createElement('option');o.value=lib.dir;o.textContent=`${lib.label} — ${lib.dir}`;folder.append(o);}
- const other=document.createElement('option');other.value='__other';other.textContent='Outra pasta…';folder.append(other);
+ const other=document.createElement('option');other.value='__other';other.textContent=t('otherFolder');folder.append(other);
  folder.onchange=()=>{custom.hidden=folder.value!=='__other';if(!custom.hidden)pathInput.focus();};
  const close=()=>{modal.hidden=true;saveDialog=null;document.removeEventListener('keydown',onKey);opener?.focus?.({preventScroll:true});};
  const onKey=e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();close();}};
  $('#saveas-close').onclick=close;$('#saveas-cancel').onclick=close;
  $('#saveas-pick').onclick=async()=>{ // janela nativa de escolha de pasta (o servidor roda nesta máquina)
-  error.textContent='Aguardando a janela de escolha de pasta…';
+  error.textContent=t('pickerWaiting');
   try{const {path:picked}=await store.pickFolder();error.textContent='';if(picked)pathInput.value=picked;}
-  catch(e){error.textContent=e.message.includes('indispon')?'Seletor de pasta indisponível: digite o caminho completo.':'Não foi possível abrir o seletor: digite o caminho completo.';}
+  catch(e){error.textContent=e.status===501?t('pickerUnavailable'):t('pickerFailed');}
  };
  $('#saveas-form').onsubmit=async e=>{
   e.preventDefault();
-  const title=name.value.trim();if(!title){error.textContent='Informe um nome.';name.focus();return;}
+  const title=name.value.trim();if(!title){error.textContent=t('enterName');name.focus();return;}
   const dir=folder.value==='__other'?pathInput.value.trim():folder.value;
-  if(folder.value==='__other'&&!dir){error.textContent='Informe ou escolha a pasta.';pathInput.focus();return;}
+  if(folder.value==='__other'&&!dir){error.textContent=t('enterFolder');pathInput.focus();return;}
   const mode=modal.querySelector('input[name="saveas-mode"]:checked').value;
   submit.disabled=true;error.textContent='';
   try{
    await flush(); // garante que tudo que está na tela já foi gravado antes de copiar
    const created=await store.copy(doc.id,title,dir||undefined);
    close();
-   const where=created.id.includes('~')?`na pasta ${dir||'escolhida'}`:'em presentations/';
-   if(mode==='open'){await openDoc(created.id);showToast(`Agora você está em “${created.title}” (salva ${where})`,false,6000);}
-   else showToast(`Cópia “${created.title}” salva ${where} — você continua nesta apresentação`,false,6000);
-  }catch(err){error.textContent=err.message&&!/^\d+$/.test(err.message)?err.message:'Erro ao salvar a cópia.';submit.disabled=false;}
+   const where=created.id.includes('~')?t('inFolder',dir):t('inLibrary');
+   if(mode==='open'){await openDoc(created.id);showToast(t('nowIn',created.title,where),false,6000);}
+   else showToast(t('copySaved',created.title,where),false,6000);
+  }catch(err){error.textContent=err.message&&!/^\d+$/.test(err.message)?err.message:t('copyError');submit.disabled=false;}
  };
  modal.hidden=false;saveDialog=true;document.addEventListener('keydown',onKey);name.focus();name.select();
 }
@@ -809,17 +810,17 @@ async function addFolder(){ // registra uma pasta existente para listar e editar
  try{
   const {path:picked}=await store.pickFolder();
   if(!picked)return;
-  await store.addLibrary(picked);await refreshMenu();showToast(`Pasta adicionada: ${picked}`,false,4000);
+  await store.addLibrary(picked);await refreshMenu();showToast(t('folderAdded',picked),false,4000);
  }catch(e){
-  const typed=prompt('Não foi possível abrir o seletor. Digite o caminho completo da pasta:');
-  if(typed&&typed.trim()){try{await store.addLibrary(typed.trim());await refreshMenu();}catch(err){showToast(err.message||'Pasta inválida',false,4000);}}
+  const typed=prompt(t('folderPrompt'));
+  if(typed&&typed.trim()){try{await store.addLibrary(typed.trim());await refreshMenu();}catch(err){showToast(err.message||t('invalidFolder'),false,4000);}}
  }
 }
 async function deleteDoc(){
- if(!confirm(`Excluir a apresentação "${doc.title}"? O arquivo será removido da pasta presentations.`))return;
+ if(!confirm(t('confirmDeletePres',doc.title)))return;
  await store.remove(doc.id);doc={...doc,id:null};
  const list=await store.list();
- if(list.length)await openDoc(list[0].id);else{const created=await store.create('Nova apresentação');await openDoc(created.id);}
+ if(list.length)await openDoc(list[0].id);else{const created=await store.create(t('newPres'));await openDoc(created.id);}
 }
 async function initStore(){
  if(!await store.available())return false;
@@ -828,7 +829,7 @@ async function initStore(){
  const id=list.some(i=>i.id===wanted)?wanted:list[0]?.id;
  if(!id)return false;
  useDoc(normalizeDoc(await store.load(id)));
- document.body.classList.add('has-store');showDocTitle();setStatus('Salvo','saved');
+ document.body.classList.add('has-store');showDocTitle();setStatus(t('saved'),'saved');
  return true;
 }
 
@@ -836,14 +837,14 @@ async function initStore(){
 $('#expand').onclick=()=>{expanded=roots.reduce((set,r)=>new Set([...set,...allBranches(r)]),new Set());render();fit();};
 $('#collapse').onclick=()=>{expanded=new Set(roots.map(r=>r.id));render();fit();};
 $('#fit').onclick=fit;$('#zoom-in').onclick=()=>zoom(1.2);$('#zoom-out').onclick=()=>zoom(1/1.2);
-$('#mode').onclick=()=>{reading=!reading;if(reading)buildReading();viewport.hidden=reading;$('#reading').hidden=!reading;for(const id of ['tree-controls','zoom-controls','edit-switch','add-root'])$('#'+id).hidden=reading;$('#mode-label').textContent=reading?'Mapa mental':'Modo texto';$('#mode').setAttribute('aria-pressed',String(reading));};
+$('#mode').onclick=()=>{reading=!reading;if(reading)buildReading();viewport.hidden=reading;$('#reading').hidden=!reading;for(const id of ['tree-controls','zoom-controls','edit-switch','add-root'])$('#'+id).hidden=reading;$('#mode-label').textContent=reading?t('mindMap'):t('textMode');$('#mode').setAttribute('aria-pressed',String(reading));};
 $('#edit-switch').onclick=()=>setEditing(!editing);
 $('#add-root').onclick=addRoot;
 /* Nome da apresentação (separado do texto dos cards raiz): duplo clique no menu do topo */
 function editDocTitle(){
  if(!doc.id||$('.doc-title-input'))return;
  closeMenu();
- const button=$('#doc-button'),input=document.createElement('input');input.className='doc-title-input';input.value=doc.title;input.setAttribute('aria-label','Nome da apresentação');input.maxLength=120;
+ const button=$('#doc-button'),input=document.createElement('input');input.className='doc-title-input';input.value=doc.title;input.setAttribute('aria-label',t('presName'));input.maxLength=120;
  input.style.width=`${Math.max(button.offsetWidth,200)}px`;input.style.height=`${button.offsetHeight}px`;
  const note=document.createElement('div');note.className='doc-title-error';note.setAttribute('role','alert');note.hidden=true;
  $('#doc-bar').append(input,note);input.focus();input.select();
@@ -859,8 +860,8 @@ function editDocTitle(){
   busy=false;
   if(done)return;
   if(clash){
-   if(mode==='enter'){note.textContent='Já existe uma apresentação com esse nome. Escolha outro.';note.hidden=false;input.classList.add('is-invalid');input.focus();return;}
-   close();showToast(`Já existe uma apresentação chamada “${value}”; o nome “${doc.title}” foi mantido`,false,5000);return;
+   if(mode==='enter'){note.textContent=t('nameTaken');note.hidden=false;input.classList.add('is-invalid');input.focus();return;}
+   close();showToast(t('nameKept',value,doc.title),false,5000);return;
   }
   close();doc.title=value;showDocTitle();commit();
  };
@@ -880,8 +881,8 @@ fullscreenButton.onclick=()=>{
 document.addEventListener('fullscreenchange',()=>{
  const on=!!document.fullscreenElement;
  fullscreenButton.setAttribute('aria-pressed',String(on));
- $('#fullscreen-label').textContent=on?'Sair da tela cheia':'Tela cheia';
- fullscreenButton.title=on?'Sair da tela cheia':'Tela cheia';
+ $('#fullscreen-label').textContent=on?t('exitFullscreen'):t('fullscreen');
+ fullscreenButton.title=on?t('exitFullscreen'):t('fullscreen');
 });
 $('#doc-button').onclick=async()=>{ // fechar/editar invalida uma abertura que ainda está carregando a lista
  const menu=$('#doc-menu');
