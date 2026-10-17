@@ -168,6 +168,7 @@ When the system changes, edit the outline and run `update` instead of `create --
 | `[mermaid:file.mmd]` | Diagram; rendered with a dark theme and transparent background |
 | `[link:https://…\|label]` | http/https link; label optional (default: the domain) |
 | `[subtitle:text]` | Supporting text shown only while hovering the card (no `]` inside) |
+| `[rel:Other idea title]` | Cross-link to another idea, matched by exact title; unknown or ambiguous titles produce warnings |
 | Several markers | Repeat freely; they appear in the order written |
 | Paths | Relative to the outline file; remote image URLs are **not** downloaded |
 
@@ -237,7 +238,7 @@ A real example generated this way ships in `presentations/` ("visão do sistema"
 
 ## 12. Limitations
 
-- **Tree** structure; no cross-links between ideas.
+- **Tree** structure; cross-links (`[rel:…]`) are plain dotted lines, without direction or label.
 - To change the order of ideas, edit the outline and run `update` (it follows the outline order and keeps your manual edits).
 - Remote-URL media is not downloaded.
 - CLI Mermaid rendering depends on the external `mmdc` (the app editor already bundles it).

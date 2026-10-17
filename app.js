@@ -1,5 +1,5 @@
 import {tree as seed,visibleNodes,allBranches,zoomAt,parentOf,findNode,newId,PALETTE} from './model.js?v=16';
-import {cancelMotion,snapshot,animateLayout,hoverEdge,updateEdges} from './motion.js?v=16';
+import {cancelMotion,snapshot,animateLayout,hoverEdge,updateEdges,onEdges} from './motion.js?v=17';
 import * as store from './store.js?v=17';
 import {t,applyStatic} from './i18n.js?v=1';
 import {VERSION} from './version.js?v=1';
@@ -193,8 +193,13 @@ function redo(){
  if(!doc.id||!hist.redo.length||moving)return;
  hist.undo.push(hist.cur);hist.cur=hist.redo.pop();hist.lastKey='';restoreSnapshot(hist.cur);
 }
+function pruneRelated(){ // ideias relacionadas que deixaram de existir (ou apontam para si mesmas) saem da lista
+ const ids=new Set();const walk=n=>{ids.add(n.id);n.children.forEach(walk);};roots.forEach(walk);
+ const fix=n=>{if(n.related){n.related=n.related.filter(r=>r!==n.id&&ids.has(r));if(!n.related.length)delete n.related;}n.children.forEach(fix);};roots.forEach(fix);
+}
 function commit(key,expandedBefore){
  if(!doc.id)return;
+ pruneRelated();
  record(key,expandedBefore);
  setStatus(t('unsaved'),'dirty');clearTimeout(saveTimer);
  saveTimer=setTimeout(flush,500);
@@ -277,11 +282,94 @@ function enableDrop(el,node){
 // Soltar um arquivo fora de um card não deve abrir o arquivo no navegador.
 for(const type of ['dragover','drop'])window.addEventListener(type,e=>{if(hasFiles(e))e.preventDefault();});
 
+/* Ideias relacionadas (ligações cruzadas): node.related = ids; vale nos dois sentidos e aparece como linha pontilhada e selo */
+function relationsOf(id){
+ const out=new Map();
+ const node=findAny(id);
+ for(const r of node?.related||[]){const n=findAny(r);if(n)out.set(r,n);}
+ const walk=n=>{if((n.related||[]).includes(id))out.set(n.id,n);n.children.forEach(walk);};roots.forEach(walk);
+ out.delete(id);
+ return [...out.values()];
+}
+function drawCrossLinks(){
+ const svg=document.getElementById('cross-links');if(!svg)return;
+ svg.replaceChildren();
+ const ns='http://www.w3.org/2000/svg',seen=new Set();
+ const box=el=>({x:parseFloat(el.style.left),y:parseFloat(el.style.top),w:el.offsetWidth,h:el.offsetHeight});
+ const visit=n=>{
+  for(const to of n.related||[]){
+   const key=[n.id,to].sort().join('|');if(seen.has(key))continue;seen.add(key);
+   const ea=document.querySelector(`[data-id="${n.id}"]`),eb=document.querySelector(`[data-id="${to}"]`);if(!ea||!eb)continue;
+   const a=box(ea),b=box(eb),left=a.x<=b.x?[a,b]:[b,a];
+   let p1,p2,d;
+   if(left[0].x+left[0].w+30<left[1].x){ // lado a lado: sai pela direita de um e entra pela esquerda do outro
+    p1={x:left[0].x+left[0].w,y:left[0].y+left[0].h/2};p2={x:left[1].x,y:left[1].y+left[1].h/2};
+    const k=Math.max(60,(p2.x-p1.x)/2);d=`M${p1.x},${p1.y} C${p1.x+k},${p1.y} ${p2.x-k},${p2.y} ${p2.x},${p2.y}`;
+   }else{ // mesma coluna: dá a volta pela direita
+    p1={x:a.x+a.w,y:a.y+a.h/2};p2={x:b.x+b.w,y:b.y+b.h/2};
+    const k=70+Math.min(120,Math.abs(p2.y-p1.y)/3);d=`M${p1.x},${p1.y} C${p1.x+k},${p1.y} ${p2.x+k},${p2.y} ${p2.x},${p2.y}`;
+   }
+   const path=document.createElementNS(ns,'path');path.setAttribute('d',d);path.dataset.a=n.id;path.dataset.b=to;svg.append(path);
+   for(const p of [p1,p2]){const dot=document.createElementNS(ns,'circle');dot.setAttribute('cx',p.x);dot.setAttribute('cy',p.y);dot.setAttribute('r','4');dot.dataset.a=n.id;dot.dataset.b=to;svg.append(dot);}
+  }
+  n.children.forEach(visit);
+ };
+ roots.forEach(visit);
+}
+onEdges(drawCrossLinks);
+function hoverCross(id,on){document.querySelectorAll(`#cross-links [data-a="${id}"],#cross-links [data-b="${id}"]`).forEach(e=>e.classList.toggle('is-hovered',on));}
+function relatedBadge(node,list){
+ const button=document.createElement('button');button.type='button';button.className='node-badge related-badge';
+ button.innerHTML=`<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 5h9m0 0L9.5 2.5M12 5 9.5 7.5M13 11H4m0 0 2.5-2.5M4 11l2.5 2.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>${list.length}`;
+ button.title=t('relatedList');button.setAttribute('aria-label',t('related',list.length)+`: ${nameOf(node)}`);
+ button.onclick=e=>{
+  e.stopPropagation();
+  const existing=button.parentElement.querySelector('.link-menu');closeLinkMenus();
+  if(existing)return;
+  const menu=document.createElement('div');menu.className='link-menu';menu.setAttribute('role','menu');menu.setAttribute('aria-label',t('relatedOf',nameOf(node)));
+  list.forEach(n=>{const item=document.createElement('button');item.type='button';item.setAttribute('role','menuitem');item.textContent=nameOf(n);item.setAttribute('aria-label',t('goTo',nameOf(n)));item.onclick=ev=>{ev.stopPropagation();closeLinkMenus();goToNode(n.id);};menu.append(item);});
+  button.parentElement.append(menu);
+ };
+ return button;
+}
+let relating=null;
+function endRelate(){
+ if(!relating)return;relating=null;document.body.classList.remove('is-relating');hideToast();
+ document.removeEventListener('click',onRelateClick,true);document.removeEventListener('keydown',onRelateKey,true);
+}
+function onRelateKey(e){if(e.key==='Escape'){e.preventDefault();e.stopPropagation();endRelate();}}
+function onRelateClick(e){
+ const el=e.target.closest('.node');
+ if(!el){endRelate();return;} // clicar fora cancela
+ e.preventDefault();e.stopPropagation();
+ const target=findAny(el.dataset.id),source=relating.node;
+ if(!target||target===source)return;
+ endRelate();toggleRelation(source,target);
+}
+function toggleRelation(a,b){
+ const had=(a.related||[]).includes(b.id)||(b.related||[]).includes(a.id);
+ for(const [x,y] of [[a,b],[b,a]])if(x.related){x.related=x.related.filter(r=>r!==y.id);if(!x.related.length)delete x.related;}
+ if(!had)(a.related||=[]).push(b.id);
+ commit();render();
+ showToast(t(had?'relatedRemoved':'relatedAdded',nameOf(a),nameOf(b)),true,5000);
+}
+function startRelate(node){
+ endRelate();relating={node};document.body.classList.add('is-relating');
+ showToast(t('relateHint',nameOf(node)),false,600000);
+ setTimeout(()=>{if(relating){document.addEventListener('click',onRelateClick,true);document.addEventListener('keydown',onRelateKey,true);}},0); // o clique que abriu o menu não conta
+}
+
 /* Duplicar, copiar e colar ideias (com tudo abaixo). A área de cópia fica no navegador, então vale entre apresentações. */
 const CLIP_KEY='context-maps-clipboard';
 let memoryClip=null;
 const readClip=()=>{try{return JSON.parse(localStorage.getItem(CLIP_KEY)||'null');}catch{return memoryClip;}};
-function cloneTree(node){return {...structuredClone({...node,children:[]}),id:newId(),children:node.children.map(cloneTree)};}
+function cloneTree(node){
+ const map=new Map();
+ const copy=n=>{const id=newId();map.set(n.id,id);return {...structuredClone({...n,children:[]}),id,children:n.children.map(copy)};};
+ const out=copy(node);
+ const remap=n=>{if(n.related)n.related=n.related.map(r=>map.get(r)||r);n.children.forEach(remap);}; // ligações dentro da cópia apontam para a cópia; as de fora continuam
+ remap(out);return out;
+}
 function duplicateNode(node){
  const copy=cloneTree(node),parent=parentAny(node.id);
  if(parent){parent.children.splice(parent.children.indexOf(node)+1,0,copy);expanded.add(parent.id);}
@@ -379,7 +467,7 @@ function radialItems(node,depth,picker,anchor){
   {icon:'▣',label:t('image'),aria:t('addImage'),run:()=>picker.click()},
   {icon:'◇',label:t('diagram'),aria:t('addDiagram'),run:()=>openDiagramEditor(node,null)},
   {icon:'↗',label:t('link'),aria:t('addLink'),run:()=>addLink(node)});
- items.push({icon:'⧉',label:t('duplicate'),aria:t('duplicateIdea'),run:()=>duplicateNode(node)},{icon:'⎘',label:t('copy'),aria:t('copyIdea'),run:()=>copyNode(node)});
+ items.push({icon:'⇄',label:t('relate'),aria:t('relateIdea'),run:()=>startRelate(node)},{icon:'⧉',label:t('duplicate'),aria:t('duplicateIdea'),run:()=>duplicateNode(node)},{icon:'⎘',label:t('copy'),aria:t('copyIdea'),run:()=>copyNode(node)});
  if((readClip()||memoryClip)?.kind==='context-maps-node')items.push({icon:'⎗',label:t('paste'),aria:t('pasteIdea'),run:()=>pasteNode(node)});
  if(node.children.length)items.push({icon:'◐',label:t('colorLines'),aria:t('lineColor'),run:()=>openColorPanel(anchor,node)});
  if(depth>0||roots.length>1)items.push({icon:'✕',label:t('del'),aria:t('deleteIdea'),danger:true,run:()=>removeNode(node)});
@@ -662,7 +750,7 @@ function render(){
  for(const node of visible){
   const depth=depths.get(node.id),isRoot=depth===0;
   const el=document.createElement('section');el.className=`node ${isRoot?'root':node.children.length?'branch':'leaf'}`;el.dataset.id=node.id;el.style.setProperty('--branch',colors.get(node.id));
-  el.addEventListener('pointerenter',()=>hoverEdge(node.id,true));el.addEventListener('pointerleave',()=>hoverEdge(node.id,false));
+  el.addEventListener('pointerenter',()=>{hoverEdge(node.id,true);hoverCross(node.id,true);});el.addEventListener('pointerleave',()=>{hoverEdge(node.id,false);hoverCross(node.id,false);});
   const images=imagesOf(node);
   if(images.length){el.classList.add('has-image');images.forEach((image,i)=>el.append(imageItem(node,image,i)));}
   const text=document.createElement(isRoot?'h1':'p');el.append(text);
@@ -695,11 +783,12 @@ function render(){
    }else hint.textContent=node.subtitle;
    el.append(hint);
   }
-  const links=linksOf(node);
-  if(images.length||links.length){
+  const links=linksOf(node),rels=relationsOf(node.id);
+  if(images.length||links.length||rels.length){
    const row=document.createElement('div');row.className='node-badges';
    if(images.length)row.append(imageBadge(node));
    if(links.length)row.append(editing?linkChips(node):linkBadge(node));
+   if(rels.length)row.append(relatedBadge(node,rels));
    el.append(row);
   }
   if(editing){
@@ -790,6 +879,7 @@ function buildReading(){
   if(node.subtitle){const sp=document.createElement('p');sp.className='reading-subtitle';sp.textContent=node.subtitle;article.append(sp);}
   imagesOf(node).forEach(image=>article.append(imageFor(image)));
   if(linksOf(node).length){const row=document.createElement('div');row.className='reading-links';linksOf(node).forEach(l=>row.append(anchorFor(l,'reading-link')));article.append(row);}
+  {const rels=relationsOf(node.id);if(rels.length){const p=document.createElement('p');p.className='reading-related';p.textContent=`↔ ${rels.map(nameOf).join(' · ')}`;article.append(p);}}
   node.children.forEach(c=>walk(c,depth+1));
  };
  roots.forEach(root=>walk(root,0));

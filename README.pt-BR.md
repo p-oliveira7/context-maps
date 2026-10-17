@@ -157,6 +157,7 @@ centro: abre uma **roda de ações** em volta dele (fecha com **Esc**, × ou cli
 | Cards sem título | Apague o título de um card que tenha imagem/diagrama ou subtítulo: ele passa a mostrar só esse conteúdo |
 | Subtítulo · Links | Digite no campo "Subtítulo" abaixo do título; **+ Link** aceita http/https, com chips e **×** para remover |
 | Duplicar · Copiar · Colar | Na roda: **Duplicar** clona uma ideia com tudo abaixo ao lado da original; **Copiar** a guarda e **Colar** (aparece depois de copiar) a adiciona como filha de outra ideia — inclusive em outra apresentação, copiando as imagens |
+| Relacionar ideias | **Relacionar** na roda e depois clique em outra ideia: uma linha pontilhada liga as duas (nos dois sentidos) e um selo mostra quantas ideias estão relacionadas e leva a cada uma. Clique na mesma dupla de novo para remover |
 | Desfazer / refazer | Botões **↶ ↷** na barra inferior, ou **Ctrl+Z** / **Ctrl+Shift+Z** (**Ctrl+Y**). Vale para qualquer edição, até 100 passos; digitar num campo conta como um passo só |
 | Excluir | **Excluir** (pede confirmação se houver ideias abaixo) |
 
@@ -240,6 +241,7 @@ diagramas do `docs/`"*, *"transforme esta especificação em um mapa para a reun
 | `[mermaid:arquivo.mmd]` | Renderiza um arquivo Mermaid como diagrama (exige `mmdc`) |
 | `[link:url\|rótulo]` | Adiciona um link |
 | `[subtitle:texto]` | Texto de apoio exibido ao passar o mouse |
+| `[rel:Título da ideia]` | Relaciona esta ideia a outra (ligação cruzada) pelo título exato |
 | `{color=#hex}` · `{links=#hex}` | Cor do card · cor das linhas que saem do card |
 
 Opções do CLI: `--id`, `--title`, `--replace`, `--dir <pasta>` (cria em outra pasta). Para atualizar um mapa depois que o sistema mudou, rode `update --id <slug> --outline mapa.md`: ele casa as ideias pelo título e mantém ids, cores, posições e edições manuais (`--dry-run` mostra o que mudaria, `--prune` remove ideias que saíram do outline). As mensagens seguem
@@ -278,6 +280,7 @@ As instruções para agentes (`SKILL.md`, `schema.md`, `AGENTS.md`) estão em in
           {"src": "presentations/meu-fluxo/assets/d.svg", "alt": "Diagrama", "kind": "diagram", "source": "flowchart TD…"}
         ],
         "links": [{"url": "https://exemplo.com/docs", "label": "Docs"}],
+        "related": ["n-9f8e7d6c"],
         "children": []
       }
     ]
@@ -324,8 +327,8 @@ node tests/edit.mjs                     # ou rode uma suíte só
 
 | Suíte | Cobre |
 | --- | --- |
-| `edit` EDIT-01..30 | edição, diagramas, mídias, links, pastas, idioma, exportação, importação |
-| `skill` SKILL-01..08 | CLI da skill |
+| `edit` EDIT-01..31 | edição, diagramas, mídias, links, pastas, idioma, exportação, importação |
+| `skill` SKILL-01..09 | CLI da skill |
 | `browser` MAP-01..11 | navegação, zoom, modo texto, mobile, tela cheia |
 | `cards` CARD-01..06 | títulos, raiz, teclado, imagens |
 | `motion` MOT-01..05 | animações e movimento reduzido |
@@ -345,7 +348,7 @@ PLAYWRIGHT_MODULE=file:///caminho/para/playwright-core/index.mjs node docs/scree
 
 ## Limitações conhecidas
 
-- **Sem ligações cruzadas** entre ideias (a estrutura é uma árvore). Ciclos viram texto ou diagrama.
+- A estrutura é uma **árvore**; as ideias podem ser **relacionadas** entre ramos (linhas pontilhadas), mas essas relações não têm setas nem rótulos.
 - **Diagramas via CLI** exigem `mmdc` (mermaid-cli); no editor do app o Mermaid já vem embutido.
 - URLs remotas de imagem **não são baixadas** pela skill (use arquivos locais).
 - Mobile: arrastar com um dedo e botões de zoom; pinch não implementado.

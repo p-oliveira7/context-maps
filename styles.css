@@ -353,3 +353,16 @@ svg .node p,svg .node h1{margin:revert;font-size:inherit;font-weight:inherit;lin
 #search-results li[aria-selected=true],#search-results li:hover{background:#ffffff1a;color:#fff}
 #search-results mark{background:#e4c58355;color:inherit;border-radius:3px}
 #search-empty{padding:.6rem;color:#ffffff80;font-size:.8rem}
+
+/* Ligações cruzadas (ideias relacionadas) */
+#cross-links{position:absolute;overflow:visible;pointer-events:none}
+#cross-links path{fill:none;stroke:#ffffff70;stroke-width:2.4;stroke-dasharray:3 8;stroke-linecap:round;transition:stroke .16s ease,stroke-width .16s ease}
+#cross-links circle{fill:#ffffff99}
+#cross-links .is-hovered{stroke:#e4c583;stroke-width:3.4}
+#cross-links circle.is-hovered{fill:#e4c583}
+.node-badge.related-badge{color:#e4c583;background:#e4c58314;border-color:#e4c58355}
+body.is-relating .node{cursor:crosshair}
+body.is-relating .node:hover{outline:2px dashed #e4c583;outline-offset:6px;border-radius:12px}
+.link-menu button{padding:.4rem .6rem;border-radius:7px;font-size:.78rem;color:#e9dcb8;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.link-menu button:hover{background:#ffffff14;color:#fff}
+.reading-related{margin:.2rem 0 .8rem;color:#e4c583;font-size:.82rem}

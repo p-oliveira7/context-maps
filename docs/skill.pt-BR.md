@@ -168,6 +168,7 @@ Quando o sistema muda, edite o outline e rode `update` em vez de `create --repla
 | `[mermaid:arquivo.mmd]` | Diagrama; renderizado com tema escuro e fundo transparente |
 | `[link:https://…\|rótulo]` | Link http/https; rótulo opcional (padrão: domínio) |
 | `[subtitle:texto]` | Texto de apoio exibido só ao passar o mouse no card (sem `]` dentro) |
+| `[rel:Título de outra ideia]` | Ligação cruzada com outra ideia, pelo título exato; títulos desconhecidos ou ambíguos geram avisos |
 | Vários marcadores | Repita à vontade; aparecem na ordem escrita |
 | Caminhos | Relativos ao arquivo do outline; URLs remotas de imagem **não** são baixadas |
 
@@ -235,7 +236,7 @@ Um exemplo real gerado assim acompanha o repositório em `presentations/` ("vis�
 
 ## 12. Limitações
 
-- Estrutura em **árvore**; sem ligações cruzadas entre ideias.
+- Estrutura em **árvore**; as ligações cruzadas (`[rel:…]`) são linhas pontilhadas simples, sem direção nem rótulo.
 - Para trocar a ordem das ideias, edite o outline e rode `update` (ele segue a ordem do outline e mantém suas edições manuais).
 - Mídias por URL remota não são baixadas.
 - Renderização de Mermaid pelo CLI depende do `mmdc` externo (no editor do app já é embutido).

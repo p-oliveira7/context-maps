@@ -27,6 +27,8 @@ const MSG={
  warnNoText:{pt:l=>`linha ${l}: ideia sem título`,en:l=>`line ${l}: idea without a title`},
  warnLong:{pt:(l,n,m)=>`linha ${l}: título com ${n} caracteres (limite sugerido ${m}) — resuma`,en:(l,n,m)=>`line ${l}: title has ${n} characters (suggested limit ${m}) — shorten it`},
  warnIgnored:{pt:l=>`linha ${l}: ignorada (use "- item" com indentação)`,en:l=>`line ${l}: ignored (use "- item" with indentation)`},
+ warnRelMissing:{pt:(n,r)=>`${n}: [rel:${r}] não encontrada (use o título exato de outra ideia)`,en:(n,r)=>`${n}: [rel:${r}] not found (use the exact title of another idea)`},
+ warnRelAmbiguous:{pt:(n,r)=>`${n}: [rel:${r}] ambígua (há mais de uma ideia com esse título; a primeira foi usada)`,en:(n,r)=>`${n}: [rel:${r}] is ambiguous (several ideas share that title; the first was used)`},
  warnNoTitle:{pt:()=>'sem título: use "# Título" na primeira linha',en:()=>'no title: use "# Title" on the first line'},
  lintDepth:{pt:(d,m)=>`profundidade ${d} (sugerido até ${m}) — agrupe níveis`,en:(d,m)=>`depth ${d} (suggested up to ${m}) — group levels`},
  lintWide:{pt:n=>`um nó tem ${n} filhos (sugerido até 8) — agrupe`,en:n=>`a node has ${n} children (suggested up to 8) — group them`},
@@ -75,7 +77,8 @@ const isUp=async()=>{try{const r=await fetch(`${BASE}/api/presentations`);return
 
 /* ---------- Outline (markdown com marcadores) → árvore ---------- */
 const nodeId=()=>`n-${randomBytes(4).toString('hex')}`;
-const RE_MEDIA=/\[(img|mermaid|link|subtitle):([^\]|]+)(?:\|([^\]]*))?\]/g;
+const norm=s=>String(s||'').replace(/\s+/g,' ').trim().toLowerCase();
+const RE_MEDIA=/\[(img|mermaid|link|subtitle|rel):([^\]|]+)(?:\|([^\]]*))?\]/g;
 const RE_COLOR=/\{color=(#[0-9a-fA-F]{3,8})\}/;
 const RE_LINKS=/\{links=(#[0-9a-fA-F]{3,8})\}/;
 export function parseOutline(text){
@@ -86,7 +89,7 @@ export function parseOutline(text){
  let stack=[{indent:-1,node:root}];const roots=[root];
  const pull=(raw,node,lineNo)=>{
   let s=raw;
-  node._media=[...s.matchAll(RE_MEDIA)].map(m=>({kind:m[1]==='img'?'image':m[1]==='link'?'link':m[1]==='subtitle'?'subtitle':'diagram',file:m[2].trim(),alt:(m[3]||'').trim(),raw:m[2]+(m[3]!==undefined?'|'+m[3]:'')}));
+  node._media=[...s.matchAll(RE_MEDIA)].map(m=>({kind:m[1]==='img'?'image':m[1]==='link'?'link':m[1]==='subtitle'?'subtitle':m[1]==='rel'?'rel':'diagram',file:m[2].trim(),alt:(m[3]||'').trim(),raw:m[2]+(m[3]!==undefined?'|'+m[3]:'')}));
   s=s.replace(RE_MEDIA,'');
   const col=s.match(RE_COLOR);if(col){node.color=col[1];s=s.replace(RE_COLOR,'');}
   const lnk=s.match(RE_LINKS);if(lnk){node.linksColor=lnk[1];s=s.replace(RE_LINKS,'');}
@@ -111,6 +114,20 @@ export function parseOutline(text){
  });
  if(!root.title)warnings.push(t('warnNoTitle'));
  return {root,roots,warnings};
+}
+// [rel:Título] liga duas ideias (ligação cruzada). Roda sobre a árvore final: pares [nó do outline, nó resultante].
+function resolveRelations(pairs,roots,warnings){
+ const byTitle=new Map(),dup=new Set();
+ const walk=n=>{const key=norm(n.title);if(key){if(byTitle.has(key))dup.add(key);else byTitle.set(key,n);}n.children.forEach(walk);};
+ roots.forEach(walk);
+ for(const [fresh,node] of pairs)for(const item of fresh._media||[]){
+  if(item.kind!=='rel')continue;
+  const target=byTitle.get(norm(item.file));
+  if(!target){warnings.push(t('warnRelMissing',fresh.title||node.title,item.file));continue;}
+  if(dup.has(norm(item.file)))warnings.push(t('warnRelAmbiguous',fresh.title||node.title,item.file));
+  if(target.id===node.id||(node.related||[]).includes(target.id)||(target.related||[]).includes(node.id))continue;
+  (node.related||=[]).push(target.id);
+ }
 }
 function stats(root){
  let count=0,depth=0,widest=0;
@@ -161,6 +178,7 @@ async function attachOwn(id,node,baseDir,report){ // mídia, links e subtítulo 
    node.subtitle=node.subtitle?`${node.subtitle} ${text}`:text;
    continue;
   }
+  if(item.kind==='rel')continue; // resolvido depois, quando a árvore inteira existe (resolveRelations)
   if(item.kind==='link'){
    let ok=false;try{ok=['http:','https:'].includes(new URL(item.file).protocol);}catch{}
    if(!ok)report.skipped.push(t('skipLink',node.title,item.file));
@@ -193,20 +211,22 @@ function clean(node){
 }
 
 /* ---------- update: mescla um outline novo numa apresentação existente, sem perder o que foi feito à mão ---------- */
-const norm=s=>String(s||'').replace(/\s+/g,' ').trim().toLowerCase();
 async function mergeInto(id,existing,fresh,baseDir,report,opts){
  // existing: nó salvo (ou null); fresh: nó do outline. Devolve o nó resultante.
  if(!existing){
   report.added.push(fresh.title||'(sem título)');
   if(!opts.dry)await attach(id,fresh,baseDir,report);
-  return clean(fresh);
+  const made=clean(fresh);
+  const link=(f,o)=>{report.pairs.push([f,o]);f.children.forEach((c,i)=>link(c,o.children[i]));};link(fresh,made);
+  return made;
  }
- const out={...existing};let changed=false;
+ const out={...existing};let changed=false;report.pairs.push([fresh,out]);
  if(fresh.color&&fresh.color!==existing.color){out.color=fresh.color;changed=true;}
  if(fresh.linksColor&&fresh.linksColor!==existing.linksColor){out.linksColor=fresh.linksColor;changed=true;}
  // mídia do outline: só entra o que ainda não existe no nó (imagem pelo alt, diagrama pelo código, link pela URL)
  const have=existing.images||[],haveLinks=existing.links||[],pending=[];
  for(const item of fresh._media||[]){
+  if(item.kind==='rel')continue; // ligações cruzadas são resolvidas depois (resolveRelations)
   if(item.kind==='subtitle'){pending.push({...item,kind:'subtitle-set'});continue;}
   if(item.kind==='link'){if(haveLinks.some(l=>l.url===item.file))continue;pending.push(item);continue;}
   if(item.kind==='image'){if(have.some(m=>m.kind!=='diagram'&&m.alt===(item.alt||fresh.title)))continue;pending.push(item);continue;}
@@ -281,6 +301,8 @@ const commands={
   }
   const report={images:0,diagrams:0,skipped:[]};
   for(const r of roots)await attach(id,r,path.dirname(path.resolve(file)),report);
+  const pairs=[];const collect=n=>{pairs.push([n,n]);n.children.forEach(collect);};roots.forEach(collect);
+  resolveRelations(pairs,roots,warnings);
   await api(`/api/presentations/${id}`,{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({title:docTitle,roots:roots.map(clean)})});
   console.log(JSON.stringify({id,url:`${BASE}/?p=${id}`,file:`presentations/${id}.json`,roots:roots.length,nodes:l.count,depth:l.depth,images:report.images,diagrams:report.diagrams,links:report.links||0,warnings:[...warnings,...l.warnings],skipped:report.skipped},null,2));
  },
@@ -291,7 +313,7 @@ const commands={
   const list=await api('/api/presentations');
   if(!list.some(p=>p.id===id))die(t('noPresentation',id));
   const doc=await api(`/api/presentations/${id}`);
-  const existingRoots=doc.roots||[doc.tree],used=new Set(),report={images:0,diagrams:0,skipped:[],added:[],updated:[],kept:[],removed:[]};
+  const existingRoots=doc.roots||[doc.tree],used=new Set(),report={images:0,diagrams:0,skipped:[],added:[],updated:[],kept:[],removed:[],pairs:[]};
   const opts={dry:!!args['dry-run'],prune:!!args.prune},baseDir=path.dirname(path.resolve(file));
   const merged=[];
   for(const fresh of roots){
@@ -306,6 +328,7 @@ const commands={
   }
   const title=args.title&&args.title!==true?args.title:doc.title;
   const l=lintAll(roots);
+  resolveRelations(report.pairs,merged,warnings);
   if(!opts.dry)await api(`/api/presentations/${id}`,{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({title,roots:merged})});
   console.log(JSON.stringify({id,url:`${BASE}/?p=${id}`,dryRun:opts.dry,added:report.added,updated:report.updated,kept:report.kept,removed:report.removed,images:report.images,diagrams:report.diagrams,warnings:[...warnings,...l.warnings],skipped:report.skipped},null,2));
  },

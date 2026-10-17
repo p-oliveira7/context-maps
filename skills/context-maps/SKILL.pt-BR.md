@@ -58,6 +58,7 @@ CLI: `node skills/context-maps/scripts/rm.mjs <comando>` (a partir da raiz do ap
 - `{links=#rrggbb}` colore as linhas daquela ideia até as filhas (qualquer ideia com filhas).
 - Um item pode ficar **sem título** quando tem marcador (ex.: `- [mermaid:fluxo.mmd]` ou `- [subtitle:nota]`): o card mostra só a mídia / texto secundário.
 - `[subtitle:Texto de apoio]` adiciona um subtítulo exibido só ao passar o mouse no card (sem `]` dentro).
+- `[rel:Título de outra ideia]` relaciona esta ideia a outra em qualquer lugar do mapa (ligação cruzada pontilhada), pelo título exato; use para dependências que atravessam ramos. Títulos desconhecidos viram avisos.
 - `[link:https://site.com|Rótulo]` adiciona um link clicável abaixo do card (o rótulo é opcional; vários permitidos; só http/https).
 - Uma ideia pode ter **várias** mídias: repita os marcadores ([img:a.png|A] [mermaid:fluxo.mmd] [img:b.png|B]); elas aparecem empilhadas no card, na ordem escrita.
 - Caminhos de imagem/diagrama são relativos ao arquivo outline. URLs remotas **não** são baixadas.

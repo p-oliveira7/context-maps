@@ -8,6 +8,7 @@ How to cut a release: [`docs/releasing.md`](docs/releasing.md).
 ## [Unreleased]
 
 ### Added
+- **Related ideas (cross-links)**: the action wheel has **Relate**; click another idea to link the two (click again to remove). A dotted line joins related ideas when both are visible, a badge with the count lists them and jumps to each one even inside collapsed branches, and text mode lists them too. Stored as `related` (ids) on a node; references to deleted ideas are cleaned up. The skill outline accepts `[rel:Other idea title]`, in `create` and `update`.
 - **Search**: a toolbar button, **Ctrl/Cmd+K** or **/** opens a search over titles and subtitles (accent- and case-insensitive); choosing a result opens the branches that hide it and centres the map on it.
 - **Duplicate, Copy and Paste** in the action wheel: duplicate an idea with everything below it, or copy it and paste it as a child of another idea, including into another presentation (its images are copied too).
 - **Agent integration checks** in `npm test`: `SKILL.md` front matter, `AGENTS.md` and the Cursor rule point to files that exist, and every CLI command is documented and implemented. The skill guides now include a 5-minute manual checklist to verify an agent (Codex, Cursor) end to end.

@@ -157,6 +157,7 @@ a **wheel of actions** opens around it (it closes with **Esc**, ×, or by clicki
 | Title-less cards | Clear the title of a card that has an image/diagram or a subtitle: it then shows only that content |
 | Subtitle · Links | Type in the "Subtitle" field under the title; **+ Link** accepts http/https, with chips and **×** to remove |
 | Duplicate · Copy · Paste | In the wheel: **Duplicate** clones an idea with everything below it next to the original; **Copy** keeps it, and **Paste** (shown after copying) adds it as a child of another idea — also in another presentation, copying its images |
+| Relate ideas | **Relate** in the wheel, then click another idea: a dotted line joins them (both directions), a badge shows how many ideas are related and jumps to each one. Click the same pair again to remove it |
 | Undo / redo | **↶ ↷** buttons in the bottom bar, or **Ctrl+Z** / **Ctrl+Shift+Z** (**Ctrl+Y**). Works for every edit, up to 100 steps; typing in one field is a single step |
 | Delete | **Delete** (asks for confirmation when there are ideas below) |
 
@@ -240,6 +241,7 @@ Example requests: *"map this repository's architecture"*, *"map the payment flow
 | `[mermaid:file.mmd]` | Render a Mermaid file as a diagram (needs `mmdc`) |
 | `[link:url\|label]` | Add a link |
 | `[subtitle:text]` | Supporting text shown on hover |
+| `[rel:Idea title]` | Relates this idea to another one (cross-link) by its exact title |
 | `{color=#hex}` · `{links=#hex}` | Card colour · colour of the lines leaving the card |
 
 CLI options: `--id`, `--title`, `--replace`, `--dir <folder>` (create in another folder). To refresh a map after the system changed, run `update --id <slug> --outline map.md`: it matches ideas by title and keeps ids, colours, positions and manual edits (`--dry-run` previews, `--prune` removes ideas missing from the outline). Messages follow
@@ -278,6 +280,7 @@ instructions (`SKILL.md`, `schema.md`, `AGENTS.md`) are in English, with Portugu
           {"src": "presentations/my-flow/assets/d.svg", "alt": "Diagram", "kind": "diagram", "source": "flowchart TD…"}
         ],
         "links": [{"url": "https://example.com/docs", "label": "Docs"}],
+        "related": ["n-9f8e7d6c"],
         "children": []
       }
     ]
@@ -324,8 +327,8 @@ node tests/edit.mjs                     # or run a single suite
 
 | Suite | Covers |
 | --- | --- |
-| `edit` EDIT-01..30 | editing, diagrams, media, links, folders, language, export, import |
-| `skill` SKILL-01..08 | skill CLI |
+| `edit` EDIT-01..31 | editing, diagrams, media, links, folders, language, export, import |
+| `skill` SKILL-01..09 | skill CLI |
 | `browser` MAP-01..11 | navigation, zoom, text mode, mobile, full screen |
 | `cards` CARD-01..06 | titles, root, keyboard, images |
 | `motion` MOT-01..05 | animations and reduced motion |
@@ -345,7 +348,7 @@ PLAYWRIGHT_MODULE=file:///path/to/playwright-core/index.mjs node docs/screenshot
 
 ## Known limitations
 
-- **No cross-links** between ideas (the structure is a tree). Cycles become text or a diagram.
+- The structure is a **tree**; ideas can be **related** across branches (dotted lines), but there are no arrows or labels on those relations.
 - **CLI diagrams** need `mmdc` (mermaid-cli); in the app editor Mermaid is already bundled.
 - Remote image URLs are **not downloaded** by the skill (use local files).
 - Mobile: one-finger pan and zoom buttons; pinch is not implemented.

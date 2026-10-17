@@ -114,11 +114,26 @@ try{
   const missing=run(['update','--id','nao-existe','--outline','v2.md']);assert.notEqual(missing.status,0);assert.match(missing.stderr,/não encontrada/);
   assert.notEqual(run(['update','--outline','v2.md']).status,0);
  }
+ // [rel:Título]: ligações cruzadas no create e no update
+ {
+  await writeFile(path.join(src,'rel1.md'),`# Rel\n- Frontend [rel:Backend]\n- Backend\n- Banco [rel:Nao existe]\n`);
+  const made=JSON.parse(run(['create','--outline','rel1.md','--id','rel'],{MMDC:shim}).stdout);
+  assert.ok(made.warnings.some(w=>/Nao existe/.test(w))); // alvo inexistente vira aviso
+  const doc=await (await fetch(`${base}/api/presentations/rel`)).json(),kids=doc.roots[0].children;
+  assert.deepEqual(kids[0].related,[kids[1].id]);assert.equal(kids[2].related,undefined);
+  await writeFile(path.join(src,'rel2.md'),`# Rel\n- Frontend [rel:Backend]\n- Backend [rel:Banco]\n- Banco\n`);
+  const upd=JSON.parse(run(['update','--id','rel','--outline','rel2.md'],{MMDC:shim}).stdout);assert.deepEqual(upd.warnings,[]);
+  const after=(await (await fetch(`${base}/api/presentations/rel`)).json()).roots[0].children;
+  assert.deepEqual(after[0].related,[kids[1].id]); // não duplica o que já existia
+  assert.deepEqual(after[1].related,[after[2].id]);assert.equal(after[1].id,kids[1].id);
+  assert.equal(JSON.parse(run(['update','--id','rel','--outline','rel2.md'],{MMDC:shim}).stdout).updated.length,0);
+  assert.equal(run(['validate','--outline','rel2.md']).status,0);
+ }
  // --version imprime a versão do pacote
  {const v=run(['--version']);assert.equal(v.status,0);assert.match(v.stdout,/^context-maps \d+\.\d+\.\d+\s*$/);assert.equal(run(['version']).stdout,v.stdout);}
  // idioma das mensagens (RM_LANG)
  const badEn=run(['validate','--outline','bad.md'],{RM_LANG:'en'});assert.match(badEn.stdout,/characters/);
  const againEn=run(['create','--outline','mapa.md','--id','fluxo-login'],{RM_LANG:'en',MMDC:shim});assert.match(againEn.stderr,/already exists/);
  const downEn=run(['status'],{RM_URL:'http://127.0.0.1:1',RM_LANG:'en'});assert.match(downEn.stderr,/Server unavailable/);
- console.log('PASS SKILL-01..08');
+ console.log('PASS SKILL-01..09');
 }finally{server.kill();await rm(work,{recursive:true,force:true});await rm(configDir,{recursive:true,force:true});}

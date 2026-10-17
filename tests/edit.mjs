@@ -910,6 +910,61 @@ try{
   for(const gone of [a.id,b.id])await page.request.delete(`${base}/api/presentations/${gone}`);
   await page.goto(`${base}/`);await page.locator('.node').first().waitFor();
  }
+ // EDIT-31: ligações cruzadas (ideias relacionadas): criar, linha pontilhada, selo, navegação, leitura, desfazer e exclusão
+ {
+  const made=await (await page.request.post(`${base}/api/presentations`,{data:{title:'Relações'}})).json();
+  const tree=[{id:'r',title:'Raiz',children:[
+   {id:'a',title:'Ideia A',children:[{id:'a1',title:'Filha de A',children:[]}]},
+   {id:'b',title:'Ideia B',children:[{id:'b1',title:'Filha de B',children:[]}]}]}];
+  assert.equal((await page.request.put(`${base}/api/presentations/${made.id}`,{data:{title:'Relações',roots:tree}})).status(),200);
+  await page.goto(`${base}/?p=${made.id}`);await page.locator('.node').first().waitFor();
+  await page.locator('#edit-switch').click();await page.locator('#expand').click();
+  const flat=n=>[n,...n.children.flatMap(flat)];
+  const related=async()=>flat((await onDisk(made.id)).roots[0]);
+  await act('a1','Relacionar esta ideia'); // modo "relacionar": Esc cancela sem relacionar
+  assert.equal(await page.evaluate(()=>document.body.classList.contains('is-relating')),true);
+  await page.keyboard.press('Escape');assert.equal(await page.evaluate(()=>document.body.classList.contains('is-relating')),false);
+  assert.equal(await page.locator('#cross-links path').count(),0);
+  await act('a1','Relacionar esta ideia');
+  await page.locator('[data-id="b1"] p').click(); // clica na ideia de destino
+  await until(async()=>(await page.locator('#cross-links path').count())===1,'a linha pontilhada não apareceu');
+  assert.equal(await page.locator('#cross-links circle').count(),2);
+  await until(async()=>(await related()).find(n=>n.id==='a1')?.related?.[0]==='b1','a relação não foi gravada');
+  assert.equal(await page.locator('[data-id="a1"] .related-badge').count(),1); // o selo aparece nos dois lados
+  assert.equal(await page.locator('[data-id="b1"] .related-badge').count(),1);
+  // desfazer e refazer
+  await page.evaluate(()=>{document.querySelector('#toast').hidden=true;document.activeElement?.blur();});
+  await page.keyboard.press('Control+z');await until(async()=>(await page.locator('#cross-links path').count())===0,'desfazer deveria tirar a relação');
+  await page.keyboard.press('Control+y');await until(async()=>(await page.locator('#cross-links path').count())===1,'refazer deveria devolver a relação');
+  // recolher um ramo esconde a linha, mas o selo continua levando até a ideia
+  await page.locator('[data-id="b"] .toggle').click();
+  await until(async()=>(await page.locator('#cross-links path').count())===0,'sem o destino visível não há linha');
+  await page.locator('[data-id="a1"] .related-badge').click();
+  await page.locator('.link-menu button',{hasText:'Filha de B'}).click();
+  await page.locator('[data-id="b1"]').waitFor();assert.equal(await page.locator('#cross-links path').count(),1); // abriu o ramo e foi até lá
+  // modo texto lista as relações
+  await page.locator('#edit-switch').click();await page.locator('#mode').click();
+  assert.match(await page.locator('.reading-related').first().textContent(),/↔ Filha de (A|B)/);
+  await page.locator('#mode').click();await page.locator('#edit-switch').click();
+  // clicar de novo na mesma dupla remove; excluir uma ideia limpa a referência
+  await page.evaluate(()=>{document.querySelector('#toast').hidden=true;});
+  await act('b1','Relacionar esta ideia');await page.locator('[data-id="a1"] p').click();
+  await until(async()=>(await page.locator('#cross-links path').count())===0,'relacionar de novo deveria remover');
+  await page.evaluate(()=>{document.querySelector('#toast').hidden=true;});
+  await act('b1','Relacionar esta ideia');await page.locator('[data-id="a1"] p').click();
+  await until(async()=>(await related()).some(n=>n.related),'relação não gravada de novo');
+  page.once('dialog',d=>d.accept());await act('a1','Excluir');
+  await until(async()=>!(await related()).some(n=>n.related),'a referência solta deveria ser limpa');
+  // duplicar uma ideia com relação interna mantém a ligação dentro da cópia
+  await page.request.put(`${base}/api/presentations/${made.id}`,{data:{title:'Relações',roots:[{id:'r',title:'Raiz',children:[{id:'x',title:'Pai X',children:[{id:'x1',title:'X1',related:['x2'],children:[]},{id:'x2',title:'X2',children:[]}]}]}]}});
+  await page.goto(`${base}/?p=${made.id}`);await page.locator('.node').first().waitFor();await page.locator('#edit-switch').click();await page.locator('#expand').click();
+  assert.equal(await page.locator('#cross-links path').count(),1);
+  await act('x','Duplicar ideia');
+  await until(async()=>(await page.locator('#cross-links path').count())===2,'a cópia deveria ter a própria ligação');
+  const ends=await page.locator('#cross-links path').evaluateAll(els=>els.map(e=>e.dataset.a+'>'+e.dataset.b));assert.equal(new Set(ends).size,2);
+  await page.request.delete(`${base}/api/presentations/${made.id}`);
+  await page.goto(`${base}/`);await page.locator('.node').first().waitFor();
+ }
  // EDIT-27: idioma da interface segue o do navegador (inglês por padrão; pt-BR no Brasil) e ?lang= força um deles
  {
   const open=async(locale,query='')=>{const ctx=await browser.newContext({locale,viewport:{width:1280,height:800},extraHTTPHeaders:{'x-context-maps':'1'}});const pg=await ctx.newPage();await pg.goto(`${base}/${query}`);await pg.locator('.node').first().waitFor();return {ctx,pg};};
@@ -943,5 +998,5 @@ try{
   assert.equal((await other.pg.locator('#edit-switch').textContent()).trim(),'Edit');
   await other.ctx.close();
  }
- assert.deepEqual(errors,[]);console.log('PASS EDIT-01..30');
+ assert.deepEqual(errors,[]);console.log('PASS EDIT-01..31');
 }finally{await browser.close();server.kill();await rm(dir,{recursive:true,force:true});await rm(configDir,{recursive:true,force:true});}
