@@ -2,7 +2,7 @@
 // Uso: PLAYWRIGHT_MODULE=file:///caminho/playwright-core/index.mjs node docs/screenshots.mjs
 // (BROWSER_EXECUTABLE escolhe o Chrome/Chromium.) Não altera a pasta presentations/ do repositório.
 import {spawn} from 'node:child_process';
-import {cp,mkdtemp,mkdir,rm} from 'node:fs/promises';
+import {cp,mkdtemp,mkdir,rm,writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -13,6 +13,8 @@ const out=path.join(root,'docs','images');
 await mkdir(out,{recursive:true});
 const work=await mkdtemp(path.join(tmpdir(),'cm-shots-'));
 await cp(path.join(root,'presentations'),path.join(work,'presentations'),{recursive:true});
+await cp(path.join(root,'collections'),path.join(work,'collections'),{recursive:true}); // a coleção de exemplo do cliente de API
+await writeFile(path.join(work,'collections','context-maps-api','environments','local.bru'),'vars {\n  host: http://127.0.0.1:4210\n}\n');
 const port=4210,base=`http://127.0.0.1:${port}`;
 const server=spawn(process.execPath,['server.mjs'],{cwd:root,env:{...process.env,PORT:String(port),PRESENTATIONS_DIR:path.join(work,'presentations'),CONTEXT_MAPS_CONFIG:path.join(work,'config.json')},stdio:['ignore','pipe','inherit']});
 await new Promise(r=>server.stdout.once('data',r));
@@ -119,5 +121,19 @@ await page.locator('#edit-switch').click();await settle(200);
 await page.locator('#mode').click();await settle(700);
 await shot('09-text-mode.png');
 
+// 10) cliente de API: coleção anexada a um card e uma request enviada (tela dividida)
+await page.locator('#mode').click();await settle(300); // volta do modo texto
+{
+ const doc=await (await page.request.get(`${base}/api/presentations/cidades-para-pessoas`)).json();
+ doc.roots[0].children[3].apis=[{collection:'context-maps-api',path:'presentations',name:'Presentations'}];
+ await page.request.put(`${base}/api/presentations/cidades-para-pessoas`,{data:doc});
+ await page.goto(`${base}/?p=cidades-para-pessoas`);await page.locator('.node').first().waitFor();await settle(400);
+ await page.locator('#expand').click();await settle(400);
+ await page.locator('#api-btn').click();await page.locator('.api-row-name',{hasText:'Get a presentation'}).waitFor();
+ await page.locator('#search-btn').click();await page.keyboard.type('Por onde');await page.keyboard.press('Enter');await settle(900);
+ await page.locator('.api-row-name',{hasText:'Get a presentation'}).click();await page.locator('.api-req-title strong').waitFor();
+ await page.locator('.api-send').click();await page.locator('.api-status strong').waitFor();await settle(500);
+ await shot('10-api-client.png');
+}
 await browser.close();server.kill();await rm(work,{recursive:true,force:true});
 console.log(`Imagens geradas em ${out}`);

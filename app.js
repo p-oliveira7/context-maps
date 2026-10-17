@@ -3,7 +3,7 @@ import {cancelMotion,snapshot,animateLayout,hoverEdge,updateEdges,onEdges} from 
 import * as store from './store.js?v=17';
 import {t,applyStatic} from './i18n.js?v=1';
 import {VERSION} from './version.js?v=1';
-import {initApiClient,openApiPanel,closeApiPanel,isApiOpen} from './api-client.js?v=1';
+import {initApiClient,openApiPanel,closeApiPanel,isApiOpen,setAttachTarget,summarize,API_DRAG_TYPE} from './api-client.js?v=2';
 applyStatic();
 const $=s=>document.querySelector(s), viewport=$('#viewport'), world=$('#world');
 $('#doc-version').textContent=`Context Maps v${VERSION}`;
@@ -269,10 +269,16 @@ async function addImages(node,files){
 const isImageFile=f=>/^image\/(png|jpe?g|webp|gif|svg\+xml)$/.test(f.type)||/\.(png|jpe?g|webp|gif|svg)$/i.test(f.name);
 const hasFiles=e=>!!e.dataTransfer&&[...(e.dataTransfer.types||[])].includes('Files');
 function enableDrop(el,node){
- const over=e=>{if(!hasFiles(e))return;e.preventDefault();e.dataTransfer.dropEffect='copy';el.classList.add('drop-target');};
+ const isApi=e=>!!e.dataTransfer&&[...(e.dataTransfer.types||[])].includes(API_DRAG_TYPE);
+ const over=e=>{if(!hasFiles(e)&&!isApi(e))return;e.preventDefault();e.dataTransfer.dropEffect='copy';el.classList.add('drop-target');};
  el.addEventListener('dragenter',over);el.addEventListener('dragover',over);
  el.addEventListener('dragleave',e=>{if(!el.contains(e.relatedTarget))el.classList.remove('drop-target');});
  el.addEventListener('drop',e=>{
+  if(isApi(e)){
+   e.preventDefault();e.stopPropagation();el.classList.remove('drop-target');
+   try{const ref=JSON.parse(e.dataTransfer.getData(API_DRAG_TYPE));endAttach();attachApi(node,ref);}catch{}
+   return;
+  }
   if(!hasFiles(e))return;
   e.preventDefault();e.stopPropagation();el.classList.remove('drop-target');
   const files=[...e.dataTransfer.files],images=files.filter(isImageFile);
@@ -359,6 +365,58 @@ function startRelate(node){
  showToast(t('relateHint',nameOf(node)),false,600000);
  document.addEventListener('keydown',onRelateKey,true); // Esc vale desde já
  setTimeout(()=>{if(relating)document.addEventListener('click',onRelateClick,true);},0); // o clique que abriu o menu não conta
+}
+
+/* APIs anexadas a um card: um bloco parecido com uma imagem que abre o cliente de API na coleção/pasta escolhida */
+const apiCache=new Map();
+function apiSummary(ref){
+ const key=`${ref.collection}|${ref.path||''}`,hit=apiCache.get(key);
+ if(hit&&Date.now()-hit.at<4000)return hit.promise;
+ const promise=summarize(ref).catch(()=>null);apiCache.set(key,{at:Date.now(),promise});return promise;
+}
+const API_ROWS=4;
+function apiTile(node,ref,index){
+ const readOnly=!!document.getElementById('cm-doc'); // HTML exportado: sem servidor, só o resumo salvo
+ const rows=Array.from({length:API_ROWS},()=>{const row=document.createElement('span');row.className='api-tile-row';return row;});
+ const foot=document.createElement('span');foot.className='api-tile-foot';
+ const head=document.createElement('span');head.className='api-tile-head';head.textContent=t('apiTileLabel',ref.name||ref.collection);
+ const fill=(sum,live)=>{
+  const data=sum||ref.snapshot;
+  rows.forEach((row,i)=>{
+   row.replaceChildren();const r=data?.requests?.[i];if(!r)return;
+   const m=document.createElement('span');m.className=`api-method api-m-${r.method}`;m.textContent=String(r.method).toUpperCase().slice(0,6);
+   const n=document.createElement('span');n.className='api-tile-req';n.textContent=r.name;row.append(m,n);
+  });
+  const count=data?.count??data?.requests?.length??0;
+  foot.textContent=data?`${t('apiTileCount',count)}${count>API_ROWS?` · ${t('apiTileMore',count-API_ROWS)}`:''}${live===false?` · ${t('apiOffline')}`:''}`:t('apiMissing');
+  if(sum&&sum.name)head.textContent=t('apiTileLabel',sum.name);
+ };
+ fill(null,false);
+ if(!readOnly)apiSummary(ref).then(sum=>fill(sum,!!sum));
+ const tile=document.createElement(readOnly?'div':'button');tile.className='api-tile';
+ if(!readOnly){tile.type='button';tile.setAttribute('aria-label',t('apiOpenTile',ref.name||ref.collection));tile.onclick=()=>{openApiPanel({collection:ref.collection,path:ref.path||''});$('#api-btn').setAttribute('aria-expanded','true');};}
+ tile.append(head,...rows,foot);
+ if(!editing||readOnly)return tile;
+ const item=document.createElement('div');item.className='image-item api-item';item.append(tile);
+ const tools=document.createElement('div');tools.className='image-tools';
+ const remove=document.createElement('button');remove.type='button';remove.textContent='×';remove.className='danger';remove.setAttribute('aria-label',`${t('apiDetach')}: ${nameOf(node)}`);
+ remove.onclick=()=>{node.apis.splice(index,1);if(!node.apis.length)delete node.apis;commit();render();};
+ tools.append(remove);item.append(tools);return item;
+}
+let attachTarget=null;
+function startAttach(node){attachTarget=node;openApiPanel();$('#api-btn').setAttribute('aria-expanded','true');setAttachTarget(nameOf(node));}
+function endAttach(){attachTarget=null;setAttachTarget(null);}
+async function attachApi(node,ref){
+ const entry={collection:ref.collection,path:ref.path||'',name:ref.name||ref.collectionName||ref.collection};
+ if((node.apis||[]).some(a=>a.collection===entry.collection&&(a.path||'')===entry.path))return;
+ const sum=await summarize({collection:entry.collection,path:entry.path}).catch(()=>null);
+ if(sum)entry.snapshot={count:sum.count,requests:sum.requests.map(r=>({name:r.name,method:r.method}))};
+ (node.apis||=[]).push(entry);commit();render();revealNode(node.id);
+ showToast(t('apiAttached',entry.name),true,4000);
+}
+function attachFromPanel(ref){
+ if(!attachTarget||!findAny(attachTarget.id)){showToast(t('apiPickCard'),false,6000);return;}
+ const target=attachTarget;endAttach();attachApi(target,ref);
 }
 
 /* Duplicar, copiar e colar ideias (com tudo abaixo). A área de cópia fica no navegador, então vale entre apresentações. */
@@ -468,6 +526,7 @@ function radialItems(node,depth,picker,anchor){
  items.push(
   {icon:'▣',label:t('image'),aria:t('addImage'),run:()=>picker.click()},
   {icon:'◇',label:t('diagram'),aria:t('addDiagram'),run:()=>openDiagramEditor(node,null)},
+  {icon:'{ }',label:t('apiButton'),aria:t('apiAttach'),run:()=>startAttach(node)},
   {icon:'↗',label:t('link'),aria:t('addLink'),run:()=>addLink(node)});
  items.push({icon:'⇄',label:t('relate'),aria:t('relateIdea'),run:()=>startRelate(node)},{icon:'⧉',label:t('duplicate'),aria:t('duplicateIdea'),run:()=>duplicateNode(node)},{icon:'⎘',label:t('copy'),aria:t('copyIdea'),run:()=>copyNode(node)});
  if((readClip()||memoryClip)?.kind==='context-maps-node')items.push({icon:'⎗',label:t('paste'),aria:t('pasteIdea'),run:()=>pasteNode(node)});
@@ -766,7 +825,9 @@ function render(){
   if(!editing&&!node.children.length)el.tabIndex=0; // folhas também recebem foco do teclado
   el.addEventListener('pointerenter',()=>{hoverEdge(node.id,true);hoverCross(node.id,true);});el.addEventListener('pointerleave',()=>{hoverEdge(node.id,false);hoverCross(node.id,false);});
   const images=imagesOf(node);
-  if(images.length){el.classList.add('has-image');images.forEach((image,i)=>el.append(imageItem(node,image,i)));}
+  if(images.length||(node.apis||[]).length)el.classList.add('has-image');
+  images.forEach((image,i)=>el.append(imageItem(node,image,i)));
+  (node.apis||[]).forEach((ref,i)=>el.append(apiTile(node,ref,i)));
   const text=document.createElement(isRoot?'h1':'p');el.append(text);
   const titled=node.title.trim().length>0;
   if(!titled&&!editing){text.hidden=true;el.classList.add('no-title');}
@@ -893,6 +954,7 @@ function buildReading(){
   if(node.subtitle){const sp=document.createElement('p');sp.className='reading-subtitle';sp.textContent=node.subtitle;article.append(sp);}
   imagesOf(node).forEach(image=>article.append(imageFor(image)));
   if(linksOf(node).length){const row=document.createElement('div');row.className='reading-links';linksOf(node).forEach(l=>row.append(anchorFor(l,'reading-link')));article.append(row);}
+  for(const ref of node.apis||[]){const p=document.createElement('p');p.className='reading-api';p.textContent=`${t('apiReadingLabel',ref.name||ref.collection,t('apiTileCount',ref.snapshot?.count??0))}`;article.append(p);}
   {const rels=relationsOf(node.id);if(rels.length){const p=document.createElement('p');p.className='reading-related';p.textContent=`↔ ${rels.map(nameOf).join(' · ')}`;article.append(p);}}
   node.children.forEach(c=>walk(c,depth+1));
  };
@@ -1067,7 +1129,7 @@ searchInput.addEventListener('keydown',e=>{
  else if(e.key==='Enter'){e.preventDefault();chooseSearch(searchIndex);}
  else if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();if(searchHits.length){searchIndex=(searchIndex+(e.key==='ArrowDown'?1:-1)+searchHits.length)%searchHits.length;renderSearch();searchList.children[searchIndex]?.scrollIntoView({block:'nearest'});}}
 });
-initApiClient({toast:message=>showToast(message,false,5000),onClose:()=>$('#api-btn').setAttribute('aria-expanded','false')});
+initApiClient({toast:message=>showToast(message,false,5000),onClose:()=>{$('#api-btn').setAttribute('aria-expanded','false');endAttach();},attach:ref=>attachFromPanel(ref),attachCancel:()=>endAttach()});
 $('#api-btn').onclick=()=>{if(isApiOpen()){closeApiPanel();}else{openApiPanel();$('#api-btn').setAttribute('aria-expanded','true');}};
 $('#search-btn').onclick=()=>searchPanel.hidden?openSearch():closeSearch();
 document.addEventListener('pointerdown',e=>{if(!searchPanel.hidden&&!e.target.closest('#search-panel,#search-btn'))closeSearch(false);});

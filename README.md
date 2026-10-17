@@ -41,7 +41,7 @@ publishes the finished map with images, diagrams and links.
 - [Why Context Maps](#why-context-maps)
 - [How it fits together](#how-it-fits-together)
 - [Getting started](#getting-started)
-- [Features](#features) — [navigate](#navigate-and-read) · [edit](#edit) · [diagrams](#images-diagrams-and-links) · [export](#export-import-and-share) · [save as](#save-as-and-folders)
+- [Features](#features) — [navigate](#navigate-and-read) · [edit](#edit) · [diagrams](#images-diagrams-and-links) · [API client](#api-client-split-view) · [export](#export-import-and-share) · [save as](#save-as-and-folders)
 - [Agent skill](#agent-skill)
 - [Data format](#data-format) · [Server API](#server-api) · [Security](#security)
 - [Tests](#tests) · [Regenerating the screenshots](#regenerating-the-screenshots)
@@ -95,6 +95,7 @@ Open <http://127.0.0.1:4173>. On first run the server creates the demo presentat
 | `PORT` | `4173` | Server port |
 | `PRESENTATIONS_DIR` | `./presentations` | Main library folder |
 | `CONTEXT_MAPS_CONFIG` | `./.context-maps.json` | Where the extra folders are remembered |
+| `COLLECTIONS_DIR` | `./collections` | API client collections (Bruno format); secrets go to `.secrets/` inside it |
 
 > Without the server (for example `python -m http.server`) the app opens in **view mode only**, with the
 > built-in demo map. Do not open `index.html` through `file://` (it uses ES modules).
@@ -197,6 +198,26 @@ arriving at it never change.
 - **Export as HTML…** downloads a single `.html` file with the viewer, the map and all images inside. It opens offline in any browser, read-only — send it by e-mail or attach it to a ticket.
 - **Export as ZIP…** downloads the presentation files: `<name>.json` plus the `<name>/assets/` folder with its images. Unzip it into a repository folder (and **Add folder…**) or hand it to a teammate.
 - **Import…** (same menu) reads a **ZIP package** or an **exported HTML file** and opens the result as a new presentation. Names stay unique (a repeated name gets " (2)"), images are copied into `presentations/<id>/assets/`, and references to files that are not in the package are dropped. Nothing in the file is executed.
+
+### API client (split view)
+
+<p align="center">
+  <img src="docs/images/10-api-client.png" alt="The API client in a split view next to the map, with a collection attached to a card" width="920"><br>
+  <sub>Map on the left, API client on the right: the tile on the card is a collection attached to it.</sub>
+</p>
+
+The **API** button in the bottom bar splits the screen: the map stays on the left and a **Postman/Bruno-style client** opens on the right (drag its edge, or use the arrow keys on it, to resize).
+
+- **Collections in the Bruno format.** Each collection is a folder in `collections/` (`bruno.json`, one `.bru` file per request, folders, `environments/*.bru`). It is plain text, so it versions well with Git and opens in [Bruno](https://www.usebruno.com/). Create, import (**⋯ › Import**, a Bruno ZIP) and export (ZIP) from the panel.
+- **Requests.** Method, URL (query and `:path` params stay in sync with the URL), headers, bodies (JSON, text, XML, form URL-encoded), bearer and basic auth, request variables and docs. Changes are saved automatically to the `.bru` file. **Ctrl+Enter** sends.
+- **Variables and environments.** Use `{{name}}` anywhere (order: collection < environment < request variables) plus `{{$timestamp}}`, `{{$isoTimestamp}}`, `{{$guid}}` and `{{$randomInt}}`. The **Vars** tab shows the resolved request. Environments are edited with ⚙; mark a value as **Secret** and it is stored only on this machine (`collections/.secrets/`, git-ignored) — never in the `.bru` files, ZIP exports or the repository.
+- **Sending.** Requests go through the local server (no CORS limits; only `http`/`https`, 30 s timeout, 10 MB response). The response shows status, time, size, headers and a formatted body.
+- **Scripts and tests** (`script:`, `tests`, `assert` blocks) are preserved in the file, so Bruno can run them, but they are **not executed** by this client yet.
+- **Reorder** requests and folders by dragging them in the tree.
+
+**Attach to a card.** Drag a collection or folder from the panel onto a card (edit mode), or open the card's wheel, choose **API** and press ⤓ on a collection or folder. The card shows a tile, like an image, with the first requests; clicking it opens the client at that folder. The tile keeps a saved snapshot, so it still reads in text mode and in exported HTML (where it is not clickable, since there is no server).
+
+An example collection, **Context Maps API**, ships in `collections/` and documents the app's own API (choose the `local` environment).
 
 ### Save as and folders
 
@@ -312,6 +333,8 @@ Listens on `127.0.0.1` only. Every route answers JSON with `Cache-Control: no-st
 | `GET/POST /api/libraries`, `DELETE /api/libraries/:key` | List, add or forget extra folders |
 | `POST /api/pick-folder` | Opens the system folder picker and returns the chosen path |
 | `GET /api/presentations/:id/export?format=html\|zip` | Download the presentation as one self-contained HTML file or as a ZIP package |
+| `GET/POST/DELETE /api/collections…` | Collections in the Bruno format: list, create, items, requests, environments, ZIP export/import (`/api/collections/import`) |
+| `POST /api/send` | Send an HTTP request from the local server (`http`/`https` only) for the API client |
 | `POST /api/import?name=…` | Import a ZIP package or an exported HTML file (raw body) as a new presentation |
 | `DELETE /api/presentations/:id` | Remove the file and its images |
 | `POST /api/presentations/:id/assets?name=…` | Upload an image (png, jpg, webp, gif, svg; up to 15 MB) |
@@ -320,7 +343,7 @@ Listens on `127.0.0.1` only. Every route answers JSON with `Cache-Control: no-st
 
 Every request that changes something must carry the `x-context-maps: 1` header (other web pages cannot send
 it to your local server) and the `Host` must be local. There is no access to files outside the app folder and
-the registered libraries, only http/https links are accepted, and Mermaid runs with `securityLevel: strict`.
+the registered libraries, only http/https links are accepted, and Mermaid runs with `securityLevel: strict`. `POST /api/send` (the API client proxy) is protected the same way, but note that it can reach any host your machine can — including `localhost` services — so use the app only on a machine and network you trust.
 
 ## Tests
 
@@ -328,7 +351,7 @@ the registered libraries, only http/https links are accepted, and Mermaid runs w
 
 ```bash
 npm install --no-save playwright-core   # once; or set PLAYWRIGHT_MODULE to an existing playwright-core
-npm run test:e2e                        # edit, skill, browser, cards, motion and a11y, with an isolated temporary server
+npm run test:e2e                        # edit, skill, collections, api, browser, cards, motion and a11y, with an isolated temporary server
 node tests/edit.mjs                     # or run a single suite
 ```
 
@@ -339,6 +362,8 @@ node tests/edit.mjs                     # or run a single suite
 | `browser` MAP-01..11 | navigation, zoom, text mode, mobile, full screen |
 | `cards` CARD-01..06 | titles, root, keyboard, images |
 | `motion` MOT-01..05 | animations and reduced motion |
+| `collections` COLL-01..06 · `bru` BRU-01..05 | Bruno format, collections API, secrets, ZIP |
+| `api` API-01..10 | split-view client, environments, sending, attaching to cards |
 | `a11y` A11Y-01..07 | tree semantics, keyboard navigation, accessible names, dialog focus, pinch zoom |
 
 `BROWSER_EXECUTABLE` selects a specific Chrome/Chromium binary. The same checks run on Linux, macOS and Windows

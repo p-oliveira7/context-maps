@@ -41,7 +41,7 @@ decisões — e publica o mapa pronto, com imagens, diagramas e links.
 - [Por que Context Maps](#por-que-context-maps)
 - [Como as peças se encaixam](#como-as-peças-se-encaixam)
 - [Começando](#começando)
-- [Recursos](#recursos) — [navegar](#navegar-e-ler) · [editar](#editar) · [diagramas](#imagens-diagramas-e-links) · [exportar](#exportar-importar-e-compartilhar) · [salvar como](#salvar-como-e-pastas)
+- [Recursos](#recursos) — [navegar](#navegar-e-ler) · [editar](#editar) · [diagramas](#imagens-diagramas-e-links) · [cliente de API](#cliente-de-api-tela-dividida) · [exportar](#exportar-importar-e-compartilhar) · [salvar como](#salvar-como-e-pastas)
 - [Skill para agentes](#skill-para-agentes)
 - [Formato dos dados](#formato-dos-dados) · [API do servidor](#api-do-servidor) · [Segurança](#segurança)
 - [Testes](#testes) · [Regenerando as imagens](#regenerando-as-imagens)
@@ -95,6 +95,7 @@ Abra <http://127.0.0.1:4173>. Na primeira execução o servidor cria a apresenta
 | `PORT` | `4173` | Porta do servidor |
 | `PRESENTATIONS_DIR` | `./presentations` | Pasta da biblioteca principal |
 | `CONTEXT_MAPS_CONFIG` | `./.context-maps.json` | Onde as pastas extras ficam registradas |
+| `COLLECTIONS_DIR` | `./collections` | Coleções do cliente de API (formato Bruno); os segredos vão para `.secrets/` dentro dela |
 
 > Sem o servidor (por exemplo `python -m http.server`), o app abre **somente em exibição**, com o mapa
 > de demonstração embutido. Não abra o `index.html` por `file://` (usa módulos ES).
@@ -197,6 +198,26 @@ chega até ele nunca mudam.
 - **Exportar como HTML…** baixa um único arquivo `.html` com o visualizador, o mapa e todas as imagens dentro. Ele abre offline em qualquer navegador, somente leitura — dá para mandar por e-mail ou anexar a um chamado.
 - **Exportar como ZIP…** baixa os arquivos da apresentação: `<nome>.json` mais a pasta `<nome>/assets/` com as imagens. Descompacte numa pasta de um repositório (e use **Adicionar pasta…**) ou entregue a um colega.
 - **Importar…** (no mesmo menu) lê um **pacote ZIP** ou um **HTML exportado** e abre o resultado como uma apresentação nova. Os nomes continuam únicos (um nome repetido ganha " (2)"), as imagens são copiadas para `presentations/<id>/assets/` e referências a arquivos que não estão no pacote são descartadas. Nada do arquivo é executado.
+
+### Cliente de API (tela dividida)
+
+<p align="center">
+  <img src="docs/images/10-api-client.png" alt="O cliente de API em tela dividida ao lado do mapa, com uma coleção anexada a um card" width="920"><br>
+  <sub>Mapa à esquerda, cliente de API à direita: o bloco no card é uma coleção anexada a ele.</sub>
+</p>
+
+O botão **API** na barra inferior divide a tela: o mapa fica à esquerda e abre à direita um **cliente no estilo Postman/Bruno** (arraste a borda, ou use as setas nela, para redimensionar).
+
+- **Coleções no formato do Bruno.** Cada coleção é uma pasta em `collections/` (`bruno.json`, um arquivo `.bru` por request, pastas, `environments/*.bru`). É texto puro: versiona bem no Git e abre no [Bruno](https://www.usebruno.com/). Crie, importe (**⋯ › Importar**, um ZIP do Bruno) e exporte (ZIP) pelo painel.
+- **Requests.** Método, URL (os parâmetros de consulta e de caminho `:id` ficam sincronizados com a URL), cabeçalhos, corpos (JSON, texto, XML, form URL-encoded), autenticação bearer e basic, variáveis da request e docs. As mudanças são salvas sozinhas no arquivo `.bru`. **Ctrl+Enter** envia.
+- **Variáveis e ambientes.** Use `{{nome}}` em qualquer lugar (ordem: coleção < ambiente < variáveis da request) e também `{{$timestamp}}`, `{{$isoTimestamp}}`, `{{$guid}}` e `{{$randomInt}}`. A aba **Variáveis** mostra a request resolvida. Os ambientes se editam em ⚙; marque um valor como **Segredo** e ele fica só nesta máquina (`collections/.secrets/`, fora do Git) — nunca nos arquivos `.bru`, nas exportações ZIP nem no repositório.
+- **Envio.** As requests passam pelo servidor local (sem limites de CORS; só `http`/`https`, 30 s de tempo limite, 10 MB de resposta). A resposta mostra status, tempo, tamanho, cabeçalhos e o corpo formatado.
+- **Scripts e testes** (blocos `script:`, `tests`, `assert`) ficam guardados no arquivo, então o Bruno consegue executá-los, mas este cliente **ainda não os executa**.
+- **Reordene** requests e pastas arrastando na árvore.
+
+**Anexar a um card.** Arraste uma coleção ou pasta do painel para um card (modo edição), ou abra a roda do card, escolha **API** e clique em ⤓ numa coleção ou pasta. O card mostra um bloco, como uma imagem, com as primeiras requests; clicar nele abre o cliente naquela pasta. O bloco guarda um resumo salvo, então continua legível no modo texto e no HTML exportado (onde não é clicável, já que não há servidor).
+
+Uma coleção de exemplo, **Context Maps API**, acompanha o projeto em `collections/` e documenta a própria API do app (escolha o ambiente `local`).
 
 ### Salvar como e pastas
 
@@ -312,6 +333,8 @@ Escuta apenas em `127.0.0.1`. Todas as rotas respondem JSON e `Cache-Control: no
 | `GET/POST /api/libraries`, `DELETE /api/libraries/:key` | Lista, adiciona ou esquece pastas extras |
 | `POST /api/pick-folder` | Abre o seletor de pastas do sistema e devolve o caminho escolhido |
 | `GET /api/presentations/:id/export?format=html\|zip` | Baixa a apresentação como um HTML único e autocontido ou como pacote ZIP |
+| `GET/POST/DELETE /api/collections…` | Coleções no formato do Bruno: listar, criar, itens, requests, ambientes, exportar/importar ZIP (`/api/collections/import`) |
+| `POST /api/send` | Envia uma requisição HTTP a partir do servidor local (só `http`/`https`) para o cliente de API |
 | `POST /api/import?name=…` | Importa um pacote ZIP ou um HTML exportado (corpo bruto) como uma apresentação nova |
 | `DELETE /api/presentations/:id` | Remove o arquivo e as imagens |
 | `POST /api/presentations/:id/assets?name=…` | Envia imagem (png, jpg, webp, gif, svg; até 15 MB) |
@@ -320,7 +343,7 @@ Escuta apenas em `127.0.0.1`. Todas as rotas respondem JSON e `Cache-Control: no
 
 Toda requisição que altera algo precisa do cabeçalho `x-context-maps: 1` (outras páginas web não conseguem
 enviá-lo ao seu servidor local) e o `Host` precisa ser local. Não há acesso a arquivos fora da pasta do app e
-das bibliotecas registradas, só links http/https são aceitos e o Mermaid roda em `securityLevel: strict`.
+das bibliotecas registradas, só links http/https são aceitos e o Mermaid roda em `securityLevel: strict`. O `POST /api/send` (o proxy do cliente de API) tem a mesma proteção, mas lembre que ele alcança qualquer host que a sua máquina alcança — inclusive serviços em `localhost` — então use o app só numa máquina e rede de confiança.
 
 ## Testes
 
@@ -328,7 +351,7 @@ das bibliotecas registradas, só links http/https são aceitos e o Mermaid roda 
 
 ```bash
 npm install --no-save playwright-core   # uma vez; ou defina PLAYWRIGHT_MODULE para um playwright-core existente
-npm run test:e2e                        # edit, skill, browser, cards, motion e a11y, com servidor temporário isolado
+npm run test:e2e                        # edit, skill, collections, api, browser, cards, motion e a11y, com servidor temporário isolado
 node tests/edit.mjs                     # ou rode uma suíte só
 ```
 
@@ -339,6 +362,8 @@ node tests/edit.mjs                     # ou rode uma suíte só
 | `browser` MAP-01..11 | navegação, zoom, modo texto, mobile, tela cheia |
 | `cards` CARD-01..06 | títulos, raiz, teclado, imagens |
 | `motion` MOT-01..05 | animações e movimento reduzido |
+| `collections` COLL-01..06 · `bru` BRU-01..05 | formato Bruno, API de coleções, segredos, ZIP |
+| `api` API-01..10 | cliente em tela dividida, ambientes, envio, anexar a cards |
 | `a11y` A11Y-01..07 | semântica de árvore, navegação por teclado, nomes acessíveis, foco nas janelas, zoom por pinça |
 
 `BROWSER_EXECUTABLE` escolhe um binário específico do Chrome/Chromium. As mesmas verificações rodam em Linux,

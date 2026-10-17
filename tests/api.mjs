@@ -153,6 +153,73 @@ try{
  await page.locator('#api-panel button[aria-label="Fechar o cliente de API"]').click();
  await page.locator('#api-panel').waitFor({state:'hidden'});assert.equal(await mapWidth(),full);
 
+ // API-10: anexar coleções e pastas a um card (arrastar do painel ou pela roda), tile como imagem, texto e HTML exportado
+ {
+  await call('POST','/collections',{name:'Grupo API'});
+  const folder=await call('POST','/collections/grupo-api/items',{type:'folder',name:'Pedidos'});
+  await call('POST','/collections/grupo-api/items',{type:'request',parent:folder.path,name:'Listar pedidos',method:'get',url:'{{host}}/orders'});
+  await call('POST','/collections/grupo-api/items',{type:'request',parent:folder.path,name:'Criar pedido',method:'post',url:'{{host}}/orders'});
+  await call('POST','/collections/grupo-api/items',{type:'request',name:'Saúde',method:'get',url:'{{host}}/health'});
+  const doc={title:'Com API',roots:[{id:'r',title:'Sistema',children:[{id:'c1',title:'Pedidos',children:[]},{id:'c2',title:'Saúde',children:[]}]}]};
+  const made=await call('POST','/presentations',{title:'Com API'});
+  await call('PUT',`/presentations/${made.id}`,doc);
+  await page.goto(`${base}/?p=${made.id}`);await page.locator('.node').first().waitFor();await page.locator('#expand').click();
+  await page.locator('#edit-switch').click();
+  await page.locator('#api-btn').click();await page.locator('#api-panel').waitFor({state:'visible'});
+  await page.locator('#api-panel select[aria-label="Coleção"]').selectOption('grupo-api');
+  await page.locator('.api-row[data-path="pedidos"]').waitFor();
+  // arrastar a pasta do painel para o card
+  await page.locator('.api-row[data-path="pedidos"]').dragTo(page.locator('[data-id="c1"]'));
+  await page.locator('[data-id="c1"] .api-tile').waitFor();
+  const tile=page.locator('[data-id="c1"] .api-tile');
+  await tile.locator('.api-tile-req',{hasText:'Listar pedidos'}).waitFor();
+  assert.match(await tile.textContent(),/Pedidos/);assert.match(await tile.textContent(),/2 requests/);
+  const saved=async id=>JSON.parse(await readFile(path.join(work,'presentations',`${id}.json`),'utf8'));
+  for(let i=0;i<40&&!(await saved(made.id)).roots[0].children[0].apis;i++)await new Promise(r=>setTimeout(r,100));
+  const ref=(await saved(made.id)).roots[0].children[0].apis[0];
+  assert.deepEqual([ref.collection,ref.path,ref.name],['grupo-api','pedidos','Pedidos']);
+  assert.deepEqual(ref.snapshot.requests.map(r=>r.name),['Listar pedidos','Criar pedido']); // resumo guardado para uso offline
+  // pela roda de ações: a faixa avisa o alvo e o ⤓ da coleção anexa
+  await page.locator('[data-id="c2"]').hover();await page.locator('[data-id="c2"] .edit-fab').click();
+  await page.locator('#radial-menu [aria-label^="Anexar ao card"]').click();
+  await page.locator('.api-attach-banner').waitFor({state:'visible'});assert.match(await page.locator('.api-attach-banner').textContent(),/Saúde/);
+  await page.locator('.api-collection-row .api-attach').click();
+  await page.locator('[data-id="c2"] .api-tile').waitFor();assert.equal(await page.locator('.api-attach-banner').isVisible(),false);
+  assert.match(await page.locator('[data-id="c2"] .api-tile').textContent(),/3 requests/);
+  // sem alvo, o ⤓ só explica o caminho
+  await page.locator('.api-collection-row .api-attach').click();
+  await page.locator('#toast-text',{hasText:/roda do card/}).waitFor();
+  // clicar no tile (modo exibição) abre o cliente de API na pasta
+  await page.locator('#edit-switch').click();
+  await page.locator('#api-panel button[aria-label="Fechar o cliente de API"]').click();
+  await page.locator('[data-id="c1"] .api-tile').click();
+  await page.locator('#api-panel').waitFor({state:'visible'});
+  await page.locator('.api-row.is-active,.api-row[aria-expanded=true]',{hasText:'Pedidos'}).waitFor();
+  await page.locator('#api-panel button[aria-label="Fechar o cliente de API"]').click();
+  // modo texto lista a API
+  await page.locator('#mode').click();assert.match(await page.locator('.reading-api').first().textContent(),/API: Pedidos \(2 requests\)/);await page.locator('#mode').click();
+  // HTML exportado: o tile aparece com o resumo, sem servidor, e não é um botão
+  const html=await (await page.request.get(`${base}/api/presentations/${made.id}/export?format=html`)).text();
+  const exported=path.join(work,'exportado-api.html');await (await import('node:fs/promises')).writeFile(exported,html);
+  const offline=await ctx.browser().newContext({locale:'pt-BR',viewport:{width:1400,height:800},offline:true});
+  const off=await offline.newPage();const offErrors=[];off.on('pageerror',e=>offErrors.push(e.message));
+  await off.goto(`file:///${exported.replaceAll(String.fromCharCode(92),'/')}`);await off.locator('.node').first().waitFor();await off.locator('#expand').click();
+  await off.locator('[data-id="c1"] .api-tile .api-tile-req',{hasText:'Listar pedidos'}).waitFor();
+  assert.equal(await off.locator('[data-id="c1"] button.api-tile').count(),0);assert.equal(await off.locator('#api-btn').isVisible(),false);
+  assert.deepEqual(offErrors,[]);await offline.close();
+  // remover o tile e desfazer/refazer; excluir a coleção deixa o tile avisando
+  await page.locator('#edit-switch').click();
+  await page.locator('[data-id="c2"] .api-item').hover();await page.locator('[data-id="c2"] .api-item .image-tools button').click();
+  await page.locator('[data-id="c2"] .api-tile').waitFor({state:'detached'});
+  await page.evaluate(()=>{document.querySelector('#toast').hidden=true;document.activeElement?.blur();});
+  await page.keyboard.press('Control+z');await page.locator('[data-id="c2"] .api-tile').waitFor();
+  await call('DELETE','/collections/grupo-api');
+  await page.reload();await page.locator('.node').first().waitFor();await page.locator('#expand').click();
+  await page.locator('[data-id="c1"] .api-tile-foot',{hasText:/não encontrada|saved snapshot|resumo salvo/}).waitFor();
+  assert.equal((await fetch(`${base}/api/presentations/${made.id}`,{method:'PUT',headers:H,body:JSON.stringify({title:'x',roots:[{id:'r',title:'r',children:[],apis:[{collection:'../x'}]}]})})).status,400); // referência inválida é recusada
+  await call('DELETE',`/presentations/${made.id}`);
+  await page.goto(base);await page.locator('.node').first().waitFor();
+ }
  // API-09: o proxy só aceita http/https e exige o cabeçalho do app
  assert.equal((await fetch(`${base}/api/send`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({url:`${host}/x`})})).status,403);
  assert.equal((await fetch(`${base}/api/send`,{method:'POST',headers:H,body:JSON.stringify({url:'file:///etc/passwd'})})).status,400);
@@ -161,5 +228,5 @@ try{
  assert.equal(seen.some(s=>s.url==='/x'),false);
  assert.equal(existsSync(path.join(collections,'.secrets')),true);
  assert.deepEqual(errors,[]);
- console.log('PASS API-01..09 API client panel');
+ console.log('PASS API-01..10 API client panel');
 }finally{await browser.close();server.kill();target.close();await rm(work,{recursive:true,force:true});}

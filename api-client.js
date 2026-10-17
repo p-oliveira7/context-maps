@@ -155,7 +155,7 @@ function treeRows(items,depth,q){
  return items.filter(it=>matches(it,q)).flatMap(it=>{
   const isFolder=it.type==='folder',open=q?true:state.expanded.has(it.path);
   const row=h('li',{role:'treeitem','aria-level':String(depth+1),'aria-expanded':isFolder?String(open):null,'aria-selected':String(!isFolder&&it.path===state.reqPath),class:`api-row${!isFolder&&it.path===state.reqPath?' is-active':''}`,style:`--depth:${depth}`,draggable:'true',dataset:{path:it.path}},
-   h('button',{type:'button',class:'api-row-main',onClick:()=>{if(isFolder){state.expanded.has(it.path)?state.expanded.delete(it.path):state.expanded.add(it.path);renderTree();}else openRequest(it.path);}},
+   h('button',{type:'button',class:'api-row-main',draggable:'true',onClick:()=>{if(isFolder){state.expanded.has(it.path)?state.expanded.delete(it.path):state.expanded.add(it.path);renderTree();}else openRequest(it.path);}},
     isFolder?h('span',{class:'api-caret','aria-hidden':'true'},open?'▾':'▸'):methodBadge(it.method),
     h('span',{class:'api-row-name'},isFolder?`📁 ${it.name}`:it.name)),
    h('span',{class:'api-row-actions'},
@@ -395,7 +395,8 @@ function build(){
   h('div',{class:'api-tree-tools'},filter,h('button',{type:'button',class:'api-icon-btn',title:t('apiNewRequest'),'aria-label':t('apiNewRequest'),onClick:()=>state.coll&&newItem('request','')},'+'),h('button',{type:'button',class:'api-icon-btn',title:t('apiNewFolder'),'aria-label':t('apiNewFolder'),onClick:()=>state.coll&&newItem('folder','')},'▤')),
   els.tree);
  const resizer=h('div',{class:'api-resizer',role:'separator','aria-orientation':'vertical','aria-label':t('apiResize'),tabindex:'0'});
- panel=h('aside',{id:'api-panel',class:'api-panel',role:'complementary','aria-label':t('apiTitle'),hidden:true},resizer,els.head,h('div',{class:'api-body'},treeCol,els.main),els.importInput);
+ els.banner=h('div',{class:'api-attach-banner',role:'status',hidden:true},h('span',{}),h('button',{type:'button',class:'api-btn',onClick:()=>{setAttachTarget(null);hooks.attachCancel?.();}},t('apiAttachCancel')));
+ panel=h('aside',{id:'api-panel',class:'api-panel',role:'complementary','aria-label':t('apiTitle'),hidden:true},resizer,els.head,els.banner,h('div',{class:'api-body'},treeCol,els.main),els.importInput);
  document.body.append(panel);
  // largura: arrastar a borda ou usar as setas
  const setWidth=px=>{const w=Math.min(Math.max(px,420),window.innerWidth-260);document.documentElement.style.setProperty('--api-w',`${w}px`);store.set('cm-api-width',String(Math.round(w)));};
@@ -416,6 +417,10 @@ function build(){
 /* ---------- interface pública ---------- */
 export function initApiClient(options={}){hooks=options;}
 export const isApiOpen=()=>state.open;
+export function setAttachTarget(label){ // faixa no topo do painel: aviso de que o próximo ⤓ vai para este card
+ if(!panel)build();
+ els.banner.hidden=!label;if(label)els.banner.firstChild.textContent=t('apiAttachBanner',label);
+}
 export async function openApiPanel({collection,path}={}){
  if(!panel)build();
  state.open=true;panel.hidden=false;document.body.classList.add('api-open');

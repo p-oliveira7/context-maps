@@ -461,3 +461,20 @@ body.api-resizing{cursor:col-resize;user-select:none}
 .api-modal-card header,.api-modal-card footer{display:flex;align-items:center;justify-content:space-between;gap:.5rem}
 .api-modal-card h3{margin:0;font-size:.95rem}
 @media (max-width:900px){body.api-open #viewport{right:0;bottom:55vh}.api-panel{top:auto;left:0;width:auto;height:55vh;border-left:0;border-top:1px solid #ffffff1f}body.api-open .toolbar{left:50%;bottom:calc(55vh + .6rem)}body.api-open .zoom-controls{right:1rem;bottom:calc(55vh + .6rem)}.api-resizer{display:none}.api-tree-col{width:42%}}
+
+/* Cartão de API dentro do card (parece uma imagem; abre o cliente de API) */
+.node .api-tile{display:flex;flex-direction:column;gap:3px;width:100%;margin-bottom:10px;padding:.65rem .75rem;text-align:left;border-radius:8px;border:1px solid #ffffff1f;background:linear-gradient(160deg,#ffffff10,#ffffff05);color:#ffffffd9;font:inherit;cursor:pointer;box-shadow:inset 0 0 0 1px #ffffff0a}
+.node div.api-tile{cursor:default}
+.node .api-tile:hover{border-color:#4f9d7a88;background:linear-gradient(160deg,#4f9d7a22,#ffffff08)}
+.api-tile-head{font-weight:700;font-size:.82rem;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.api-tile-row{display:flex;align-items:center;gap:.5rem;min-height:1.25rem;font-size:.74rem}
+.api-tile-req{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#ffffffc7}
+.api-tile-foot{margin-top:2px;font-size:.68rem;color:#ffffff80}
+.node .api-tile .api-method{min-width:2.6rem;text-align:left}
+.api-item .api-tile{margin-bottom:10px}
+.reading-api{margin:.2rem 0 .8rem;color:#8fd1b0;font-size:.82rem}
+.api-attach-banner{display:flex;align-items:center;justify-content:space-between;gap:.6rem;padding:.45rem .8rem;background:#2f7d5d33;border-bottom:1px solid #2f7d5d88;color:#d6f2e4;font-size:.76rem}
+.api-attach-banner[hidden]{display:none}
+.api-row .api-attach{color:#8fd1b0}
+.api-collection-row .api-attach{color:#8fd1b0}
+body.is-editing .node.drop-target{outline:2px dashed #4f9d7a;outline-offset:6px;border-radius:12px}
