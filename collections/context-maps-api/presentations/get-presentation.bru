@@ -1,0 +1,19 @@
+meta {
+  name: Get a presentation
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{host}}/api/presentations/:id
+  body: none
+  auth: none
+}
+
+params:path {
+  id: cidades-para-pessoas
+}
+
+docs {
+  Change the id in the Params tab.
+}

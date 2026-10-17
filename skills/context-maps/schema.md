@@ -33,6 +33,7 @@
 - `color`: optional, only on direct children of the root (the others inherit).
 - `linksColor`: optional colour of the lines that leave this node towards its children (any node with children, including the root); it does not affect the node, its children or the line that arrives at it.
 - `related`: optional array of node ids (same presentation) linked to this node as cross-links; the relation works in both directions and ids of deleted nodes are dropped on save. In outlines use `[rel:Title]`.
+- `apis`: optional array of API references attached to the card, `{collection, path, name, snapshot?}` (`collection` = folder name in `collections/`, `path` = folder inside it, empty for the whole collection). Created by the app (Attach to card); the skill does not write it.
 - `images`: optional list (images and/or diagrams, in display order). The legacy single `image` field is still read and migrated on save.
 - `subtitle`: optional supporting text (up to 2000 characters), shown only while hovering the card.
 - `links`: optional list of `{url, label?}` (http/https only), shown as an "N link(s)" badge below the card.

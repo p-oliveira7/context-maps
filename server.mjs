@@ -10,6 +10,8 @@ import {fileURLToPath} from 'node:url';
 import {tree as seed} from './model.js';
 import {buildHtml} from './export.mjs';
 import {writeZip,readZip} from './zip.mjs';
+import {createCollections} from './collections.mjs';
+import {sendRequest} from './send.mjs';
 
 const root=path.dirname(fileURLToPath(import.meta.url));
 const dataDir=path.resolve(process.env.PRESENTATIONS_DIR||path.join(root,'presentations'));
@@ -31,7 +33,7 @@ const EN={
  'Rota inexistente':'Route not found','Identificador inválido ou já existente':'Invalid or already existing identifier',
  'Identificador inválido':'Invalid identifier','Apresentação inexistente':'Presentation not found',
  'Formato de imagem não suportado':'Unsupported image format','Informe um nome para a cópia':'Enter a name for the copy',
- 'Estrutura inválida':'Invalid structure','Formato de exportação inválido':'Invalid export format','Arquivo de importação inválido':'Invalid import file','Pacote sem apresentação (.json)':'Package has no presentation (.json)','Não encontrado':'Not found','Erro interno':'Internal error'
+ 'Estrutura inválida':'Invalid structure','Formato de exportação inválido':'Invalid export format','Arquivo de importação inválido':'Invalid import file','Informe um nome':'Enter a name','Método inválido':'Invalid method','URL inválida':'Invalid URL','Só http e https são aceitos':'Only http and https are accepted','Caminho inválido':'Invalid path','Pasta inexistente':'Folder not found','Tipo inválido':'Invalid type','Request inexistente':'Request not found','Item inexistente':'Item not found','Coleção inexistente':'Collection not found','Ambiente inexistente':'Environment not found','Pacote sem bruno.json':'Package has no bruno.json','Pacote sem apresentação (.json)':'Package has no presentation (.json)','Não encontrado':'Not found','Erro interno':'Internal error'
 };
 const wantsEnglish=req=>{const l=String(req?.headers?.['x-lang']||req?.headers?.['accept-language']||'').toLowerCase();return !(l.startsWith('pt'));};
 const fail=(res,status,message)=>send(res,status,{error:res.req&&wantsEnglish(res.req)&&EN[message]?EN[message]:message});
@@ -83,6 +85,10 @@ function validNode(node,depth=0,ids=new Set()){
  if(node.color!==undefined&&typeof node.color!=='string')return false;
  if((node.x!==undefined&&!Number.isFinite(node.x))||(node.y!==undefined&&!Number.isFinite(node.y)))return false;
  if(node.linksColor!==undefined&&typeof node.linksColor!=='string')return false;
+ if(node.apis!==undefined){
+  const okApi=a=>a&&typeof a==='object'&&typeof a.collection==='string'&&/^[a-z0-9][a-z0-9-]{0,60}$/.test(a.collection)&&(a.path===undefined||(typeof a.path==='string'&&a.path.length<=300&&!a.path.split('/').some(p=>p==='..')))&&(a.name===undefined||(typeof a.name==='string'&&a.name.length<=120))&&(a.snapshot===undefined||(a.snapshot&&typeof a.snapshot==='object'&&Array.isArray(a.snapshot.requests)&&a.snapshot.requests.length<=10));
+  if(!(Array.isArray(node.apis)&&node.apis.length<=20&&node.apis.every(okApi)))return false;
+ }
  if(node.related!==undefined&&!(Array.isArray(node.related)&&node.related.length<=50&&node.related.every(r=>typeof r==='string'&&r.length>0&&r.length<=80)))return false;
  if(node.subtitle!==undefined&&(typeof node.subtitle!=='string'||node.subtitle.length>2000))return false;
  return node.children.every(c=>validNode(c,depth+1,ids));
@@ -113,6 +119,55 @@ async function writeJson(file,data){ // grava num temporário e renomeia; no Win
   try{await rename(tmp,file);return;}
   catch(error){if(attempt>=20||!['EPERM','EBUSY','EACCES'].includes(error.code)){await rm(tmp,{force:true});throw error;}await new Promise(r=>setTimeout(r,25));}
  }
+}
+// Coleções de requests (formato Bruno): pasta COLLECTIONS_DIR, por padrão ao lado da pasta de apresentações.
+const collectionsDir=process.env.COLLECTIONS_DIR?path.resolve(process.env.COLLECTIONS_DIR):path.join(path.dirname(dataDir),'collections');
+const collections=createCollections({dir:collectionsDir,writeJson});
+const jsonBody=async req=>JSON.parse((await readBody(req,MAX_JSON)).toString()||'{}');
+async function collectionsApi(req,res,url,parts){
+ const [id,sub,name]=parts,method=req.method,q=k=>url.searchParams.get(k)||'';
+ if(!id){
+  if(method==='GET')return send(res,200,await collections.list());
+  if(method==='POST')return send(res,201,await collections.createCollection((await jsonBody(req)).name));
+  return fail(res,405,'Método não permitido');
+ }
+ if(id==='import'){
+  if(method!=='POST')return fail(res,405,'Método não permitido');
+  return send(res,201,await collections.importZip(await readBody(req,MAX_IMPORT)));
+ }
+ if(!sub){
+  if(method==='GET'){const root=collections.collDir(id);if(!existsSync(path.join(root,'bruno.json')))return fail(res,404,'Coleção inexistente');return send(res,200,{id,name:await collections.readName(id),tree:await collections.tree(id),environments:await collections.environments(id),defaults:await collections.defaults(id)});}
+  if(method==='DELETE'){await collections.removeCollection(id);return send(res,200,{ok:true});}
+  return fail(res,405,'Método não permitido');
+ }
+ if(sub==='items'){
+  if(method==='POST')return send(res,201,await collections.createItem(id,await jsonBody(req)));
+  if(method==='PATCH'){const b=await jsonBody(req);await collections.renameItem(id,String(b.path||''),b.name);return send(res,200,{ok:true});}
+  if(method==='DELETE'){await collections.removeItem(id,q('path'));return send(res,200,{ok:true});}
+  return fail(res,405,'Método não permitido');
+ }
+ if(sub==='request'){
+  if(method==='GET')return send(res,200,await collections.readRequest(id,q('path')));
+  if(method==='PUT'){await collections.writeRequest(id,q('path'),await jsonBody(req));return send(res,200,{ok:true});}
+  return fail(res,405,'Método não permitido');
+ }
+ if(sub==='reorder'){
+  if(method!=='POST')return fail(res,405,'Método não permitido');
+  const b=await jsonBody(req);await collections.reorder(id,String(b.parent||''),b.order);return send(res,200,{ok:true});
+ }
+ if(sub==='environments'){
+  if(!name){if(method==='GET')return send(res,200,await collections.environments(id));return fail(res,405,'Método não permitido');}
+  if(method==='GET')return send(res,200,await collections.readEnv(id,decodeURIComponent(name)));
+  if(method==='PUT'){const b=await jsonBody(req);await collections.writeEnv(id,decodeURIComponent(name),b.vars);return send(res,200,{ok:true});}
+  if(method==='DELETE'){await collections.removeEnv(id,decodeURIComponent(name));return send(res,200,{ok:true});}
+  return fail(res,405,'Método não permitido');
+ }
+ if(sub==='export'){
+  if(method!=='GET')return fail(res,405,'Método não permitido');
+  const body=await collections.exportZip(id);
+  res.writeHead(200,{'content-type':'application/zip','cache-control':'no-store','content-disposition':`attachment; filename="${id}.zip"`});return res.end(body);
+ }
+ return fail(res,404,'Rota inexistente');
 }
 async function ensureSeed(){
  await mkdir(dataDir,{recursive:true});
@@ -187,6 +242,12 @@ async function api(req,res,url){
   if(req.method!=='POST')return fail(res,405,'Método não permitido');
   return importDoc(req,res);
  }
+ if(parts[0]==='send'){ // cliente de API: o servidor faz a chamada (sem CORS); só http/https
+  if(req.method!=='POST')return fail(res,405,'Método não permitido');
+  const out=await sendRequest(await jsonBody(req));
+  return out.error?fail(res,out.status,out.error):send(res,200,out.result);
+ }
+ if(parts[0]==='collections')return collectionsApi(req,res,url,parts.slice(1));
  if(parts[0]!=='presentations')return fail(res,404,'Rota inexistente');
  const id=parts[1];
  if(!id){

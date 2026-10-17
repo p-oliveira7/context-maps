@@ -7,6 +7,13 @@ How to cut a release: [`docs/releasing.md`](docs/releasing.md).
 
 ## [Unreleased]
 
+### Added
+- **Scripts, tests and assertions in the API client**: pre-request and post-response scripts, `tests` (with `test()` and a Chai-style `expect`), the declarative `assert` block (`res.status: eq 200`, 30 operators), post-response variables (`token: res.body.token`) and runtime variables (`bru.setVar`). A request can create a variable in its pre-request script and use it in the same request. New **Assert** tab, editable **Scripts** tab, response tabs **Tests** (with pass/fail summary) and **Console**.
+- **Isolated script execution**: scripts run in a sandboxed iframe (opaque origin, CSP `default-src 'none'`) inside a Worker that is terminated after 5 s. They have no network, storage or access to the app, so imported collections cannot read your data or send it anywhere. Available globals: `bru`, `req`, `res`, `test`, `expect`, `console`, `require("chai")`. A "Scripts" switch next to Send turns script execution off.
+- **API client (Postman/Bruno style)** in a split view: the **API** button divides the screen (map on the left, client on the right, resizable). Collections are plain folders in the **Bruno format** (`collections/<name>/` with `bruno.json`, `.bru` requests, folders and `environments/*.bru`), so they can be versioned with Git and opened in Bruno. Create, rename, delete and drag-reorder folders and requests; edit method, URL (query and path params stay in sync), headers, JSON/text/XML/form bodies, bearer/basic auth, request variables and docs; use `{{variables}}` with environments (and `{{$timestamp}}`, `{{$guid}}`…), see the resolved request, and send it through the local server (no CORS), with status, time, size, headers and a formatted body. **Secret** environment values are stored only on the machine (`collections/.secrets/`, git-ignored) and never in the files, ZIP exports or the repository. Scripts, tests and assertions are preserved but not executed yet. Import and export collections as ZIP. A bundled example collection documents the app's own API.
+- **Attach APIs to cards**: drag a collection or folder from the API panel onto a card (edit mode) or use the card's wheel (**API** then ⤓). The card shows a tile, like an image, with the first requests; clicking it opens the client at that folder. A saved snapshot keeps the tile readable offline and in exported HTML; text mode lists the attached APIs.
+- New endpoints: `/api/collections/…` (collections, items, requests, environments, ZIP import/export) and `POST /api/send` (http/https only, 30 s timeout, 10 MB response limit).
+
 ## [0.3.0] - 2026-10-17
 
 A release about working faster and sharing: undo/redo, search, copy and paste, related ideas, export and

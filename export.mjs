@@ -3,7 +3,7 @@ import {readFile} from 'node:fs/promises';
 import path from 'node:path';
 
 const MIME={'.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.webp':'image/webp','.gif':'image/gif','.svg':'image/svg+xml'};
-const MODULES=['version.js','i18n.js','model.js','motion.js','store.js','app.js']; // ordem de dependência
+const MODULES=['version.js','i18n.js','model.js','motion.js','store.js','chai-lite.js','assertions.js','pipeline.js','sandbox.js','api-client.js','app.js']; // ordem de dependência
 const escapeHtml=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const inlineJson=value=>JSON.stringify(value).replace(/</g,'\\u003c').replaceAll(String.fromCharCode(0x2028),'\\u2028').replaceAll(String.fromCharCode(0x2029),'\\u2029'); // seguro dentro de <script>
 
