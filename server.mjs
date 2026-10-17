@@ -103,7 +103,14 @@ function mapSrc(doc,fn){
 }
 const toApi=(doc,r)=>{if(r.lib.main)return doc;const from=`${r.slug}/assets/`,to=`presentations/${r.id}/assets/`;return mapSrc(doc,s=>s.startsWith(from)?to+s.slice(from.length):s);};
 const toStored=(doc,r)=>{if(r.lib.main)return doc;const from=`presentations/${r.id}/assets/`,to=`${r.slug}/assets/`;return mapSrc(doc,s=>s.startsWith(from)?to+s.slice(from.length):s);};
-async function writeJson(file,data){const tmp=`${file}.${process.pid}.tmp`;await writeFile(tmp,JSON.stringify(data,null,2)+'\n');await rename(tmp,file);}
+let tmpSeq=0;
+async function writeJson(file,data){ // grava num temporário e renomeia; no Windows o rename pode falhar um instante se alguém estiver lendo o arquivo
+ const tmp=`${file}.${process.pid}.${++tmpSeq}.tmp`;await writeFile(tmp,JSON.stringify(data,null,2)+'\n');
+ for(let attempt=0;;attempt++){
+  try{await rename(tmp,file);return;}
+  catch(error){if(attempt>=20||!['EPERM','EBUSY','EACCES'].includes(error.code)){await rm(tmp,{force:true});throw error;}await new Promise(r=>setTimeout(r,25));}
+ }
+}
 async function ensureSeed(){
  await mkdir(dataDir,{recursive:true});
  if((await readdir(dataDir)).some(f=>f.endsWith('.json')))return;

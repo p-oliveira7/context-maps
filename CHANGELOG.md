@@ -11,6 +11,9 @@ How to cut a release: [`docs/releasing.md`](docs/releasing.md).
 - **Continuous integration** (GitHub Actions) running the model, browser and skill tests on Linux, macOS and Windows for every push to `main` and every pull request.
 - `npm run test:e2e` runs all browser and skill tests in one go, using an isolated temporary server.
 
+### Fixed
+- Saving presentations and the folder list no longer fails on Windows when another process is reading the file at that moment (the atomic rename is retried).
+
 ### Changed
 - Browser tests now use the installed Chrome by default (`channel: chrome`) instead of a Windows-only path; `BROWSER_EXECUTABLE` still overrides it.
 
