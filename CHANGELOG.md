@@ -7,6 +7,9 @@ How to cut a release: [`docs/releasing.md`](docs/releasing.md).
 
 ## [Unreleased]
 
+### Fixed
+- **Script time limit on slow machines**: the 5 s limit now starts when the script starts running, not when the sandbox is created, so a busy machine no longer reports a timeout for a trivial script. A script cannot extend its own deadline.
+
 ## [0.4.0] - 2026-10-17
 
 The API client release: a Postman/Bruno-style client in a split view, with collections in the Bruno format,
