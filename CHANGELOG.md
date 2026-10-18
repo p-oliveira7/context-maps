@@ -10,6 +10,7 @@ How to cut a release: [`docs/releasing.md`](docs/releasing.md).
 ### Fixed
 - **Script time limit on slow machines**: the 5 s limit now starts when the script starts running, not when the sandbox is created, so a busy machine no longer reports a timeout for a trivial script. A script cannot extend its own deadline.
 ### Changed
+- **Keyboard navigation glides the view to the focused card**: with the arrow keys (or Tab) the map now slides smoothly, keeping the zoom, so the card you are on stays centred. Mouse clicks, text editing, dragging and zooming do not recentre.
 - **Clean full screen**: in the browser's full-screen mode the presentation name, the button bar and the zoom controls disappear and only show when the mouse gets close to the top (name and menu) or the bottom (buttons and zoom) of the screen, or while a control has keyboard focus, the presentation menu is open or a save error is showing.
 
 ## [0.4.0] - 2026-10-17

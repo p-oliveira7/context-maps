@@ -120,7 +120,7 @@ All the images in this README come from it, with the interface in English.
 - **Several root cards** never overlap: when an open tree would cover another, the one that was **below (or to the right)** moves aside, so the original order is kept, and it returns to its saved position when collapsed.
 - **Expand all / Collapse all**, **Full screen** and **Text mode** (linear reading of the whole map) live in the bottom bar. In **full screen** the interface gets out of the way: the presentation name and the buttons disappear and only show when the mouse nears the **top** (name and menu) or the **bottom** (buttons and zoom) of the screen, leaving a clean presentation.
 - **Subtitles** show in a small panel under the card **only while hovering it**.
-- **Keyboard:** Tab reaches every card; in view mode **→** opens a branch or enters it, **←** collapses or goes to the parent, **↑ ↓** move between siblings, **Enter/Space** toggle. The map is exposed to screen readers as a tree.
+- **Keyboard:** Tab reaches every card; in view mode **→** opens a branch or enters it, **←** collapses or goes to the parent, **↑ ↓** move between siblings, **Enter/Space** toggle, and the view **glides smoothly to the focused card**, keeping the zoom. The map is exposed to screen readers as a tree.
 - **Touch:** one finger pans, **two fingers pinch to zoom** (and pan).
 - **Search** (🔍 in the bottom bar, **Ctrl+K** or **/**) finds ideas by title or subtitle, ignoring case and accents; picking a result opens the branches that hide it and centres the map on it.
 
@@ -385,7 +385,7 @@ node tests/edit.mjs                     # or run a single suite
 | --- | --- |
 | `edit` EDIT-01..31 | editing, diagrams, media, links, folders, language, export, import |
 | `skill` SKILL-01..09 | skill CLI |
-| `browser` MAP-01..12 | navigation, zoom, text mode, mobile, full screen |
+| `browser` MAP-01..13 | navigation, zoom, text mode, mobile, full screen |
 | `cards` CARD-01..06 | titles, root, keyboard, images |
 | `motion` MOT-01..05 | animations and reduced motion |
 | `sandbox` SBX-01..05 · `scripting` SCR-01..07 | script sandbox (no network, timeouts), expect, asserts, request pipeline |

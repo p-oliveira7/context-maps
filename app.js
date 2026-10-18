@@ -1163,12 +1163,24 @@ document.addEventListener('keydown',e=>{
 
 /* Teclado no mapa (exibição): setas percorrem a árvore — → abre/entra, ← recolhe/sobe, ↑ ↓ vão entre irmãos */
 const focusTargetOf=id=>{const el=document.querySelector(`[data-id="${id}"]`);return el&&(el.querySelector('.node-title')||el.querySelector('.toggle')||el);};
+/* Navegação por teclado: a vista desliza (zoom intacto) para centralizar o card que recebeu o foco */
+function centerNode(id){
+ const el=document.querySelector(`[data-id="${id}"]`);if(!el||reading)return;
+ const w=el.offsetWidth*camera.scale,h=el.offsetHeight*camera.scale,left=parseFloat(el.style.left)*camera.scale+camera.x,top=parseFloat(el.style.top)*camera.scale+camera.y;
+ const dx=viewport.clientWidth/2-(left+w/2),dy=viewport.clientHeight/2-(top+h/2);
+ if(Math.abs(dx)<2&&Math.abs(dy)<2)return;
+ glide();camera.x+=dx;camera.y+=dy;updateCamera();
+}
 function focusNode(id){
  const target=focusTargetOf(id);if(!target)return;
  target.focus({preventScroll:true});
- const r=document.querySelector(`[data-id="${id}"]`).getBoundingClientRect(),v=viewport.getBoundingClientRect();
- if(r.left<v.left||r.right>v.right||r.top<v.top||r.bottom>v.bottom){camera.x+=v.left+v.width/2-(r.left+r.width/2);camera.y+=v.top+v.height/2-(r.top+r.height/2);updateCamera();}
+ centerNode(id);
 }
+// Tab (ou qualquer foco por teclado) em um card também leva a vista até ele; cliques e a edição de texto não mexem na vista
+$('#nodes').addEventListener('focusin',e=>{
+ if(editing||!e.target.matches?.(':focus-visible')||e.target.isContentEditable)return;
+ const el=e.target.closest('.node');if(el)centerNode(el.dataset.id);
+});
 $('#nodes').addEventListener('keydown',e=>{
  if(editing||e.altKey||e.ctrlKey||e.metaKey||!['ArrowRight','ArrowLeft','ArrowUp','ArrowDown'].includes(e.key))return;
  const el=e.target.closest('.node');if(!el||e.target.closest('.link-menu,.node-badges'))return;
@@ -1324,12 +1336,12 @@ $('#close-dialog').onclick=e=>{e.stopPropagation();$('dialog').close();};$('dial
 $('#lightbox-prev').onclick=e=>{e.stopPropagation();stepGallery(-1);};
 $('#lightbox-next').onclick=e=>{e.stopPropagation();stepGallery(1);};
 $('dialog').addEventListener('keydown',e=>{if(e.key==='ArrowLeft'){e.preventDefault();stepGallery(-1);}if(e.key==='ArrowRight'){e.preventDefault();stepGallery(1);}});
-viewport.addEventListener('wheel',e=>{e.preventDefault();const r=viewport.getBoundingClientRect();zoom(Math.exp(-e.deltaY*.0015),{x:e.clientX-r.left,y:e.clientY-r.top});},{passive:false});
+viewport.addEventListener('wheel',e=>{e.preventDefault();world.classList.remove('is-glide');const r=viewport.getBoundingClientRect();zoom(Math.exp(-e.deltaY*.0015),{x:e.clientX-r.left,y:e.clientY-r.top});},{passive:false});
 viewport.addEventListener('dragstart',e=>{if(!e.target.closest?.('.image-item'))e.preventDefault();});
 let drag=null;
 viewport.addEventListener('mousedown',e=>{if(e.button===1)e.preventDefault();}); // sem o autoscroll do botão do meio
 viewport.addEventListener('auxclick',e=>{if(e.button===1)e.preventDefault();});
-viewport.addEventListener('pointerdown',e=>{const middle=e.button===1;if(moving||(e.button!==0&&!middle)||(!middle&&e.target.closest('button,input,a,[contenteditable]')))return;if(middle)e.preventDefault();drag={id:e.pointerId,x:e.clientX,y:e.clientY,camera:{...camera}};viewport.setPointerCapture(e.pointerId);viewport.classList.add('dragging');});
+viewport.addEventListener('pointerdown',e=>{world.classList.remove('is-glide');const middle=e.button===1;if(moving||(e.button!==0&&!middle)||(!middle&&e.target.closest('button,input,a,[contenteditable]')))return;if(middle)e.preventDefault();drag={id:e.pointerId,x:e.clientX,y:e.clientY,camera:{...camera}};viewport.setPointerCapture(e.pointerId);viewport.classList.add('dragging');});
 viewport.addEventListener('pointermove',e=>{if(!drag||drag.id!==e.pointerId)return;camera.x=drag.camera.x+e.clientX-drag.x;camera.y=drag.camera.y+e.clientY-drag.y;updateCamera();});
 function stopDrag(){drag=null;viewport.classList.remove('dragging');}
 viewport.addEventListener('pointerup',stopDrag);viewport.addEventListener('pointercancel',stopDrag);viewport.addEventListener('lostpointercapture',stopDrag);

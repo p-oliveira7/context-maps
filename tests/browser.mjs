@@ -133,5 +133,25 @@ try {
  await page.locator('#fullscreen').evaluate(b=>b.focus()); await page.keyboard.press('Enter'); // sai da tela cheia (botão focado, visível pelo foco)
  await page.waitForFunction(()=>!document.fullscreenElement); await page.waitForTimeout(450);
  for(const sel of parts)assert.equal(await shown(sel),true,`${sel} deveria voltar ao sair da tela cheia`);
- assert.deepEqual(errors,[]); console.log('PASS: MAP-01..12 browser scenarios, desktop + mobile');
+ // MAP-13: setas do teclado levam a vista (com deslize suave e o mesmo zoom) até o card focado
+ await page.setViewportSize({width:1280,height:720}); await page.reload(); await page.locator('.node').first().waitFor();
+ const centerOf=async id=>{const b=await page.locator(`[data-id="${id}"]`).boundingBox(),v=await page.locator('#viewport').boundingBox();return {dx:Math.abs(b.x+b.width/2-(v.x+v.width/2)),dy:Math.abs(b.y+b.height/2-(v.y+v.height/2))};};
+ const zoomText=()=>page.locator('#zoom-level').textContent();
+ const z0=await zoomText();
+ await page.locator('[data-id="root"] .node-title').focus();
+ await page.keyboard.press('ArrowRight'); // vai para o primeiro filho
+ assert.equal(await page.evaluate(()=>document.querySelector('#world').classList.contains('is-glide')),true); // movimento animado
+ await page.waitForTimeout(700);
+ let c=await centerOf('mobility');assert.ok(c.dx<14&&c.dy<14,`o card focado deveria ficar no centro (${c.dx}, ${c.dy})`);
+ await page.keyboard.press('ArrowDown'); await page.waitForTimeout(700);
+ c=await centerOf('nature');assert.ok(c.dx<14&&c.dy<14,`nature deveria ficar no centro (${c.dx}, ${c.dy})`);
+ await page.keyboard.press('ArrowUp'); await page.waitForTimeout(700);
+ c=await centerOf('mobility');assert.ok(c.dx<14&&c.dy<14);
+ assert.equal(await zoomText(),z0,'o zoom não muda ao navegar');
+ await page.keyboard.press('ArrowLeft'); await page.waitForTimeout(700); // sobe para o pai
+ c=await centerOf('root');assert.ok(c.dx<14&&c.dy<14);
+ // arrastar o mapa continua livre: clicar/arrastar não recentra
+ await page.mouse.move(300,300);await page.mouse.down();await page.mouse.move(380,340,{steps:4});await page.mouse.up();await page.waitForTimeout(500);
+ c=await centerOf('root');assert.ok(c.dx>40,'arrastar move a vista');
+ assert.deepEqual(errors,[]); console.log('PASS: MAP-01..13 browser scenarios, desktop + mobile');
 } finally {await browser.close();}
