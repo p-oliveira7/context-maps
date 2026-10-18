@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="320" viewBox="0 0 1280 320" role="img" aria-labelledby="t d">
   <title id="t">Context Maps</title>
-  <desc id="d">Mapas mentais montados a partir de contexto — mind maps built from context</desc>
+  <desc id="d">Mind maps built from context</desc>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#141414"/><stop offset="1" stop-color="#0d0d0d"/></linearGradient>
     <linearGradient id="g1" x1="0" x2="1"><stop offset="0" stop-color="#c76a61" stop-opacity=".05"/><stop offset="1" stop-color="#c76a61"/></linearGradient>
@@ -19,17 +19,17 @@
   <g font-family="Inter,'Segoe UI',system-ui,sans-serif" fill="#e9e9e9">
     <rect x="596" y="132" width="144" height="56" rx="12" fill="#1c1c1c" stroke="#ffffff" stroke-opacity=".15"/>
     <circle cx="624" cy="160" r="9" fill="#4f9d7a"/><rect x="642" y="152" width="80" height="6" rx="3" fill="#ffffff" fill-opacity=".7"/><rect x="642" y="164" width="52" height="6" rx="3" fill="#ffffff" fill-opacity=".35"/>
-    <text x="830" y="58" font-size="15" opacity=".85">Fluxos</text>
-    <text x="830" y="94" font-size="15" opacity=".85">Arquitetura</text>
-    <text x="830" y="214" font-size="15" opacity=".85">Diagramas</text>
-    <text x="830" y="250" font-size="15" opacity=".85">Links e evidências</text>
+    <text x="830" y="58" font-size="15" opacity=".85">Flows</text>
+    <text x="830" y="94" font-size="15" opacity=".85">Architecture</text>
+    <text x="830" y="214" font-size="15" opacity=".85">Diagrams</text>
+    <text x="830" y="250" font-size="15" opacity=".85">Links &amp; evidence</text>
     <text x="64" y="138" font-size="62" font-weight="700" letter-spacing="-2">Context Maps</text>
-    <text x="66" y="186" font-size="22" fill="#b8b8b8">Mapas mentais montados a partir de contexto</text>
-    <text x="66" y="218" font-size="22" fill="#8f8f8f">Mind maps built from context</text>
+    <text x="66" y="186" font-size="22" fill="#b8b8b8">Mind maps built from context</text>
+    <text x="66" y="218" font-size="22" fill="#8f8f8f">An agent skill and a Bruno-style API client</text>
     <g font-size="14" fill="#cfcfcf">
       <rect x="64" y="248" width="150" height="30" rx="15" fill="#ffffff" fill-opacity=".07" stroke="#ffffff" stroke-opacity=".12"/><text x="86" y="268">Local-first</text>
-      <rect x="226" y="248" width="196" height="30" rx="15" fill="#ffffff" fill-opacity=".07" stroke="#ffffff" stroke-opacity=".12"/><text x="246" y="268">Zero dependências</text>
-      <rect x="434" y="248" width="130" height="30" rx="15" fill="#ffffff" fill-opacity=".07" stroke="#ffffff" stroke-opacity=".12"/><text x="454" y="268">Skill p/ agentes</text>
+      <rect x="226" y="248" width="196" height="30" rx="15" fill="#ffffff" fill-opacity=".07" stroke="#ffffff" stroke-opacity=".12"/><text x="246" y="268">Zero dependencies</text>
+      <rect x="434" y="248" width="130" height="30" rx="15" fill="#ffffff" fill-opacity=".07" stroke="#ffffff" stroke-opacity=".12"/><text x="454" y="268">Agent skill</text>
     </g>
   </g>
 </svg>
