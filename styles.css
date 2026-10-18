@@ -525,3 +525,13 @@ body.is-editing .node.drop-target{outline:2px dashed #4f9d7a;outline-offset:6px;
 .api-row.is-flash,.api-collection-row.is-flash{animation:api-flash 2s ease}
 @keyframes api-flash{0%,35%{background:#e4c58344;box-shadow:0 0 0 2px #e4c583}100%{background:transparent;box-shadow:0 0 0 2px transparent}}
 @media (prefers-reduced-motion:reduce){#world.is-glide{transition:none}.api-panel:not([hidden]){animation:none}.api-row.is-flash,.api-collection-row.is-flash{animation:none;box-shadow:0 0 0 2px #e4c583}}
+
+/* Tela cheia limpa: controles escondidos; aparecem junto das bordas (ou enquanto há foco, menu aberto ou erro ao salvar) */
+body.is-fullscreen .doc-bar,body.is-fullscreen .toolbar,body.is-fullscreen .zoom-controls{opacity:0;pointer-events:none;transition:opacity .28s ease,transform .28s ease}
+body.is-fullscreen .doc-bar{transform:translateY(-14px)}
+body.is-fullscreen .toolbar{transform:translate(-50%,14px)}
+body.is-fullscreen .zoom-controls{transform:translateY(14px)}
+body.is-fullscreen.ui-top .doc-bar,body.is-fullscreen .doc-bar:has(:focus-visible),body.is-fullscreen .doc-bar:has(#doc-menu:not([hidden])),body.is-fullscreen .doc-bar:has(#save-status[data-state=error]),body.is-fullscreen .doc-bar:has(.doc-title-input){opacity:1;transform:none;pointer-events:auto}
+body.is-fullscreen.ui-bottom .toolbar,body.is-fullscreen .toolbar:has(:focus-visible){opacity:1;transform:translate(-50%,0);pointer-events:auto}
+body.is-fullscreen.ui-bottom .zoom-controls,body.is-fullscreen .zoom-controls:has(:focus-visible){opacity:1;transform:none;pointer-events:auto}
+@media (prefers-reduced-motion:reduce){body.is-fullscreen .doc-bar,body.is-fullscreen .toolbar,body.is-fullscreen .zoom-controls{transition:none}}
