@@ -102,8 +102,9 @@ Open <http://127.0.0.1:4173>. On first run the server creates the demo presentat
 
 **Language:** the interface follows your browser's language — Portuguese (BR) or English (any other language falls back to English). Add `?lang=pt` or `?lang=en` to the URL to force one; the choice is remembered in the browser. Presentation content is yours and is never translated (the bundled example is in Portuguese).
 
-`presentations/cidades-para-pessoas.json` ships with the repository and shows **every feature** in one
-place: open it, expand everything and switch on *Edit* mode.
+`presentations/cities-for-people.json` ships with the repository and shows **every feature** in one
+place (a Portuguese copy, `cidades-para-pessoas.json`, is included too): open it, expand everything and switch on *Edit* mode.
+All the images in this README come from it, with the interface in English.
 
 ## Features
 
@@ -122,6 +123,11 @@ place: open it, expand everything and switch on *Edit* mode.
 - **Keyboard:** Tab reaches every card; in view mode **→** opens a branch or enters it, **←** collapses or goes to the parent, **↑ ↓** move between siblings, **Enter/Space** toggle. The map is exposed to screen readers as a tree.
 - **Touch:** one finger pans, **two fingers pinch to zoom** (and pan).
 - **Search** (🔍 in the bottom bar, **Ctrl+K** or **/**) finds ideas by title or subtitle, ignoring case and accents; picking a result opens the branches that hide it and centres the map on it.
+
+<p align="center">
+  <img src="docs/images/13-search.png" alt="Search: results with the matching text highlighted and the path to each idea" width="820"><br>
+  <sub>Search (Ctrl+K) lists matching ideas with their path; picking one opens the branches that hide it.</sub>
+</p>
 
 <p align="center">
   <img src="docs/images/09-text-mode.png" alt="Text mode: the whole map as a linear outline" width="820"><br>
@@ -171,6 +177,13 @@ a **wheel of actions** opens around it (it closes with **Esc**, ×, or by clicki
 
 **Autosave** is on (status next to the name: *Saved / Saving… / Save error*).
 
+#### Related ideas
+
+<p align="center">
+  <img src="docs/images/14-related-ideas.png" alt="Two related ideas joined by a dotted line, each with a badge, and an attached API tile below" width="820"><br>
+  <sub>A dotted line joins related ideas; hovering one highlights the line, and the badge jumps to the other idea.</sub>
+</p>
+
 #### Move ideas by dragging
 
 <p align="center">
@@ -217,9 +230,20 @@ The **API** button in the bottom bar splits the screen: the map stays on the lef
 - **Scripts run in an isolated sandbox.** Each script runs in a sandboxed iframe (opaque origin, CSP `default-src 'none'`) inside a Worker that is stopped after 5 s: **no network, no storage, no access to the app or its data**, so a collection you imported cannot read or leak anything. Available: `bru` (`getVar`/`setVar`, `getEnvVar`/`setEnvVar`, `interpolate`, `sleep`…), `req` (`getUrl`/`setUrl`, `setHeader`, `setBody`…), `res` (`res.status`, `res.body`, `res('path')`…), `test`, `expect` (Chai-style) and `require("chai")`. A pre-request script runs before `{{variables}}` are resolved, so `bru.setVar` can feed the same request. Not available: `bru.sendRequest`/`runRequest`, `axios`, `lodash` and other modules. The **Scripts** switch next to Send turns script execution off.
 - **Reorder** requests and folders by dragging them in the tree.
 
+<p align="center">
+  <img src="docs/images/11-api-variables.png" alt="A URL with a red variable without a value and the hover panel to set it" width="440">
+  <img src="docs/images/12-api-tests.png" alt="The Tests tab with assertions and a script test, all passing" width="360"><br>
+  <sub>Left: <code>{{variables}}</code> are red without a value and green with one; hover to see and edit the value. Right: assertions and script tests in the response.</sub>
+</p>
+
 **Attach to a card.** Drag a collection, a folder or a single request from the panel onto a card (edit mode), or open the card's wheel, choose **API** and press ⤓ on one of them. The card shows a tile, like an image, with the first requests. Clicking it opens the client **without changing the map's zoom or focus**, expands only the attached folder (or the folder of the attached request, selecting the request) and flashes the target row. The tile keeps a saved snapshot, so it still reads in text mode and in exported HTML (where it is not clickable, since there is no server).
 
 An example collection, **Context Maps API**, ships in `collections/` and documents the app's own API (choose the `local` environment).
+
+<p align="center">
+  <img src="docs/images/15-export-menu.png" alt="The presentation menu with Export as HTML, Export as ZIP and Import" width="520"><br>
+  <sub>The presentation menu: save, export (HTML or ZIP) and import.</sub>
+</p>
 
 ### Save as and folders
 
@@ -375,7 +399,7 @@ for every pull request ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
 
 ### Regenerating the screenshots and the demo
 
-The images in `docs/images/` come from the example presentation and are reproducible. The script copies
+The images in `docs/images/` come from the English example presentation (`presentations/cities-for-people.json`, itself generated from the Portuguese one by `docs/build-example-en.mjs`) and are reproducible. The script copies
 `presentations/` to a temporary folder, so your files are not touched:
 
 ```bash

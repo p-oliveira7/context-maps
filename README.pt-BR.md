@@ -102,8 +102,8 @@ Abra <http://127.0.0.1:4173>. Na primeira execução o servidor cria a apresenta
 
 **Idioma:** a interface segue o idioma do navegador — português (BR) ou inglês (qualquer outro idioma cai no inglês). Acrescente `?lang=pt` ou `?lang=en` à URL para forçar um deles; a escolha fica guardada no navegador. O conteúdo das apresentações é seu e nunca é traduzido (o exemplo que acompanha o projeto está em português).
 
-`presentations/cidades-para-pessoas.json` acompanha o repositório e mostra **todos os recursos** num só
-lugar: abra, expanda tudo e ligue o modo *Editar*.
+`presentations/cities-for-people.json` (em inglês) e `presentations/cidades-para-pessoas.json` (em português) acompanham o repositório e mostram **todos os recursos** num só
+lugar: abra, expanda tudo e ligue o modo *Editar*. **As imagens e o GIF deste README usam a interface em inglês.**
 
 ## Recursos
 
@@ -122,6 +122,11 @@ lugar: abra, expanda tudo e ligue o modo *Editar*.
 - **Teclado:** Tab alcança todos os cards; na exibição **→** abre um ramo ou entra nele, **←** recolhe ou vai para o pai, **↑ ↓** andam entre irmãos, **Enter/Espaço** alternam. O mapa é exposto aos leitores de tela como uma árvore.
 - **Toque:** um dedo move o mapa, **dois dedos fazem pinça para dar zoom** (e também movem).
 - **Busca** (🔍 na barra inferior, **Ctrl+K** ou **/**) acha ideias pelo título ou subtítulo, sem diferenciar maiúsculas nem acentos; ao escolher um resultado, os ramos que o escondem se abrem e o mapa centraliza nele.
+
+<p align="center">
+  <img src="docs/images/13-search.png" alt="Busca: resultados com o texto encontrado destacado e o caminho até cada ideia" width="820"><br>
+  <sub>A busca (Ctrl+K) lista as ideias encontradas com o caminho; ao escolher uma, os ramos que a escondem se abrem. (Imagens com a interface em inglês.)</sub>
+</p>
 
 <p align="center">
   <img src="docs/images/09-text-mode.png" alt="Modo texto: o mapa inteiro como um roteiro linear" width="820"><br>
@@ -171,6 +176,13 @@ centro: abre uma **roda de ações** em volta dele (fecha com **Esc**, × ou cli
 
 O **salvamento é automático** (o estado aparece ao lado do nome: *Salvo / Salvando… / Erro ao salvar*).
 
+#### Ideias relacionadas
+
+<p align="center">
+  <img src="docs/images/14-related-ideas.png" alt="Duas ideias relacionadas ligadas por uma linha pontilhada, cada uma com um selo, e um bloco de API anexado abaixo" width="820"><br>
+  <sub>Uma linha pontilhada liga as ideias relacionadas; passar o mouse numa delas destaca a linha, e o selo leva até a outra ideia.</sub>
+</p>
+
 #### Mover ideias arrastando
 
 <p align="center">
@@ -217,9 +229,20 @@ O botão **API** na barra inferior divide a tela: o mapa fica à esquerda e abre
 - **Os scripts rodam num sandbox isolado.** Cada script roda numa moldura isolada (origem opaca, CSP `default-src 'none'`) dentro de um Worker que é interrompido após 5 s: **sem rede, sem armazenamento, sem acesso ao app nem aos seus dados**, então uma coleção importada não consegue ler nem vazar nada. Disponíveis: `bru` (`getVar`/`setVar`, `getEnvVar`/`setEnvVar`, `interpolate`, `sleep`…), `req` (`getUrl`/`setUrl`, `setHeader`, `setBody`…), `res` (`res.status`, `res.body`, `res('caminho')`…), `test`, `expect` (estilo Chai) e `require("chai")`. O script de pré-requisição roda antes de as `{{variáveis}}` serem resolvidas, então `bru.setVar` pode alimentar a mesma request. Indisponíveis: `bru.sendRequest`/`runRequest`, `axios`, `lodash` e outros módulos. A chave **Scripts** ao lado do Enviar desliga a execução dos scripts.
 - **Reordene** requests e pastas arrastando na árvore.
 
+<p align="center">
+  <img src="docs/images/11-api-variables.png" alt="Uma URL com uma variável vermelha sem valor e o painel para defini-la ao passar o mouse" width="440">
+  <img src="docs/images/12-api-tests.png" alt="A aba Tests com asserts e um teste de script, todos passando" width="360"><br>
+  <sub>Esquerda: as <code>{{variáveis}}</code> ficam vermelhas sem valor e verdes com valor; passe o mouse para ver e editar. Direita: asserts e testes de script na resposta.</sub>
+</p>
+
 **Anexar a um card.** Arraste uma coleção, uma pasta ou uma request avulsa do painel para um card (modo edição), ou abra a roda do card, escolha **API** e clique em ⤓ em uma delas. O card mostra um bloco, como uma imagem, com as primeiras requests. Clicar nele abre o cliente **sem mudar o zoom nem o foco do mapa**, expande só a pasta anexada (ou a pasta da request anexada, selecionando a request) e destaca a linha de destino. O bloco guarda um resumo salvo, então continua legível no modo texto e no HTML exportado (onde não é clicável, já que não há servidor).
 
 Uma coleção de exemplo, **Context Maps API**, acompanha o projeto em `collections/` e documenta a própria API do app (escolha o ambiente `local`).
+
+<p align="center">
+  <img src="docs/images/15-export-menu.png" alt="O menu de apresentações com Exportar como HTML, Exportar como ZIP e Importar" width="520"><br>
+  <sub>O menu de apresentações: salvar, exportar (HTML ou ZIP) e importar.</sub>
+</p>
 
 ### Salvar como e pastas
 
@@ -375,7 +398,7 @@ macOS e Windows a cada pull request ([`.github/workflows/ci.yml`](.github/workfl
 
 ### Regenerando as imagens e a demo
 
-As imagens em `docs/images/` vêm da apresentação de exemplo e são reproduzíveis. O script copia
+As imagens em `docs/images/` vêm da apresentação de exemplo em inglês (`presentations/cities-for-people.json`, gerada a partir da versão em português por `docs/build-example-en.mjs`) e são reproduzíveis. O script copia
 `presentations/` para uma pasta temporária, então seus arquivos não são tocados:
 
 ```bash

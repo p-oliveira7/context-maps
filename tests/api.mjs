@@ -140,6 +140,7 @@ try{
  await page.locator('.api-row',{hasText:'Criar item'}).dragTo(page.locator('.api-row',{hasText:'Primeira'}),{targetPosition:{x:20,y:3}});
  for(let i=0;i<30&&(await order())[0]!=='Criar item';i++)await new Promise(r=>setTimeout(r,100));
  assert.equal((await order())[0],'Criar item');
+ await page.waitForTimeout(600); // a árvore se redesenha depois de reordenar
  page.once('dialog',d=>d.accept());
  await page.locator('.api-row',{hasText:'Outra'}).hover();
  await page.locator('.api-row',{hasText:'Outra'}).locator('button[aria-label^="Excluir"]').click();
