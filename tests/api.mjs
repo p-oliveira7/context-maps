@@ -369,6 +369,84 @@ try{
   await page.locator('#api-panel button[aria-label="Fechar o cliente de API"]').click();
   await page.locator('#api-panel').waitFor({state:'hidden'});
  }
+ // API-13: abrir pelo card mantém zoom e foco do mapa, expande só o alvo e destaca a linha; request avulsa também pode ser anexada
+ {
+  await call('POST','/collections',{name:'Foco'});
+  const fa=await call('POST','/collections/foco/items',{type:'folder',name:'Alfa'});
+  const fb=await call('POST','/collections/foco/items',{type:'folder',name:'Beta'});
+  await call('POST','/collections/foco/items',{type:'request',parent:fa.path,name:'Alfa um',method:'get',url:'{{host}}/a1'});
+  await call('POST','/collections/foco/items',{type:'request',parent:fa.path,name:'Alfa dois',method:'get',url:'{{host}}/a2'});
+  const b1=await call('POST','/collections/foco/items',{type:'request',parent:fb.path,name:'Beta um',method:'post',url:'{{host}}/b1'});
+  await call('POST','/collections/foco/items',{type:'request',name:'Raiz solta',method:'get',url:'{{host}}/root'});
+  const pres=await call('POST','/presentations',{title:'Foco API'});
+  const apis=ref=>[{collection:'foco',path:ref.path,name:ref.name}];
+  const doc={title:'Foco API',roots:[{id:'r',title:'Sistema',children:[
+   {id:'k1',title:'Pasta Alfa',apis:apis({path:fa.path,name:'Alfa'}),children:[]},
+   {id:'k2',title:'Request Beta',children:[]},
+   {id:'k3',title:'Coleção toda',apis:[{collection:'foco',path:'',name:'Foco'}],children:[]}]}]};
+  await call('PUT',`/presentations/${pres.id}`,doc);
+  await page.goto(`${base}/?p=${pres.id}`);await page.locator('.node').first().waitFor();await page.locator('#expand').click();await page.waitForTimeout(500);
+  await page.locator('#edit-switch').click();
+
+  // anexar uma request avulsa pelo ⤓ da linha (a roda de ações do card k2 define o alvo)
+  await page.locator('#api-btn').click();await page.locator('#api-panel').waitFor({state:'visible'});
+  await page.locator('#api-panel select[aria-label="Coleção"]').selectOption('foco');
+  await page.locator('[data-id="k2"]').hover();await page.locator('[data-id="k2"] .edit-fab').click();
+  await page.locator('#radial-menu [aria-label^="Anexar ao card"]').click();
+  await page.locator('.api-row',{hasText:'Beta um'}).hover();
+  await page.locator('.api-row',{hasText:'Beta um'}).locator('.api-attach').click();
+  const tileB=page.locator('[data-id="k2"] .api-tile');await tileB.waitFor();
+  assert.match(await tileB.textContent(),/Beta um/);assert.match(await tileB.textContent(),/1 request/);
+  await page.locator('#api-panel button[aria-label="Fechar o cliente de API"]').click();await page.locator('#api-panel').waitFor({state:'hidden'});
+  await page.locator('#edit-switch').click();await page.waitForTimeout(400);
+  const saved=async()=>JSON.parse(await readFile(path.join(work,'presentations',`${pres.id}.json`),'utf8'));
+  for(let i=0;i<40&&!(await saved()).roots[0].children[1].apis;i++)await new Promise(r=>setTimeout(r,100));
+  assert.deepEqual((await saved()).roots[0].children[1].apis.map(a=>[a.collection,a.path,a.name]),[['foco',b1.path,'Beta um']]);
+
+  // clicar no card da pasta: o zoom do mapa não muda, o card continua visível e só a pasta Alfa abre, piscando
+  const zoom=()=>page.locator('#zoom-level').textContent();
+  const z0=await zoom();
+  const inMap=async id=>{const b=await page.locator(`[data-id="${id}"]`).boundingBox(),w=(await page.locator('#viewport').boundingBox()).width;return b.x>=0&&b.x+b.width<=w+1;};
+  await page.locator('[data-id="k1"] .api-tile').click();
+  await page.locator('#api-panel').waitFor({state:'visible'});
+  await page.locator('.api-row[data-path="alfa"].is-flash').waitFor();
+  await page.waitForTimeout(700);
+  assert.equal(await zoom(),z0,'abrir o painel não deve trocar o zoom');
+  assert.equal(await inMap('k1'),true,'o card clicado continua visível');
+  assert.equal(await page.locator('.api-row',{hasText:'Alfa um'}).count(),1); // Alfa aberta
+  assert.equal(await page.locator('.api-row',{hasText:'Beta um'}).count(),0);  // Beta fechada
+  await page.locator('.api-row[data-path="alfa"].is-flash').waitFor({state:'detached',timeout:5000}); // o destaque some sozinho
+
+  // request avulsa: abre a pasta dela (e só ela), seleciona e destaca a request
+  await page.locator('#api-panel button[aria-label="Fechar o cliente de API"]').click();await page.locator('#api-panel').waitFor({state:'hidden'});
+  await page.waitForTimeout(600);assert.equal(await zoom(),z0);
+  await page.locator('[data-id="k2"] .api-tile').click();
+  await page.locator('#api-panel').waitFor({state:'visible'});
+  const row=page.locator('.api-row',{hasText:'Beta um'});
+  await row.waitFor();await page.locator('.api-row[aria-selected=true]',{hasText:'Beta um'}).waitFor();
+  assert.equal(await row.evaluate(el=>el.classList.contains('is-flash')||getComputedStyle(el).animationName.includes('api-flash')),true);
+  assert.equal(await page.locator('.api-row',{hasText:'Alfa um'}).count(),0);
+  assert.equal(await page.locator('.api-req-title strong',{hasText:'Beta um'}).count(),1);
+  await page.waitForTimeout(500);assert.equal(await zoom(),z0);
+  await page.locator('#api-panel button[aria-label="Fechar o cliente de API"]').click();await page.locator('#api-panel').waitFor({state:'hidden'});
+
+  // coleção inteira: as pastas de primeiro nível abrem e o cabeçalho da coleção pisca
+  await page.locator('[data-id="k3"] .api-tile').click();
+  await page.locator('#api-panel').waitFor({state:'visible'});
+  await page.locator('.api-collection-row.is-flash').waitFor();
+  assert.equal(await page.locator('.api-row',{hasText:'Alfa um'}).count(),1);assert.equal(await page.locator('.api-row',{hasText:'Beta um'}).count(),1);
+  await page.waitForTimeout(600);assert.equal(await zoom(),z0);
+  assert.equal(await inMap('k3'),true);
+
+  // pelo botão API (sem card) o zoom também fica, e o conteúdo acompanha a nova largura
+  await page.locator('#api-panel button[aria-label="Fechar o cliente de API"]').click();await page.locator('#api-panel').waitFor({state:'hidden'});
+  await page.waitForTimeout(600);
+  await page.locator('#api-btn').click();await page.locator('#api-panel').waitFor({state:'visible'});await page.waitForTimeout(600);
+  assert.equal(await zoom(),z0);
+  await page.locator('#api-panel button[aria-label="Fechar o cliente de API"]').click();await page.locator('#api-panel').waitFor({state:'hidden'});
+  await call('DELETE',`/presentations/${pres.id}`);
+  await page.goto(base);await page.locator('.node').first().waitFor();
+ }
  // API-09: o proxy só aceita http/https e exige o cabeçalho do app
  assert.equal((await fetch(`${base}/api/send`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({url:`${host}/x`})})).status,403);
  assert.equal((await fetch(`${base}/api/send`,{method:'POST',headers:H,body:JSON.stringify({url:'file:///etc/passwd'})})).status,400);
@@ -377,5 +455,5 @@ try{
  assert.equal(seen.some(s=>s.url==='/x'),false);
  assert.equal(existsSync(path.join(collections,'.secrets')),true);
  assert.deepEqual(errors,[]);
- console.log('PASS API-01..12 API client panel');
+ console.log('PASS API-01..13 API client panel');
 }finally{await browser.close();server.kill();target.close();await rm(work,{recursive:true,force:true});}

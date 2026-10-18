@@ -217,7 +217,7 @@ The **API** button in the bottom bar splits the screen: the map stays on the lef
 - **Scripts run in an isolated sandbox.** Each script runs in a sandboxed iframe (opaque origin, CSP `default-src 'none'`) inside a Worker that is stopped after 5 s: **no network, no storage, no access to the app or its data**, so a collection you imported cannot read or leak anything. Available: `bru` (`getVar`/`setVar`, `getEnvVar`/`setEnvVar`, `interpolate`, `sleep`…), `req` (`getUrl`/`setUrl`, `setHeader`, `setBody`…), `res` (`res.status`, `res.body`, `res('path')`…), `test`, `expect` (Chai-style) and `require("chai")`. A pre-request script runs before `{{variables}}` are resolved, so `bru.setVar` can feed the same request. Not available: `bru.sendRequest`/`runRequest`, `axios`, `lodash` and other modules. The **Scripts** switch next to Send turns script execution off.
 - **Reorder** requests and folders by dragging them in the tree.
 
-**Attach to a card.** Drag a collection or folder from the panel onto a card (edit mode), or open the card's wheel, choose **API** and press ⤓ on a collection or folder. The card shows a tile, like an image, with the first requests; clicking it opens the client at that folder. The tile keeps a saved snapshot, so it still reads in text mode and in exported HTML (where it is not clickable, since there is no server).
+**Attach to a card.** Drag a collection, a folder or a single request from the panel onto a card (edit mode), or open the card's wheel, choose **API** and press ⤓ on one of them. The card shows a tile, like an image, with the first requests. Clicking it opens the client **without changing the map's zoom or focus**, expands only the attached folder (or the folder of the attached request, selecting the request) and flashes the target row. The tile keeps a saved snapshot, so it still reads in text mode and in exported HTML (where it is not clickable, since there is no server).
 
 An example collection, **Context Maps API**, ships in `collections/` and documents the app's own API (choose the `local` environment).
 
@@ -366,7 +366,7 @@ node tests/edit.mjs                     # or run a single suite
 | `motion` MOT-01..05 | animations and reduced motion |
 | `sandbox` SBX-01..05 · `scripting` SCR-01..07 | script sandbox (no network, timeouts), expect, asserts, request pipeline |
 | `collections` COLL-01..06 · `bru` BRU-01..05 | Bruno format, collections API, secrets, ZIP |
-| `api` API-01..12 | split-view client, environments, sending, attaching to cards |
+| `api` API-01..13 | split-view client, environments, sending, attaching to cards |
 | `a11y` A11Y-01..07 | tree semantics, keyboard navigation, accessible names, dialog focus, pinch zoom |
 
 `BROWSER_EXECUTABLE` selects a specific Chrome/Chromium binary. The same checks run on Linux, macOS and Windows

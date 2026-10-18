@@ -202,7 +202,7 @@ function treeRows(items,depth,q){
    h('span',{class:'api-row-actions'},
     isFolder?h('button',{type:'button',class:'api-icon-btn',title:t('apiNewRequest'),'aria-label':`${t('apiNewRequest')}: ${it.name}`,onClick:()=>newItem('request',it.path)},'+'):null,
     isFolder?h('button',{type:'button',class:'api-icon-btn',title:t('apiNewFolder'),'aria-label':`${t('apiNewFolder')}: ${it.name}`,onClick:()=>newItem('folder',it.path)},'▤'):null,
-    hooks.attach&&isFolder?h('button',{type:'button',class:'api-icon-btn api-attach',title:t('apiAttach'),'aria-label':`${t('apiAttach')}: ${it.name}`,onClick:()=>attachTo({path:it.path,name:it.name,type:'folder'})},'⤓'):null,
+    hooks.attach?h('button',{type:'button',class:'api-icon-btn api-attach',title:t('apiAttach'),'aria-label':`${t('apiAttach')}: ${it.name}`,onClick:()=>attachTo({path:it.path,name:it.name,type:it.type})},'⤓'):null,
     h('button',{type:'button',class:'api-icon-btn',title:t('apiRename'),'aria-label':`${t('apiRename')}: ${it.name}`,onClick:()=>renameItem(it)},'✎'),
     h('button',{type:'button',class:'api-icon-btn danger',title:t('apiDelete'),'aria-label':`${t('apiDelete')}: ${it.name}`,onClick:()=>deleteItem(it)},'✕')));
   row.addEventListener('dragstart',e=>{dragged=it;dragData({path:it.path,name:it.name,type:it.type})(e);});
@@ -479,9 +479,9 @@ function build(){
  const setWidth=px=>{const w=Math.min(Math.max(px,420),window.innerWidth-260);document.documentElement.style.setProperty('--api-w',`${w}px`);store.set('cm-api-width',String(Math.round(w)));};
  resizer.addEventListener('pointerdown',e=>{e.preventDefault();resizer.setPointerCapture(e.pointerId);document.body.classList.add('api-resizing');});
  resizer.addEventListener('pointermove',e=>{if(resizer.hasPointerCapture(e.pointerId))setWidth(window.innerWidth-e.clientX);});
- const endResize=e=>{if(resizer.hasPointerCapture?.(e.pointerId))resizer.releasePointerCapture(e.pointerId);document.body.classList.remove('api-resizing');window.dispatchEvent(new Event('resize'));};
+ const endResize=e=>{if(resizer.hasPointerCapture?.(e.pointerId))resizer.releasePointerCapture(e.pointerId);document.body.classList.remove('api-resizing');hooks.layout?.();};
  resizer.addEventListener('pointerup',endResize);resizer.addEventListener('pointercancel',endResize);
- resizer.addEventListener('keydown',e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();setWidth(panel.offsetWidth+(e.key==='ArrowLeft'?40:-40));window.dispatchEvent(new Event('resize'));}});
+ resizer.addEventListener('keydown',e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();setWidth(panel.offsetWidth+(e.key==='ArrowLeft'?40:-40));hooks.layout?.();}});
  const saved=Number(store.get('cm-api-width'));
  document.documentElement.style.setProperty('--api-w',saved>=420?`${Math.min(saved,window.innerWidth-260)}px`:'50vw');
  panel.addEventListener('keydown',e=>{
@@ -498,27 +498,42 @@ export function setAttachTarget(label){ // faixa no topo do painel: aviso de que
  if(!panel)build();
  els.banner.hidden=!label;if(label)els.banner.firstChild.textContent=t('apiAttachBanner',label);
 }
-export async function openApiPanel({collection,path}={}){
+function flashRow(path){ // pequeno destaque na pasta, request ou coleção que o card apontou
+ const row=path?els.tree.querySelector(`.api-row[data-path="${CSS.escape(path)}"]`):els.tree.querySelector('.api-collection-row');
+ if(!row)return;
+ row.scrollIntoView({block:'nearest'});row.classList.remove('is-flash');void row.offsetWidth;row.classList.add('is-flash');
+ setTimeout(()=>row.classList.remove('is-flash'),2000);
+}
+/* focus: aberto a partir de um card. Só o que o card aponta fica expandido (a pasta, ou a pasta da request) e leva um destaque. */
+export async function openApiPanel({collection,path,focus=false}={}){
  if(!panel)build();
+ const wasOpen=state.open;
  state.open=true;panel.hidden=false;document.body.classList.add('api-open');
+ if(!wasOpen)hooks.layout?.(); // o mapa mantém o zoom e o foco (sem enquadrar de novo)
  try{
   await loadCollections();
   const wanted=collection&&state.collections.some(c=>c.id===collection)?collection:state.collections.some(c=>c.id===store.get('cm-api-coll'))?store.get('cm-api-coll'):state.collections[0]?.id;
   if(wanted)await loadCollection(wanted);else{state.coll=null;state.request=null;state.reqPath='';}
+  let item=null;
+  if(focus&&path&&state.coll){
+   item=findItem(state.coll.tree,path);
+   if(item){state.expanded=new Set(['']);let p=parentOf(path);while(p){state.expanded.add(p);p=parentOf(p);}if(item.type==='folder')state.expanded.add(path);}
+  }
   renderAll();
-  if(path){
-   const item=findItem(state.coll?.tree||[],path);
-   if(item?.type==='request')await openRequest(path);
-   else if(item?.type==='folder'){state.expanded.add(path);let p=parentOf(path);while(p){state.expanded.add(p);p=parentOf(p);}renderTree();}
+  if(focus&&item?.type==='request')await openRequest(path);
+  if(focus&&state.coll&&(item||!path))flashRow(path||'');
+  else if(path&&!focus){ // abertura simples por caminho (sem destaque)
+   const it=findItem(state.coll?.tree||[],path);
+   if(it?.type==='request')await openRequest(path);
+   else if(it?.type==='folder'){state.expanded.add(path);let p=parentOf(path);while(p){state.expanded.add(p);p=parentOf(p);}renderTree();}
   }
  }catch(e){toast(e.message);}
- window.dispatchEvent(new Event('resize'));
  panel.querySelector('.api-url,.api-select')?.focus({preventScroll:true});
 }
 export async function closeApiPanel(){
  if(!panel||!state.open)return;
  await flushSave();vf.closePopover();state.open=false;panel.hidden=true;document.body.classList.remove('api-open');
- window.dispatchEvent(new Event('resize'));hooks.onClose?.();
+ hooks.layout?.();hooks.onClose?.();
 }
 export const API_DRAG_TYPE=API_TYPE;
 /* Resumo de uma coleção/pasta para o "cartão" no mapa: nome, quantidade e as primeiras requests. */

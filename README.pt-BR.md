@@ -217,7 +217,7 @@ O botão **API** na barra inferior divide a tela: o mapa fica à esquerda e abre
 - **Os scripts rodam num sandbox isolado.** Cada script roda numa moldura isolada (origem opaca, CSP `default-src 'none'`) dentro de um Worker que é interrompido após 5 s: **sem rede, sem armazenamento, sem acesso ao app nem aos seus dados**, então uma coleção importada não consegue ler nem vazar nada. Disponíveis: `bru` (`getVar`/`setVar`, `getEnvVar`/`setEnvVar`, `interpolate`, `sleep`…), `req` (`getUrl`/`setUrl`, `setHeader`, `setBody`…), `res` (`res.status`, `res.body`, `res('caminho')`…), `test`, `expect` (estilo Chai) e `require("chai")`. O script de pré-requisição roda antes de as `{{variáveis}}` serem resolvidas, então `bru.setVar` pode alimentar a mesma request. Indisponíveis: `bru.sendRequest`/`runRequest`, `axios`, `lodash` e outros módulos. A chave **Scripts** ao lado do Enviar desliga a execução dos scripts.
 - **Reordene** requests e pastas arrastando na árvore.
 
-**Anexar a um card.** Arraste uma coleção ou pasta do painel para um card (modo edição), ou abra a roda do card, escolha **API** e clique em ⤓ numa coleção ou pasta. O card mostra um bloco, como uma imagem, com as primeiras requests; clicar nele abre o cliente naquela pasta. O bloco guarda um resumo salvo, então continua legível no modo texto e no HTML exportado (onde não é clicável, já que não há servidor).
+**Anexar a um card.** Arraste uma coleção, uma pasta ou uma request avulsa do painel para um card (modo edição), ou abra a roda do card, escolha **API** e clique em ⤓ em uma delas. O card mostra um bloco, como uma imagem, com as primeiras requests. Clicar nele abre o cliente **sem mudar o zoom nem o foco do mapa**, expande só a pasta anexada (ou a pasta da request anexada, selecionando a request) e destaca a linha de destino. O bloco guarda um resumo salvo, então continua legível no modo texto e no HTML exportado (onde não é clicável, já que não há servidor).
 
 Uma coleção de exemplo, **Context Maps API**, acompanha o projeto em `collections/` e documenta a própria API do app (escolha o ambiente `local`).
 
@@ -366,7 +366,7 @@ node tests/edit.mjs                     # ou rode uma suíte só
 | `motion` MOT-01..05 | animações e movimento reduzido |
 | `sandbox` SBX-01..05 · `scripting` SCR-01..07 | sandbox dos scripts (sem rede, tempo limite), expect, asserts, pipeline da request |
 | `collections` COLL-01..06 · `bru` BRU-01..05 | formato Bruno, API de coleções, segredos, ZIP |
-| `api` API-01..12 | cliente em tela dividida, ambientes, envio, anexar a cards |
+| `api` API-01..13 | cliente em tela dividida, ambientes, envio, anexar a cards |
 | `a11y` A11Y-01..07 | semântica de árvore, navegação por teclado, nomes acessíveis, foco nas janelas, zoom por pinça |
 
 `BROWSER_EXECUTABLE` escolhe um binário específico do Chrome/Chromium. As mesmas verificações rodam em Linux,

@@ -394,7 +394,7 @@ function apiTile(node,ref,index){
  fill(null,false);
  if(!readOnly)apiSummary(ref).then(sum=>fill(sum,!!sum));
  const tile=document.createElement(readOnly?'div':'button');tile.className='api-tile';
- if(!readOnly){tile.type='button';tile.setAttribute('aria-label',t('apiOpenTile',ref.name||ref.collection));tile.onclick=()=>{openApiPanel({collection:ref.collection,path:ref.path||''});$('#api-btn').setAttribute('aria-expanded','true');};}
+ if(!readOnly){tile.type='button';tile.setAttribute('aria-label',t('apiOpenTile',ref.name||ref.collection));tile.onclick=()=>{apiFocusId=node.id;openApiPanel({collection:ref.collection,path:ref.path||'',focus:true});$('#api-btn').setAttribute('aria-expanded','true');};}
  tile.append(head,...rows,foot);
  if(!editing||readOnly)return tile;
  const item=document.createElement('div');item.className='image-item api-item';item.append(tile);
@@ -404,6 +404,26 @@ function apiTile(node,ref,index){
  tools.append(remove);item.append(tools);return item;
 }
 let attachTarget=null;
+/* Ao abrir ou fechar o painel de API (ou arrastar a borda) o mapa NÃO é enquadrado de novo: o zoom fica como está. Se o painel foi aberto
+   a partir de um card, esse card continua visível (só se move se o painel o cobrisse); senão o centro do mapa acompanha a nova largura. */
+let lastVW=viewport.clientWidth,glideTimer=0,apiFocusId=null;
+function glide(){world.classList.add('is-glide');clearTimeout(glideTimer);glideTimer=setTimeout(()=>world.classList.remove('is-glide'),520);}
+function ensureVisible(id){
+ const el=document.querySelector(`[data-id="${id}"]`);if(!el)return;
+ const w=el.offsetWidth*camera.scale,h=el.offsetHeight*camera.scale,left=parseFloat(el.style.left)*camera.scale+camera.x,top=parseFloat(el.style.top)*camera.scale+camera.y,m=24;
+ let dx=0,dy=0;
+ if(left<m||left+w>viewport.clientWidth-m)dx=viewport.clientWidth/2-(left+w/2);
+ if(top<m||top+h>viewport.clientHeight-m)dy=viewport.clientHeight/2-(top+h/2);
+ if(dx||dy){camera.x+=dx;camera.y+=dy;updateCamera();}
+}
+function onApiLayout(){
+ const vw=viewport.clientWidth,shift=(lastVW-vw)/2,focus=apiFocusId;lastVW=vw;apiFocusId=null;
+ if(reading)return;
+ glide();
+ if(!focus)camera.x-=shift;
+ updateCamera();
+ if(focus)ensureVisible(focus);
+}
 function startAttach(node){attachTarget=node;openApiPanel();$('#api-btn').setAttribute('aria-expanded','true');setAttachTarget(nameOf(node));}
 function endAttach(){attachTarget=null;setAttachTarget(null);}
 async function attachApi(node,ref){
@@ -1129,7 +1149,7 @@ searchInput.addEventListener('keydown',e=>{
  else if(e.key==='Enter'){e.preventDefault();chooseSearch(searchIndex);}
  else if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();if(searchHits.length){searchIndex=(searchIndex+(e.key==='ArrowDown'?1:-1)+searchHits.length)%searchHits.length;renderSearch();searchList.children[searchIndex]?.scrollIntoView({block:'nearest'});}}
 });
-initApiClient({toast:message=>showToast(message,false,5000),onClose:()=>{$('#api-btn').setAttribute('aria-expanded','false');endAttach();},attach:ref=>attachFromPanel(ref),attachCancel:()=>endAttach()});
+initApiClient({toast:message=>showToast(message,false,5000),onClose:()=>{$('#api-btn').setAttribute('aria-expanded','false');endAttach();},attach:ref=>attachFromPanel(ref),attachCancel:()=>endAttach(),layout:()=>onApiLayout()});
 $('#api-btn').onclick=()=>{if(isApiOpen()){closeApiPanel();}else{openApiPanel();$('#api-btn').setAttribute('aria-expanded','true');}};
 $('#search-btn').onclick=()=>searchPanel.hidden?openSearch():closeSearch();
 document.addEventListener('pointerdown',e=>{if(!searchPanel.hidden&&!e.target.closest('#search-panel,#search-btn'))closeSearch(false);});
@@ -1298,7 +1318,7 @@ viewport.addEventListener('pointerdown',e=>{const middle=e.button===1;if(moving|
 viewport.addEventListener('pointermove',e=>{if(!drag||drag.id!==e.pointerId)return;camera.x=drag.camera.x+e.clientX-drag.x;camera.y=drag.camera.y+e.clientY-drag.y;updateCamera();});
 function stopDrag(){drag=null;viewport.classList.remove('dragging');}
 viewport.addEventListener('pointerup',stopDrag);viewport.addEventListener('pointercancel',stopDrag);viewport.addEventListener('lostpointercapture',stopDrag);
-window.addEventListener('resize',()=>{if(!reading)fit();});
+window.addEventListener('resize',()=>{if(!reading)fit();lastVW=viewport.clientWidth;});
 
 await initStore();
 roots.forEach(migrate);

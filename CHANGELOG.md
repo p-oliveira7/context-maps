@@ -8,6 +8,12 @@ How to cut a release: [`docs/releasing.md`](docs/releasing.md).
 ## [Unreleased]
 
 ### Added
+- **Attach a single request** to a card (⤓ on a request row, or drag it onto the card), besides collections and folders.
+
+### Changed
+- **Opening the API client from a card no longer zooms the map out**: the zoom and the focus stay where they were (the clicked card moves only if the panel would cover it) and the map glides to its new width; opening it with the API button keeps the centre of the map. Resizing the panel also keeps the zoom.
+- **The tree shows only what the card points to**: attaching a folder opens just that folder; attaching a request opens just its folder and selects the request; a whole collection opens its top-level folders. The target row flashes briefly.
+
 - **`{{variables}}` are highlighted in the API client**: **red** when the variable has no value yet, **green** when it has one (blue for built-ins such as `{{$timestamp}}`), in the URL, header/param/form values, JSON/text/XML bodies and auth fields. Hover a variable (or press **Ctrl+.** with the cursor inside it) to see its value, where it comes from (session, request, environment, collection) and edit it; choose where to save a new value (environment, this request or this session only). Secret values are masked with a Show button. The colours follow the selected environment.
 - **Scripts, tests and assertions in the API client**: pre-request and post-response scripts, `tests` (with `test()` and a Chai-style `expect`), the declarative `assert` block (`res.status: eq 200`, 30 operators), post-response variables (`token: res.body.token`) and runtime variables (`bru.setVar`). A request can create a variable in its pre-request script and use it in the same request. New **Assert** tab, editable **Scripts** tab, response tabs **Tests** (with pass/fail summary) and **Console**.
 - **Isolated script execution**: scripts run in a sandboxed iframe (opaque origin, CSP `default-src 'none'`) inside a Worker that is terminated after 5 s. They have no network, storage or access to the app, so imported collections cannot read your data or send it anywhere. Available globals: `bru`, `req`, `res`, `test`, `expect`, `console`, `require("chai")`. A "Scripts" switch next to Send turns script execution off.
