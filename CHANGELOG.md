@@ -7,6 +7,27 @@ How to cut a release: [`docs/releasing.md`](docs/releasing.md).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-17
+
+The API client release: a Postman/Bruno-style client in a split view, with collections in the Bruno format,
+environments and secrets, sandboxed scripts and tests, coloured variables, and APIs attachable to cards.
+The documentation now shows the English interface.
+
+### Added
+- **API client (Postman/Bruno style)** in a split view: the **API** button divides the screen (map on the left, client on the right, resizable). Collections are plain folders in the **Bruno format** (`collections/<name>/` with `bruno.json`, `.bru` requests, folders and `environments/*.bru`), so they can be versioned with Git and opened in Bruno. Create, rename, delete and drag-reorder folders and requests; edit method, URL (query and path params stay in sync), headers, JSON/text/XML/form bodies, bearer/basic auth, request variables and docs; use `{{variables}}` with environments (and `{{$timestamp}}`, `{{$guid}}`…), see the resolved request, and send it through the local server (no CORS), with status, time, size, headers and a formatted body. **Secret** environment values are stored only on the machine (`collections/.secrets/`, git-ignored) and never in the files, ZIP exports or the repository. Scripts, tests and assertions are preserved but not executed yet. Import and export collections as ZIP. A bundled example collection documents the app's own API.
+- **Isolated script execution**: scripts run in a sandboxed iframe (opaque origin, CSP `default-src 'none'`) inside a Worker that is terminated after 5 s. They have no network, storage or access to the app, so imported collections cannot read your data or send it anywhere. Available globals: `bru`, `req`, `res`, `test`, `expect`, `console`, `require("chai")`. A "Scripts" switch next to Send turns script execution off.
+- **Scripts, tests and assertions in the API client**: pre-request and post-response scripts, `tests` (with `test()` and a Chai-style `expect`), the declarative `assert` block (`res.status: eq 200`, 30 operators), post-response variables (`token: res.body.token`) and runtime variables (`bru.setVar`). A request can create a variable in its pre-request script and use it in the same request. New **Assert** tab, editable **Scripts** tab, response tabs **Tests** (with pass/fail summary) and **Console**.
+- **`{{variables}}` are highlighted in the API client**: **red** when the variable has no value yet, **green** when it has one (blue for built-ins such as `{{$timestamp}}`), in the URL, header/param/form values, JSON/text/XML bodies and auth fields. Hover a variable (or press **Ctrl+.** with the cursor inside it) to see its value, where it comes from (session, request, environment, collection) and edit it; choose where to save a new value (environment, this request or this session only). Secret values are masked with a Show button. The colours follow the selected environment.
+- **Attach APIs to cards**: drag a collection or folder from the API panel onto a card (edit mode) or use the card's wheel (**API** then ⤓). The card shows a tile, like an image, with the first requests; clicking it opens the client at that folder. A saved snapshot keeps the tile readable offline and in exported HTML; text mode lists the attached APIs.
+- **Attach a single request** to a card (⤓ on a request row, or drag it onto the card), besides collections and folders.
+- New endpoints: `/api/collections/…` (collections, items, requests, environments, ZIP import/export) and `POST /api/send` (http/https only, 30 s timeout, 10 MB response limit).
+- **English example presentation** (`presentations/cities-for-people.json`, generated from the Portuguese one by `docs/build-example-en.mjs`, with its diagrams re-rendered in English) that also shows related ideas and an attached API.
+
+### Changed
+- **Documentation images and the demo GIF now use the English interface** and the English example. New screenshots: search, related ideas, coloured API variables, script tests and the export menu; the demo GIF also shows the API client. The banner is in English.
+- **Opening the API client from a card no longer zooms the map out**: the zoom and the focus stay where they were (the clicked card moves only if the panel would cover it) and the map glides to its new width; opening it with the API button keeps the centre of the map. Resizing the panel also keeps the zoom.
+- **The tree shows only what the card points to**: attaching a folder opens just that folder; attaching a request opens just its folder and selects the request; a whole collection opens its top-level folders. The target row flashes briefly.
+
 ## [0.3.0] - 2026-10-17
 
 A release about working faster and sharing: undo/redo, search, copy and paste, related ideas, export and
@@ -66,7 +87,8 @@ after 0.1.0 (pull requests #1–#10).
 - Linear reading (text) mode of the whole map.
 - Original sample map data and navigation state model.
 
-[Unreleased]: https://github.com/p-oliveira7/context-maps/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/p-oliveira7/context-maps/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/p-oliveira7/context-maps/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/p-oliveira7/context-maps/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/p-oliveira7/context-maps/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/p-oliveira7/context-maps/releases/tag/v0.1.0

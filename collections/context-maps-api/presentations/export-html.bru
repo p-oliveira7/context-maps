@@ -1,0 +1,19 @@
+meta {
+  name: Export as HTML
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{host}}/api/presentations/:id/export?format=html
+  body: none
+  auth: none
+}
+
+params:path {
+  id: cidades-para-pessoas
+}
+
+params:query {
+  format: html
+}

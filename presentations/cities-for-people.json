@@ -1,0 +1,445 @@
+{
+  "id": "cities-for-people",
+  "title": "What if the city were made for people?",
+  "roots": [
+    {
+      "id": "root",
+      "title": "What if the city were made for people?",
+      "children": [
+        {
+          "id": "n-698bbbf7",
+          "title": "How do we want to move?",
+          "children": [
+            {
+              "id": "n-3757b41b",
+              "title": "Sidewalks that invite walking",
+              "children": []
+            },
+            {
+              "id": "n-dd90769e",
+              "title": "Bikes connected to public transport",
+              "children": [],
+              "links": [
+                {
+                  "url": "https://en.wikipedia.org/wiki/Sustainable_transport",
+                  "label": "Sustainable transport"
+                }
+              ]
+            },
+            {
+              "id": "n-8b602422",
+              "title": "Less time in traffic, more time for life",
+              "children": []
+            }
+          ],
+          "color": "#c76a61",
+          "subtitle": "Subtitles appear inside the card, only while hovering it."
+        },
+        {
+          "id": "n-fc880937",
+          "title": "Where does nature meet the city?",
+          "children": [
+            {
+              "id": "n-3ad4fa86",
+              "title": "A tree changes the experience of a street",
+              "children": [],
+              "images": [
+                {
+                  "src": "presentations/cities-for-people/assets/park-mvbotqwx.svg",
+                  "alt": "Trees shading the park path"
+                }
+              ]
+            },
+            {
+              "id": "n-6c17fc19",
+              "title": "Living rivers, accessible banks",
+              "children": []
+            },
+            {
+              "id": "n-b9ba3f40",
+              "title": "Small parks a few steps from home",
+              "children": []
+            }
+          ],
+          "color": "#d4a458",
+          "images": [
+            {
+              "src": "presentations/cities-for-people/assets/park-mvbotqwh.svg",
+              "alt": "Park with trees and a path by the river"
+            }
+          ]
+        },
+        {
+          "id": "n-adf4a795",
+          "title": "What brings us closer together?",
+          "children": [
+            {
+              "id": "n-b57955cb",
+              "title": "Squares as shared living rooms",
+              "children": []
+            },
+            {
+              "id": "n-ab2027f0",
+              "title": "Neighbourhood culture and shops",
+              "children": []
+            },
+            {
+              "id": "n-eed132f9",
+              "title": "Spaces for all ages",
+              "children": []
+            }
+          ],
+          "color": "#a39acb"
+        },
+        {
+          "id": "n-4e384b53",
+          "title": "Where do we start the change?",
+          "children": [
+            {
+              "id": "n-718b86f6",
+              "title": "Listen to those who already live there",
+              "children": []
+            },
+            {
+              "id": "n-ad98f159",
+              "title": "Test on one street before scaling up",
+              "children": []
+            },
+            {
+              "id": "n-c5a2c4a2",
+              "title": "Measure what improves daily life",
+              "children": []
+            }
+          ],
+          "color": "#d98757"
+        }
+      ],
+      "images": [
+        {
+          "src": "presentations/cities-for-people/assets/city-mvbotqw2.svg",
+          "alt": "City with trees, paths and buildings in shades of green"
+        }
+      ],
+      "subtitle": "Context Maps example map. Hover the cards to see subtitles and turn on “Edit” to try things out."
+    },
+    {
+      "id": "n-b2332e76",
+      "title": "Resource guide",
+      "children": [
+        {
+          "id": "n-39d8103b",
+          "title": "Subtitle on hover",
+          "children": [],
+          "color": "#6fa3d6",
+          "subtitle": "This supporting text stays hidden and only shows here, inside the card, while the mouse is over it."
+        },
+        {
+          "id": "n-2c168956",
+          "title": "Images",
+          "children": [
+            {
+              "id": "n-385e600c",
+              "title": "One image",
+              "children": [],
+              "images": [
+                {
+                  "src": "presentations/cities-for-people/assets/park-mvbotqxc.svg",
+                  "alt": "Park with trees and a river"
+                }
+              ]
+            },
+            {
+              "id": "n-bdb5e1ef",
+              "title": "Several images in the same card",
+              "children": [],
+              "images": [
+                {
+                  "src": "presentations/cities-for-people/assets/city-mvbotqxs.svg",
+                  "alt": "City"
+                },
+                {
+                  "src": "presentations/cities-for-people/assets/park-mvbotqy8.svg",
+                  "alt": "Park"
+                }
+              ]
+            },
+            {
+              "id": "n-25e7e3a9",
+              "title": "Image and diagram together",
+              "children": [],
+              "images": [
+                {
+                  "src": "presentations/cities-for-people/assets/park-mvbotqyo.svg",
+                  "alt": "Park"
+                },
+                {
+                  "src": "presentations/cities-for-people/assets/d-1.svg",
+                  "alt": "Diagram: Image and diagram together",
+                  "kind": "diagram",
+                  "source": "flowchart LR\n    A[\"Idea\"] --> B{\"Has details?\"}\n    B -->|Yes| C[\"Add children\"]\n    B -->|No| D[\"Leave as a leaf\"]\n    C --> E[\"Images, links and diagrams\"]\n    D --> E\n"
+                }
+              ]
+            }
+          ],
+          "color": "#7fb59a"
+        },
+        {
+          "id": "n-17d7ee48",
+          "title": "Mermaid diagrams",
+          "children": [
+            {
+              "id": "n-9405322f",
+              "title": "Flowchart",
+              "children": [],
+              "images": [
+                {
+                  "src": "presentations/cities-for-people/assets/d-2.svg",
+                  "alt": "Diagram: Flowchart",
+                  "kind": "diagram",
+                  "source": "flowchart LR\n    A[\"Idea\"] --> B{\"Has details?\"}\n    B -->|Yes| C[\"Add children\"]\n    B -->|No| D[\"Leave as a leaf\"]\n    C --> E[\"Images, links and diagrams\"]\n    D --> E\n"
+                }
+              ]
+            },
+            {
+              "id": "n-6086cc1a",
+              "title": "Sequence diagram",
+              "children": [],
+              "images": [
+                {
+                  "src": "presentations/cities-for-people/assets/d-3.svg",
+                  "alt": "Diagram: Sequence diagram",
+                  "kind": "diagram",
+                  "source": "sequenceDiagram\n    actor U as Person\n    participant M as Map\n    participant S as Local server\n    U->>M: Edits a card\n    M->>S: Saves (autosave)\n    S-->>M: Saved\n    M-->>U: \"Saved\" status\n"
+                }
+              ]
+            }
+          ],
+          "color": "#c76a61"
+        },
+        {
+          "id": "n-6f1c2e34",
+          "title": "Links",
+          "children": [
+            {
+              "id": "n-80c24a3a",
+              "title": "One link opens directly in a new tab",
+              "children": [],
+              "links": [
+                {
+                  "url": "https://mermaid.js.org/",
+                  "label": "Mermaid"
+                }
+              ]
+            },
+            {
+              "id": "n-b2e28240",
+              "title": "Several links open a list",
+              "children": [],
+              "links": [
+                {
+                  "url": "https://nodejs.org/",
+                  "label": "Node.js"
+                },
+                {
+                  "url": "https://developer.mozilla.org/",
+                  "label": "MDN"
+                },
+                {
+                  "url": "https://git-scm.com/",
+                  "label": "Git"
+                }
+              ]
+            }
+          ],
+          "color": "#d4a458"
+        },
+        {
+          "id": "n-09389b3e",
+          "title": "Untitled cards",
+          "children": [
+            {
+              "id": "n-74ee0255",
+              "title": "",
+              "children": [],
+              "images": [
+                {
+                  "src": "presentations/cities-for-people/assets/city-mvbotunp.svg",
+                  "alt": "Image only, no title"
+                }
+              ]
+            },
+            {
+              "id": "n-eed7e157",
+              "title": "",
+              "children": [],
+              "subtitle": "Secondary text only: without a title, the subtitle is always visible."
+            },
+            {
+              "id": "n-43625c68",
+              "title": "",
+              "children": [],
+              "images": [
+                {
+                  "src": "presentations/cities-for-people/assets/d-4.svg",
+                  "alt": "Diagram: ",
+                  "kind": "diagram",
+                  "source": "flowchart LR\n    A[\"Idea\"] --> B{\"Has details?\"}\n    B -->|Yes| C[\"Add children\"]\n    B -->|No| D[\"Leave as a leaf\"]\n    C --> E[\"Images, links and diagrams\"]\n    D --> E\n"
+                }
+              ]
+            }
+          ],
+          "color": "#a39acb"
+        },
+        {
+          "id": "n-b271cf99",
+          "title": "Line colours",
+          "children": [
+            {
+              "id": "n-40d75ffe",
+              "title": "Only this card’s lines",
+              "children": [
+                {
+                  "id": "n-3256c3da",
+                  "title": "Child with a subtitle",
+                  "children": [],
+                  "subtitle": "The lines leaving the card above have another colour; this child and the lines arriving at it do not change."
+                },
+                {
+                  "id": "n-06274574",
+                  "title": "Another child",
+                  "children": []
+                }
+              ],
+              "linksColor": "#ff7ab6"
+            },
+            {
+              "id": "n-b2539bbc",
+              "title": "The whole branch",
+              "children": [
+                {
+                  "id": "n-068f267a",
+                  "title": "Grandchild A",
+                  "children": [
+                    {
+                      "id": "n-bdabfe6b",
+                      "title": "Great-grandchild 1",
+                      "children": []
+                    },
+                    {
+                      "id": "n-7ec47fdb",
+                      "title": "Great-grandchild 2",
+                      "children": []
+                    }
+                  ],
+                  "linksColor": "#4fd1c5"
+                },
+                {
+                  "id": "n-a8f41d08",
+                  "title": "Grandchild B",
+                  "children": []
+                }
+              ],
+              "linksColor": "#4fd1c5"
+            }
+          ],
+          "color": "#d98757",
+          "linksColor": "#ffffff"
+        },
+        {
+          "id": "n-rel-0001",
+          "title": "Related ideas",
+          "color": "#6fa3d6",
+          "children": [
+            {
+              "id": "n-rel-a",
+              "title": "Cards can point to each other",
+              "subtitle": "Use Relate in the card’s wheel: a dotted line joins the two cards and the badge jumps to the other one.",
+              "related": [
+                "n-rel-b"
+              ],
+              "children": []
+            },
+            {
+              "id": "n-rel-b",
+              "title": "Even across branches",
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "n-api-0001",
+          "title": "API client",
+          "color": "#c76a61",
+          "children": [
+            {
+              "id": "n-api-a",
+              "title": "Attach a collection, folder or request",
+              "subtitle": "Drag one from the API panel onto a card in Edit mode; click the tile to open the client right there.",
+              "apis": [
+                {
+                  "collection": "context-maps-api",
+                  "path": "presentations",
+                  "name": "Presentations",
+                  "snapshot": {
+                    "count": 4,
+                    "requests": [
+                      {
+                        "name": "List presentations",
+                        "method": "get"
+                      },
+                      {
+                        "name": "Get a presentation",
+                        "method": "get"
+                      },
+                      {
+                        "name": "Create a presentation",
+                        "method": "post"
+                      },
+                      {
+                        "name": "Export as HTML",
+                        "method": "get"
+                      }
+                    ]
+                  }
+                }
+              ],
+              "children": []
+            }
+          ]
+        }
+      ],
+      "subtitle": "Each branch shows a Context Maps feature. Open the branches and try them in Edit mode."
+    },
+    {
+      "id": "n-9d6124cb",
+      "title": "Another starting point",
+      "children": [
+        {
+          "id": "n-89333ed2",
+          "title": "Several root cards",
+          "children": [
+            {
+              "id": "n-11f89d67",
+              "title": "Each root has its own tree and a free position on the map",
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "n-ed9b3ac1",
+          "title": "No overlap",
+          "children": [
+            {
+              "id": "n-7d5880ee",
+              "title": "When branches open, the trees move apart and return when collapsed",
+              "children": []
+            }
+          ]
+        }
+      ],
+      "subtitle": "An independent root card: drag it by the handle to position it or drop it on another card to connect.",
+      "x": 1750,
+      "y": -120
+    }
+  ]
+}

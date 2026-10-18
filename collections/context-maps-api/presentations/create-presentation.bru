@@ -1,0 +1,25 @@
+meta {
+  name: Create a presentation
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{host}}/api/presentations
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "title": "Created from the API client"
+  }
+}
+
+docs {
+  Creates an empty presentation. Delete it later with the Delete request.
+}

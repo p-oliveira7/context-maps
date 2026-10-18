@@ -1,7 +1,7 @@
 // Gera docs/images/demo.gif: o agente pede um mapa, a skill valida e cria, e o mapa é explorado no app (comandos reais, servidor temporário).
 // Uso: PLAYWRIGHT_MODULE=file:///caminho/playwright-core/index.mjs node docs/demo.mjs
 import {spawn,spawnSync} from 'node:child_process';
-import {mkdtemp,mkdir,writeFile,rm} from 'node:fs/promises';
+import {mkdtemp,mkdir,writeFile,rm,cp} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {fileURLToPath,pathToFileURL} from 'node:url';
@@ -29,6 +29,11 @@ const outline=`# Checkout flow [subtitle:From cart to confirmation: what happens
   - Order e-mail [rel:Fraud checks]
 `;
 await writeFile(path.join(work,'src','checkout.md'),outline);
+await cp(path.join(root,'collections','context-maps-api'),path.join(work,'collections','context-maps-api'),{recursive:true}); // coleção de exemplo do cliente de API
+await writeFile(path.join(work,'collections','context-maps-api','environments','local.bru'),`vars {
+  host: ${base}
+}
+`);
 const cli=path.join(root,'skills','context-maps','scripts','rm.mjs');
 const run=args=>spawnSync(process.execPath,[cli,...args],{cwd:path.join(work,'src'),encoding:'utf8',env:{...process.env,RM_URL:base,RM_LANG:'en'}});
 const validated=JSON.parse(run(['validate','--outline','checkout.md']).stdout);
@@ -39,7 +44,7 @@ const browser=await launch();
 const frames=[];
 const add=async(page,delay)=>{const d=decodePng(await page.screenshot({type:'png'}));if(d.width!==W||d.height!==H)throw new Error('tamanho inesperado do quadro');frames.push({rgba:d.rgba,delay});};
 const hold=ms=>{frames.at(-1).delay+=ms;};
-const caption=(page,text)=>page.evaluate(t=>{let el=document.getElementById('demo-caption');if(!el){el=document.createElement('div');el.id='demo-caption';el.style.cssText='position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:9999;padding:7px 16px;border-radius:999px;background:#000b;border:1px solid #ffffff2a;color:#fff;font:600 15px system-ui,sans-serif;letter-spacing:.2px;pointer-events:none';document.body.append(el);}el.textContent=t;},text);
+const caption=(page,text,left='50%')=>page.evaluate(([t,x])=>{let el=document.getElementById('demo-caption');if(!el){el=document.createElement('div');el.id='demo-caption';el.style.cssText='position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:9999;padding:7px 16px;border-radius:999px;background:#000b;border:1px solid #ffffff2a;color:#fff;font:600 15px system-ui,sans-serif;letter-spacing:.2px;pointer-events:none';document.body.append(el);}el.style.left=x;el.textContent=t;},[text,left]);
 
 try{
  // ---- cena 1: terminal ----
@@ -87,6 +92,17 @@ try{
  for(const chunk of ['fr','a','ud']){await page.keyboard.type(chunk);await page.waitForTimeout(120);await add(page,320);}
  await add(page,700);
  await page.keyboard.press('Enter');await page.waitForTimeout(550);await add(page,1200);
+// API client: {{variables}} coloridas, enviar a request e ver os testes
+ await caption(page,'API client: colored variables, scripts and tests','25%'); // à esquerda: o painel ocupa a direita
+ await page.locator('#fit').click();await page.waitForTimeout(300);
+ await page.locator('#api-btn').click();await page.locator('.api-row-name',{hasText:'List presentations'}).waitFor();await page.waitForTimeout(500);await add(page,900);
+ await page.locator('.api-row-name',{hasText:'List presentations'}).click();await page.locator('.api-req-title strong',{hasText:'List presentations'}).waitFor();await page.waitForTimeout(300);await add(page,700);
+ {const b=await page.locator('.api-urlbar .api-var').first().boundingBox();await page.mouse.move(b.x+b.width/2,b.y+b.height/2);}
+ await page.waitForTimeout(700);await add(page,1500);
+ await page.mouse.move(8,H-8);await page.waitForTimeout(500);
+ await page.locator('.api-send').click();await page.locator('.api-status strong',{hasText:'200'}).waitFor();await page.waitForTimeout(300);await add(page,900);
+ await page.locator('.api-resp-tabs button[role=tab]',{hasText:'Tests'}).click();await page.waitForTimeout(400);await add(page,1700);
+ await page.locator('#api-panel button[aria-label="Close API client"]').click();await page.waitForTimeout(700);await add(page,500);
  await caption(page,'Edit: wheel of actions, drag to move, undo/redo');
  await page.locator('#edit-switch').click();await page.waitForTimeout(250);await add(page,500);
  await page.locator('#fit').click();await page.waitForTimeout(250);
