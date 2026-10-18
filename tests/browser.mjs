@@ -72,6 +72,7 @@ try {
  assert.equal(await fullscreen.getAttribute('aria-pressed'),'true');
  assert.equal(await page.locator('#fullscreen-label').textContent(),'Sair da tela cheia');
  assert.equal(await count(),nodesBefore);
+ await page.mouse.move(640,700); await page.waitForTimeout(450); // na tela cheia os botões só aparecem perto da base (ver MAP-12)
  await page.getByRole('button',{name:'Expandir tudo',exact:true}).click(); assert.equal(await count(),17); // continua interativo
  await fullscreen.click(); await page.waitForFunction(()=>!document.fullscreenElement&&document.querySelector('#fullscreen').getAttribute('aria-pressed')==='false'); // o botão acompanha o evento fullscreenchange
  assert.equal(await fullscreen.getAttribute('aria-pressed'),'false');
@@ -106,5 +107,31 @@ try {
  assert.equal(camAfter.scale,camBefore.scale);
  assert.equal(await page.locator('.node').count(),5); // nenhum card abriu/fechou
  assert.equal(await page.evaluate(()=>String(getSelection())),''); // nada selecionado
- assert.deepEqual(errors,[]); console.log('PASS: MAP-01..11 browser scenarios, desktop + mobile');
+ // MAP-12: tela cheia limpa — nome, barra de botões e zoom só aparecem perto do topo ou da base
+ await page.setViewportSize({width:1280,height:720}); await page.reload(); await page.locator('.node').first().waitFor();
+ const shown=async sel=>Number(await page.locator(sel).evaluate(e=>getComputedStyle(e).opacity))>0.95, hidden=async sel=>Number(await page.locator(sel).evaluate(e=>getComputedStyle(e).opacity))<0.05;
+ const parts=['.doc-bar','.toolbar','.zoom-controls'];
+ for(const sel of parts)assert.equal(await shown(sel),true); // fora da tela cheia tudo aparece
+ await page.locator('#fullscreen').click(); await page.waitForFunction(()=>document.body.classList.contains('is-fullscreen'));
+ await page.mouse.move(640,360); await page.waitForTimeout(500);
+ for(const sel of parts)assert.equal(await hidden(sel),true,`${sel} deveria sumir na tela cheia`);
+ await page.mouse.move(640,700); await page.waitForTimeout(450); // perto da base: barra de botões e zoom
+ assert.equal(await shown('.toolbar'),true);assert.equal(await shown('.zoom-controls'),true);assert.equal(await hidden('.doc-bar'),true);
+ await page.locator('#expand').click(); await page.waitForTimeout(300); // dá para usar os botões
+ assert.equal(await page.locator('.node').count(),17);
+ await page.mouse.move(640,360); await page.waitForTimeout(1000); // longe das bordas: somem de novo
+ assert.equal(await hidden('.toolbar'),true);assert.equal(await hidden('.zoom-controls'),true);
+ await page.mouse.move(120,20); await page.waitForTimeout(450); // perto do topo: nome da apresentação
+ assert.equal(await shown('.doc-bar'),true);assert.equal(await hidden('.toolbar'),true);
+ await page.locator('#doc-button').click(); await page.waitForSelector('#doc-menu:not([hidden])');
+ await page.mouse.move(640,360); await page.waitForTimeout(1000); // com o menu aberto o nome continua visível
+ assert.equal(await shown('.doc-bar'),true);
+ await page.keyboard.press('Escape'); await page.mouse.click(640,360); await page.waitForTimeout(900);
+ assert.equal(await hidden('.doc-bar'),true);
+ await page.keyboard.press('Tab'); await page.locator('#fit').evaluate(b=>b.focus()); await page.waitForTimeout(450); // teclado: o foco em um controle revela o grupo dele
+ assert.equal(await shown('.zoom-controls'),true);assert.equal(await hidden('.toolbar'),true);
+ await page.locator('#fullscreen').evaluate(b=>b.focus()); await page.keyboard.press('Enter'); // sai da tela cheia (botão focado, visível pelo foco)
+ await page.waitForFunction(()=>!document.fullscreenElement); await page.waitForTimeout(450);
+ for(const sel of parts)assert.equal(await shown(sel),true,`${sel} deveria voltar ao sair da tela cheia`);
+ assert.deepEqual(errors,[]); console.log('PASS: MAP-01..12 browser scenarios, desktop + mobile');
 } finally {await browser.close();}

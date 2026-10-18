@@ -117,7 +117,7 @@ lugar: abra, expanda tudo e ligue o modo *Editar*. **As imagens e o GIF deste RE
 - **Mover** arrastando o fundo (ou segurando o **botão do meio do mouse** em qualquer lugar); **rolar** dá zoom; os botões − / + e ⌗ (enquadrar) ficam no canto.
 - **Clique no título** (ou Enter/Espaço) expande ou recolhe um ramo. Abrir anima os cards por 420 ms e destaca a conexão ao primeiro filho (respeita `prefers-reduced-motion`).
 - **Vários cards raiz** nunca se sobrepõem: quando uma árvore aberta cobriria outra, quem estava **abaixo (ou à direita)** se afasta, então a ordem original é mantida, e volta à posição salva ao recolher.
-- **Expandir tudo / Recolher tudo**, **Tela cheia** e **Modo texto** (leitura linear do mapa inteiro) ficam na barra inferior.
+- **Expandir tudo / Recolher tudo**, **Tela cheia** e **Modo texto** (leitura linear do mapa inteiro) ficam na barra inferior. Na **tela cheia** a interface sai da frente: o nome da apresentação e os botões somem e só aparecem quando o mouse chega perto do **topo** (nome e menu) ou da **base** (botões e zoom) da tela, deixando uma apresentação limpa.
 - **Subtítulos** aparecem num pequeno painel sob o card **somente ao passar o mouse**.
 - **Teclado:** Tab alcança todos os cards; na exibição **→** abre um ramo ou entra nele, **←** recolhe ou vai para o pai, **↑ ↓** andam entre irmãos, **Enter/Espaço** alternam. O mapa é exposto aos leitores de tela como uma árvore.
 - **Toque:** um dedo move o mapa, **dois dedos fazem pinça para dar zoom** (e também movem).
@@ -384,7 +384,7 @@ node tests/edit.mjs                     # ou rode uma suíte só
 | --- | --- |
 | `edit` EDIT-01..31 | edição, diagramas, mídias, links, pastas, idioma, exportação, importação |
 | `skill` SKILL-01..09 | CLI da skill |
-| `browser` MAP-01..11 | navegação, zoom, modo texto, mobile, tela cheia |
+| `browser` MAP-01..12 | navegação, zoom, modo texto, mobile, tela cheia |
 | `cards` CARD-01..06 | títulos, raiz, teclado, imagens |
 | `motion` MOT-01..05 | animações e movimento reduzido |
 | `sandbox` SBX-01..05 · `scripting` SCR-01..07 | sandbox dos scripts (sem rede, tempo limite), expect, asserts, pipeline da request |
