@@ -76,6 +76,9 @@ try{
  const loop=await run(`while(true){}`,{},800);
  assert.equal(loop.ok,false);assert.match(loop.error,/timeout/);assert.ok(Date.now()-started<4000);
  assert.equal(await page.evaluate(()=>1+1),2);
+ const forged=await run(`while(true){postMessage({started:true});}`,{},800); // mandar "started" de novo não estende o prazo
+ assert.equal(forged.ok,false);assert.match(forged.error,/timeout/);
+ assert.equal(await page.evaluate(()=>1+1),2);
  assert.equal(await page.locator('iframe[title="script sandbox"]').count(),0); // a moldura é removida
  const noisy=await run(`for(let i=0;i<5000;i++)console.log('x'.repeat(5000));bru.setVar('big','y'.repeat(1e6));`);
  assert.equal(noisy.logs.length,200);assert.ok(noisy.logs[0].text.length<=2000);

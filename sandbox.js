@@ -14,6 +14,7 @@ function workerMain(expect){
  const fmt=a=>{if(typeof a==='string')return a;try{return JSON.stringify(a);}catch{return String(a);}};
  const lookup=(obj,name)=>{const key=Object.keys(obj).find(k=>k.toLowerCase()===String(name).toLowerCase());return key;};
  self.onmessage=async event=>{
+  post({started:true}); // o limite de tempo conta a partir daqui (a criação da moldura e do worker pode ser lenta em máquinas ocupadas)
   const {code,input}=event.data,state={req:input.req,vars:{...input.vars},envVars:{...input.envVars},logs:[],tests:[],error:null};
   const interpolate=text=>String(text).replace(/\{\{\s*([\w$.-]+)\s*\}\}/g,(whole,k)=>k in state.vars?String(state.vars[k]):k in state.envVars?String(state.envVars[k]):k in (input.requestVars||{})?String(input.requestVars[k]):whole);
   const log=level=>(...args)=>{if(state.logs.length<200)state.logs.push({level,text:args.map(fmt).join(' ').slice(0,2000)});};
@@ -91,6 +92,7 @@ export function sanitizeResult(data){
   error:data.error?String(data.error).slice(0,1000):null};
 }
 
+const STARTUP_MS=20000;
 export const sandboxSupported=()=>typeof Worker!=='undefined'&&typeof Blob!=='undefined'&&typeof MessageChannel!=='undefined';
 
 /** input: {req, res?, vars, envVars, requestVars, envName, name, authMode}; devolve o estado final ou {ok:false,error} */
@@ -100,10 +102,15 @@ export function runScript({code,input,timeoutMs=5000}){
   const iframe=document.createElement('iframe'),channel=new MessageChannel();
   iframe.setAttribute('sandbox','allow-scripts');iframe.setAttribute('aria-hidden','true');iframe.tabIndex=-1;iframe.title='script sandbox';
   iframe.style.cssText='position:fixed;width:0;height:0;border:0;opacity:0;pointer-events:none';
-  let done=false;
+  let done=false,started=false,timer=0;
   const finish=result=>{if(done)return;done=true;clearTimeout(timer);channel.port1.close();iframe.remove();resolve(result);};
-  const timer=setTimeout(()=>finish({ok:false,error:`timeout after ${Math.round(timeoutMs/1000)} s`}),timeoutMs);
-  channel.port1.onmessage=event=>finish(sanitizeResult(event.data));
+  // Duas fases: até o worker começar vale um teto generoso de inicialização; depois, o tempo limite do script.
+  timer=setTimeout(()=>finish({ok:false,error:'sandbox did not start'}),STARTUP_MS);
+  channel.port1.onmessage=event=>{
+   if(event.data&&event.data.started===true&&!started){started=true;clearTimeout(timer);timer=setTimeout(()=>finish({ok:false,error:`timeout after ${Math.round(timeoutMs/1000)} s`}),timeoutMs);return;} // só o primeiro "started" vale: o script não pode estender o prazo
+   if(event.data&&event.data.started===true)return;
+   finish(sanitizeResult(event.data));
+  };
   iframe.addEventListener('load',()=>{try{iframe.contentWindow.postMessage({type:'run',workerSource:WORKER_SOURCE,code:String(code),input},'*',[channel.port2]);}catch(error){finish({ok:false,error:String(error.message||error)});}});
   iframe.srcdoc=BOOT;
   document.body.append(iframe);
