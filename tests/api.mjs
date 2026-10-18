@@ -301,7 +301,8 @@ try{
   assert.deepEqual(await kinds(),{host:'is-defined',missing:'is-undefined',key:'is-defined','$timestamp':'is-dynamic'});
   const color=name=>urlVars.filter({hasText:`{{${name}}}`}).evaluate(e=>getComputedStyle(e).color);
   assert.equal(await color('missing'),'rgb(229, 115, 115)');assert.equal(await color('host'),'rgb(111, 207, 151)'); // vermelho e verde
-  const hover=async locator=>{const b=await locator.boundingBox();await page.mouse.move(b.x+b.width/2,b.y+b.height/2);};
+  const scrollUrl=toEnd=>page.evaluate(end=>{const el=document.querySelector('.api-url');el.scrollLeft=end?el.scrollWidth:0;el.dispatchEvent(new Event('scroll'));},toEnd); // campos estreitos escondem parte da URL
+  const hover=async(locator,{end=false}={})=>{await scrollUrl(end);const b=await locator.boundingBox();await page.mouse.move(b.x+b.width/2,b.y+b.height/2);};
   const pop=page.locator('.api-var-pop');
 
   // passar o mouse em uma variável com valor mostra o valor e deixa editar (salva no ambiente)
@@ -330,7 +331,7 @@ try{
 
   // segredo: o valor vem escondido, dá para mostrar e editar; o arquivo do ambiente continua sem o valor
   await page.mouse.move(5,5);await pop.waitFor({state:'detached'});
-  await hover(urlVars.filter({hasText:'{{key}}'}));await pop.waitFor();
+  await hover(urlVars.filter({hasText:'{{key}}'}),{end:true});await pop.waitFor();
   assert.equal(await pop.locator('input').getAttribute('type'),'password');
   await pop.getByRole('button',{name:'Mostrar'}).click();assert.equal(await pop.locator('input').getAttribute('type'),'text');
   assert.equal(await pop.locator('input').inputValue(),'SECRET1');
@@ -340,7 +341,7 @@ try{
 
   // variável embutida: informa que é dinâmica
   await page.mouse.move(5,5);await pop.waitFor({state:'detached'});
-  await hover(urlVars.filter({hasText:'{{$timestamp}}'}));await pop.waitFor();
+  await hover(urlVars.filter({hasText:'{{$timestamp}}'}),{end:true});await pop.waitFor();
   assert.match(await pop.textContent(),/Embutida.*Gerada a cada envio/);
   await page.mouse.move(5,5);await pop.waitFor({state:'detached'});
 
@@ -348,7 +349,7 @@ try{
   const urlInput=page.locator('.api-url');await urlInput.focus();
   await urlInput.evaluate(el=>{const at=el.value.indexOf('{{missing}}')+3;el.setSelectionRange(at,at);});
   await page.keyboard.press('Control+.');await pop.waitFor();
-  assert.equal(await page.evaluate(()=>document.activeElement.closest('.api-var-pop')!==null),true);
+  await page.waitForFunction(()=>document.activeElement?.closest('.api-var-pop')!==null);
   await page.keyboard.press('Escape');await pop.waitFor({state:'detached'});
   assert.equal(await page.evaluate(()=>document.activeElement.classList.contains('api-url')),true);
 
