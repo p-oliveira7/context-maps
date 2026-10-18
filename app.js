@@ -1269,8 +1269,23 @@ fullscreenButton.onclick=()=>{
  if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});
  else document.documentElement.requestFullscreen().catch(()=>{});
 };
+/* Tela cheia limpa: o nome da apresentação, a barra de botões e o zoom somem e só aparecem quando o mouse chega perto do topo ou da base */
+const TOP_ZONE=72,BOTTOM_ZONE=130,uiTimers={top:0,bottom:0};
+function setUiZone(zone,show){
+ clearTimeout(uiTimers[zone]);
+ if(show)document.body.classList.add(`ui-${zone}`);
+ else if(document.body.classList.contains(`ui-${zone}`))uiTimers[zone]=setTimeout(()=>document.body.classList.remove(`ui-${zone}`),450); // pequena tolerância ao sair da faixa
+}
+function revealByPointer(e){
+ if(!document.fullscreenElement)return;
+ setUiZone('top',e.clientY<=TOP_ZONE);setUiZone('bottom',e.clientY>=window.innerHeight-BOTTOM_ZONE);
+}
+document.addEventListener('pointermove',revealByPointer,{passive:true});
+document.addEventListener('pointerdown',revealByPointer,{passive:true}); // toque: tocar perto da borda também revela
 document.addEventListener('fullscreenchange',()=>{
  const on=!!document.fullscreenElement;
+ document.body.classList.toggle('is-fullscreen',on);
+ if(!on){clearTimeout(uiTimers.top);clearTimeout(uiTimers.bottom);document.body.classList.remove('ui-top','ui-bottom');}
  fullscreenButton.setAttribute('aria-pressed',String(on));
  $('#fullscreen-label').textContent=on?t('exitFullscreen'):t('fullscreen');
  fullscreenButton.title=on?t('exitFullscreen'):t('fullscreen');
