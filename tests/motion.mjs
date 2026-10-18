@@ -26,7 +26,7 @@ try{
  await page.locator('[data-id="nature"]').hover();await page.waitForTimeout(200);
  assert.deepEqual(await page.locator('.is-hovered').evaluateAll(els=>els.map(e=>e.dataset.child)),['nature']);
  const hover=await edge('nature').evaluate(e=>({w:parseFloat(getComputedStyle(e).strokeWidth),f:getComputedStyle(e).filter}));assert.ok(hover.w>normal.w);assert.notEqual(hover.f,normal.f);
- await page.mouse.move(5,90);await page.waitForTimeout(200);assert.equal(await page.locator('.is-hovered').count(),0);assert.equal(await edge('nature').evaluate(e=>parseFloat(getComputedStyle(e).strokeWidth)),normal.w);
+ await page.mouse.move(5,90);await page.waitForTimeout(200);assert.equal(await page.locator('.is-hovered').count(),0);await page.waitForFunction(w=>Math.abs(parseFloat(getComputedStyle(document.querySelector('#connections path[data-child="nature"]')).strokeWidth)-w)<0.05,normal.w); // a transição do traço pode estar a meio caminho em runners lentos
  await page.locator('[data-id="root"]').hover();assert.equal(await page.locator('.is-hovered').count(),0);
  await page.locator('[data-id="root"] .node-title').evaluate(e=>e.click());await page.locator('[data-id="root"] .node-title').evaluate(e=>e.click());assert.equal(await page.locator('.is-presenting').getAttribute('data-child'),'mobility');
  await open();await open();await open();await advance(1200);
