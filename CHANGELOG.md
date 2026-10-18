@@ -8,6 +8,7 @@ How to cut a release: [`docs/releasing.md`](docs/releasing.md).
 ## [Unreleased]
 
 ### Changed
+- **Keyboard navigation glides the view to the focused card**: with the arrow keys (or Tab) the map now slides smoothly, keeping the zoom, so the card you are on stays centred. Mouse clicks, text editing, dragging and zooming do not recentre.
 - **Clean full screen**: in the browser's full-screen mode the presentation name, the button bar and the zoom controls disappear and only show when the mouse gets close to the top (name and menu) or the bottom (buttons and zoom) of the screen, or while a control has keyboard focus, the presentation menu is open or a save error is showing.
 
 ## [0.4.0] - 2026-10-17
