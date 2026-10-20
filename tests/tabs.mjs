@@ -164,6 +164,44 @@ try{
  assert.equal((await saved).status(),200);
  assert.equal(await urlOf('alpha.bru'),'{{host}}/saved-now');
 
+ // TAB-11: largura da lista de coleções e pastas (arrastar, teclado, padrão) e recolher
+ const col=()=>page.locator('.api-tree-col'),treeHandle=page.locator('.api-tree-resizer'),treeBtn=page.locator('.api-tree-toggle');
+ const colW=async()=>(await col().boundingBox()).width;
+ const bodyBox=()=>page.locator('.api-body').boundingBox();
+ const dragTo=async x=>{const hb=await treeHandle.boundingBox();await page.mouse.move(hb.x+hb.width/2,hb.y+250);await page.mouse.down();await page.mouse.move(x,hb.y+250,{steps:8});await page.mouse.up();};
+ assert.equal(await treeHandle.getAttribute('role'),'separator');assert.equal(await treeHandle.getAttribute('aria-orientation'),'vertical');
+ let body=await bodyBox();const w0=await colW();
+ assert.ok(Math.abs(w0-body.width*0.36)<6,`largura padrão: ~36% do painel (${w0} de ${body.width})`);
+ const h0=await treeHandle.boundingBox();await dragTo(h0.x+h0.width/2+80);
+ const w1=await colW();assert.ok(Math.abs(w1-(w0+80))<6,`o arrasto aumenta a lista em 80 px (${w0} -> ${w1})`);
+ assert.equal(Number(await treeHandle.getAttribute('aria-valuenow')),Math.round(w1));
+ await dragTo(body.x+5);assert.equal(Math.round(await colW()),140); // mínimo
+ await dragTo(body.x+body.width-5);assert.equal(Math.round(await colW()),Math.round(body.width-320)); // sobra espaço para o editor
+ await treeHandle.focus();
+ await page.keyboard.press('Home');assert.equal(Math.round(await colW()),140);
+ await page.keyboard.press('ArrowRight');assert.equal(Math.round(await colW()),156);
+ await page.keyboard.press('Shift+ArrowRight');assert.equal(Math.round(await colW()),204);
+ await page.keyboard.press('ArrowLeft');assert.equal(Math.round(await colW()),188);
+ await page.keyboard.press('End');assert.equal(Math.round(await colW()),Math.round(body.width-320));
+ await page.keyboard.press('Home');await page.keyboard.press('Shift+ArrowRight');await page.keyboard.press('Shift+ArrowRight'); // 236
+ const savedW=Math.round(await colW());
+ await page.reload();await page.locator('.node').first().waitFor();
+ await page.locator('#api-btn').click();await page.locator('.api-tab').first().waitFor();
+ assert.equal(Math.round(await colW()),savedW); // a largura fica lembrada
+ await page.locator('.api-tree-resizer').dblclick();body=await bodyBox();
+ assert.ok(Math.abs(await colW()-body.width*0.36)<6,'duplo clique volta ao padrão');
+ await page.locator('.api-tree-resizer').focus();await page.keyboard.press('ArrowRight');await page.keyboard.press('Enter');
+ assert.ok(Math.abs(await colW()-body.width*0.36)<6,'Enter também volta ao padrão');
+ const editorBefore=(await page.locator('.api-content').boundingBox()).width;
+ assert.equal(await treeBtn.getAttribute('aria-expanded'),'true');
+ await treeBtn.click();
+ assert.equal(await col().isHidden(),true);assert.equal(await treeHandle.isHidden(),true);assert.equal(await treeBtn.getAttribute('aria-expanded'),'false');
+ assert.ok((await page.locator('.api-content').boundingBox()).width>editorBefore+100,'o editor ganha o espaço da lista');
+ await page.reload();await page.locator('.node').first().waitFor();
+ await page.locator('#api-btn').click();await page.locator('.api-tab').first().waitFor();
+ assert.equal(await col().isHidden(),true); // continua recolhida
+ await treeBtn.click();assert.equal(await col().isVisible(),true);assert.equal(await treeBtn.getAttribute('aria-expanded'),'true');
+
  assert.deepEqual(errors,[]);
- console.log('PASS TAB-01..10 request tabs, split layout and quick open');
+ console.log('PASS TAB-01..11 request tabs, split layout, quick open and list width');
 }finally{await browser.close();server.kill();target.close();await rm(work,{recursive:true,force:true});}

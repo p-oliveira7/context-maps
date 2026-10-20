@@ -410,7 +410,7 @@ body.api-resizing{cursor:col-resize;user-select:none}
 .api-menu button{text-align:left;padding:.45rem .6rem;border-radius:6px;color:#ffffffc7;background:none;border:0;font:inherit;cursor:pointer}
 .api-menu button:hover{background:#ffffff14;color:#fff}.api-menu button.danger{color:#e57373}
 .api-body{flex:1;display:flex;min-height:0}
-.api-tree-col{width:36%;min-width:170px;max-width:320px;display:flex;flex-direction:column;border-right:1px solid #ffffff14;min-height:0}
+.api-tree-col{flex:none;width:var(--api-tree-w,36%);min-width:140px;max-width:calc(100% - 320px);display:flex;flex-direction:column;border-right:1px solid #ffffff14;min-height:0}
 .api-tree-tools{display:flex;gap:.3rem;padding:.5rem}
 .api-filter{flex:1}
 .api-tree{list-style:none;margin:0;padding:0 .25rem .6rem;overflow:auto;flex:1}
@@ -688,7 +688,6 @@ body.is-fullscreen.ui-bottom .zoom-controls,body.is-fullscreen .zoom-controls:ha
 .api-vars-pop header{display:flex;justify-content:space-between;align-items:center}
 .api-vars-row{display:grid;grid-template-columns:minmax(4rem,30%) 1fr auto;gap:.4rem;align-items:center}
 .api-vars-row code{overflow:hidden;text-overflow:ellipsis;color:#8fd1b0}
-.api-tree-toggle{display:none}
 .api-body{position:relative}
 @media (hover:none){.api-row-actions{display:flex}}
 @media (max-width:760px){
@@ -716,3 +715,11 @@ body.is-fullscreen.ui-bottom .zoom-controls,body.is-fullscreen .zoom-controls:ha
 .api-newreq-curl[hidden],.api-newreq-row[hidden]{display:none}
 .api-newreq-curl .api-textarea{min-height:7rem}
 .api-newreq-error{margin:0;min-height:1.1em;color:#e57373;font-size:.76rem}
+
+/* ---------- largura e recolher da lista de coleções e pastas ---------- */
+.api-tree-resizer{flex:none;position:relative;z-index:3;width:7px;margin:0 -3px;cursor:col-resize;touch-action:none}
+.api-tree-resizer::after{content:'';position:absolute;top:0;bottom:0;left:3px;width:2px;background:transparent;transition:background .15s}
+.api-tree-resizer:hover::after,.api-tree-resizer:focus-visible::after,.api-panel.is-resizing-tree .api-tree-resizer::after{background:#4f9d7a}
+.api-panel.is-resizing-tree{user-select:none}
+@media (min-width:761px){.api-panel.tree-collapsed .api-tree-col,.api-panel.tree-collapsed .api-tree-resizer{display:none}}
+@media (max-width:760px){.api-tree-resizer{display:none}}

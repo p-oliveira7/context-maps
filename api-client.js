@@ -812,11 +812,64 @@ function toggleVarsPop(){
  panel.append(els.varsPop);document.addEventListener('pointerdown',varsOutside,true);drawVarsPop();
  els.varsPop.querySelector('input')?.focus();
 }
-function hideTree(){panel?.classList.remove('show-tree');els.head?.querySelector('.api-tree-toggle')?.setAttribute('aria-expanded','false');}
+function hideTree(){panel?.classList.remove('show-tree');syncTreeToggle();}
 
 function varsButton(){els.varsBtn=h('button',{type:'button',class:'api-btn api-vars-btn','aria-haspopup':'dialog',onClick:toggleVarsPop});syncVarsUi();return els.varsBtn;}
 function treeToggle(){
- return h('button',{type:'button',class:'api-icon-btn api-tree-toggle',title:t('apiTreeToggle'),'aria-label':t('apiTreeToggle'),'aria-controls':'api-tree-col','aria-expanded':String(!!panel?.classList.contains('show-tree')),onClick:e=>{const on=panel.classList.toggle('show-tree');e.currentTarget.setAttribute('aria-expanded',String(on));}},'☰');
+ return h('button',{type:'button',class:'api-icon-btn api-tree-toggle',title:t('apiTreeToggle'),'aria-label':t('apiTreeToggle'),'aria-controls':'api-tree-col','aria-expanded':String(treeExpanded()),onClick:()=>{
+  if(NARROW())panel.classList.toggle('show-tree');else setTreeCollapsed(!panel.classList.contains('tree-collapsed'));
+  syncTreeToggle();
+ }},'☰');
+}
+
+/* ---------- lista de requests (coleções e pastas): largura ajustável por arrasto ou teclado, e recolher ---------- */
+const NARROW=()=>window.matchMedia('(max-width:760px)').matches;
+const TREE_MIN=140,MAIN_MIN=320;
+let treeW=0; // px; 0 = largura padrão (36% do painel)
+function treeBounds(){
+ const total=panel?.querySelector('.api-body')?.clientWidth||600;
+ return {min:TREE_MIN,max:Math.max(TREE_MIN,total-MAIN_MIN),total};
+}
+function applyTreeWidth(px){
+ const col=panel?.querySelector('.api-tree-col'),handle=panel?.querySelector('.api-tree-resizer');if(!col)return;
+ const {min,max,total}=treeBounds();
+ if(px){px=Math.round(Math.min(max,Math.max(min,px)));panel.style.setProperty('--api-tree-w',`${px}px`);}
+ else panel.style.removeProperty('--api-tree-w');
+ treeW=px||0;
+ if(handle){
+  const now=col.offsetWidth||(px||Math.round(total*.36));
+  handle.setAttribute('aria-valuemin',String(min));handle.setAttribute('aria-valuemax',String(Math.round(max)));handle.setAttribute('aria-valuenow',String(Math.round(now)));
+ }
+}
+const saveTreeWidth=()=>store.set('cm-api-tree-w',treeW?String(treeW):'');
+function treeExpanded(){return NARROW()?panel.classList.contains('show-tree'):!panel.classList.contains('tree-collapsed');}
+function syncTreeToggle(){els.head?.querySelector('.api-tree-toggle')?.setAttribute('aria-expanded',String(treeExpanded()));}
+function setTreeCollapsed(on){panel.classList.toggle('tree-collapsed',on);store.set('cm-api-tree-collapsed',on?'1':'0');syncTreeToggle();}
+function restoreTreeUi(){
+ const saved=Number(store.get('cm-api-tree-w'));
+ panel.classList.toggle('tree-collapsed',store.get('cm-api-tree-collapsed')==='1');
+ applyTreeWidth(saved>0?saved:0);syncTreeToggle();
+}
+function treeResizer(){
+ const handle=h('div',{class:'api-tree-resizer',role:'separator','aria-orientation':'vertical','aria-label':t('apiTreeResize'),tabindex:'0'});
+ handle.addEventListener('pointerdown',e=>{e.preventDefault();handle.setPointerCapture(e.pointerId);panel.classList.add('is-resizing-tree');});
+ handle.addEventListener('pointermove',e=>{
+  if(!handle.hasPointerCapture(e.pointerId))return;
+  applyTreeWidth(e.clientX-panel.querySelector('.api-body').getBoundingClientRect().left);
+ });
+ const end=e=>{if(handle.hasPointerCapture?.(e.pointerId))handle.releasePointerCapture(e.pointerId);panel.classList.remove('is-resizing-tree');saveTreeWidth();};
+ handle.addEventListener('pointerup',end);handle.addEventListener('pointercancel',end);
+ handle.addEventListener('dblclick',()=>{applyTreeWidth(0);saveTreeWidth();}); // volta ao padrão
+ handle.addEventListener('keydown',e=>{
+  const cur=panel.querySelector('.api-tree-col').offsetWidth,step=e.shiftKey?48:16,{min,max}=treeBounds();
+  let next=null;
+  if(e.key==='ArrowLeft')next=cur-step;else if(e.key==='ArrowRight')next=cur+step;
+  else if(e.key==='Home')next=min;else if(e.key==='End')next=max;
+  else if(e.key==='Enter'){e.preventDefault();applyTreeWidth(0);saveTreeWidth();return;}
+  if(next===null)return;
+  e.preventDefault();applyTreeWidth(next);saveTreeWidth();
+ });
+ return handle;
 }
 
 /* ---------- nova request: do zero ou importando um cURL (janela de criação) ---------- */
@@ -960,8 +1013,10 @@ function build(){
   els.tree);
  const resizer=h('div',{class:'api-resizer',role:'separator','aria-orientation':'vertical','aria-label':t('apiResize'),tabindex:'0'});
  els.banner=h('div',{class:'api-attach-banner',role:'status',hidden:true},h('span',{}),h('button',{type:'button',class:'api-btn',onClick:()=>{setAttachTarget(null);hooks.attachCancel?.();}},t('apiAttachCancel')));
- panel=h('aside',{id:'api-panel',class:'api-panel',role:'complementary','aria-label':t('apiTitle'),hidden:true},resizer,els.head,els.banner,h('div',{class:'api-body'},treeCol,els.main),els.importInput,els.folderInput);
- document.body.append(panel);panel.classList.add('show-tree'); // em tela estreita a lista de requests aparece primeiro
+ panel=h('aside',{id:'api-panel',class:'api-panel',role:'complementary','aria-label':t('apiTitle'),hidden:true},resizer,els.head,els.banner,h('div',{class:'api-body'},treeCol,treeResizer(),els.main),els.importInput,els.folderInput);
+ document.body.append(panel);panel.classList.add('show-tree');
+ new ResizeObserver(()=>applyTreeWidth(treeW)).observe(panel.querySelector('.api-body')); // o painel mudou de largura: mantém a lista dentro dos limites
+ // em tela estreita a lista de requests aparece primeiro
  // largura: arrastar a borda ou usar as setas
  const setWidth=px=>{const w=Math.min(Math.max(px,420),window.innerWidth-260);document.documentElement.style.setProperty('--api-w',`${w}px`);store.set('cm-api-width',String(Math.round(w)));};
  resizer.addEventListener('pointerdown',e=>{e.preventDefault();resizer.setPointerCapture(e.pointerId);document.body.classList.add('api-resizing');});
@@ -1010,7 +1065,7 @@ function flashRow(path){ // pequeno destaque na pasta, request ou coleção que 
 export async function openApiPanel({collection,path,focus=false}={}){
  if(!panel)build();
  const wasOpen=state.open;
- state.open=true;panel.hidden=false;document.body.classList.add('api-open');
+ state.open=true;panel.hidden=false;document.body.classList.add('api-open');restoreTreeUi();
  if(!wasOpen)hooks.layout?.(); // o mapa mantém o zoom e o foco (sem enquadrar de novo)
  try{
   await loadCollections();
