@@ -8,6 +8,7 @@ How to cut a release: [`docs/releasing.md`](docs/releasing.md).
 ## [Unreleased]
 
 ### Changed
+- **Copy as… shows the whole command before copying**: *Copy as…* (and the right-click *Copy as cURL / fetch*) now opens a window with the full cURL or `fetch` text, a format switch, and a *Replace {{variables}} with their values* checkbox (it warns about variables that still have no value). *Copy* puts exactly that text on the clipboard.
 - **API client: requests are no longer saved automatically.** What you change stays in the tab (marked with a ● and *Unsaved changes*) and is written to the `.bru` file only with **Ctrl+S** or the **Save** button. Closing a tab with unsaved changes, switching collection, renaming a request that has changes, or reloading the page now asks first (*Save* / *Don't save* / *Cancel*; *Save all* when several are open). Sending a request and running a folder use what is open in the tabs, saved or not.
 
 ### Added
