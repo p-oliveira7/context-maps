@@ -180,7 +180,7 @@ a **wheel of actions** opens around it (it closes with **Esc**, ×, or by clicki
 #### Related ideas
 
 <p align="center">
-  <img src="docs/images/14-related-ideas.png" alt="Two related ideas joined by a dotted line, each with a badge, and an attached API tile below" width="820"><br>
+  <img src="docs/images/14-related-ideas.png" alt="Two related ideas joined by a dotted line, each with a badge, and an attached API symbol below" width="820"><br>
   <sub>A dotted line joins related ideas; hovering one highlights the line, and the badge jumps to the other idea.</sub>
 </p>
 
@@ -216,7 +216,7 @@ arriving at it never change.
 
 <p align="center">
   <img src="docs/images/10-api-client.png" alt="The API client in a split view next to the map, with a collection attached to a card" width="920"><br>
-  <sub>Map on the left, API client on the right: the tile on the card is a collection attached to it.</sub>
+  <sub>Map on the left, API client on the right: the API symbol on the card opens the list of the collection attached to it.</sub>
 </p>
 
 The **API** button in the bottom bar splits the screen: the map stays on the left and a **Postman/Bruno-style client** opens on the right (drag its edge, or use the arrow keys on it, to resize).
@@ -247,7 +247,7 @@ The **API** button in the bottom bar splits the screen: the map stays on the lef
   <sub>Left: <code>{{variables}}</code> are red without a value and green with one; hover to see and edit the value. Right: assertions and script tests in the response.</sub>
 </p>
 
-**Attach to a card.** Drag a collection, a folder or a single request from the panel onto a card (edit mode), or open the card's wheel, choose **API** and press ⤓ on one of them. The card shows a tile, like an image, with the first requests. Clicking it opens the client **without changing the map's zoom or focus**, expands only the attached folder (or the folder of the attached request, selecting the request) and flashes the target row. The tile keeps a saved snapshot, so it still reads in text mode and in exported HTML (where it is not clickable, since there is no server).
+**Attach to a card.** Drag a collection, a folder or a single request from the panel onto a card (edit mode), or open the card's wheel, choose **API** and press ⤓ on one of them. The card shows just the API symbol (the same as the footer's API button); click it to open a dropdown with the attached collection or folder and its folders and requests, and click any item to open the client **without changing the map's zoom or focus**, expands only the attached folder (or the folder of the attached request, selecting the request) and flashes the target row. The card keeps a saved copy of the list, so it still reads in text mode and in exported HTML (where the dropdown only lists, since there is no server).
 
 An example collection, **Context Maps API**, ships in `collections/` and documents the app's own API (choose the `local` environment).
 

@@ -1186,6 +1186,17 @@ export async function closeApiPanel(){
  hooks.layout?.();hooks.onClose?.();
 }
 export const API_DRAG_TYPE=API_TYPE;
+const TREE_CAP=60;
+/* Lista plana (com recuo) de uma coleção ou pasta, na ordem da árvore, para o dropdown do card. */
+export async function summarizeTree({collection,path=''}){
+ const detail=await api('GET',`/collections/${collection}`);
+ const base=path?findItem(detail.tree,path):{children:detail.tree,name:detail.name,type:'collection'};
+ if(!base)return null;
+ const items=[];let total=0;
+ const walk=(list,depth)=>{for(const it of list){total++;if(items.length<TREE_CAP)items.push({type:it.type,name:it.name,path:it.path,method:it.method,depth});if(it.type==='folder')walk(it.children||[],depth+1);}};
+ if(base.type!=='request')walk(base.children||[],0);
+ return {name:path?base.name:detail.name,type:path?base.type:'collection',path,method:base.method,items,total};
+}
 /* Resumo de uma coleção/pasta para o "cartão" no mapa: nome, quantidade e as primeiras requests. */
 export async function summarize({collection,path=''}){
  const detail=await api('GET',`/collections/${collection}`);

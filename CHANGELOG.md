@@ -8,6 +8,9 @@ How to cut a release: [`docs/releasing.md`](docs/releasing.md).
 ## [Unreleased]
 
 ### Changed
+- **APIs attached to cards are a dropdown now**: instead of a tile with images of the first requests, the card shows just the API symbol (the same as the footer's API button). Clicking it opens a list with the attached collection or folder and its folders and requests; clicking any item opens the API client right there (a folder is expanded and flashed, a request is opened in a tab), as before. The list is a popover outside the map, so it keeps a readable size at any zoom and does not move the cards; Esc, a click outside, or moving the map closes it. In exported HTML the list is read-only (saved copy).
+
+### Changed
 - **Copy as… shows the whole command before copying**: *Copy as…* (and the right-click *Copy as cURL / fetch*) now opens a window with the full cURL or `fetch` text, a format switch, and a *Replace {{variables}} with their values* checkbox (it warns about variables that still have no value). *Copy* puts exactly that text on the clipboard.
 - **API client: requests are no longer saved automatically.** What you change stays in the tab (marked with a ● and *Unsaved changes*) and is written to the `.bru` file only with **Ctrl+S** or the **Save** button. Closing a tab with unsaved changes, switching collection, renaming a request that has changes, or reloading the page now asks first (*Save* / *Don't save* / *Cancel*; *Save all* when several are open). Sending a request and running a folder use what is open in the tabs, saved or not.
 

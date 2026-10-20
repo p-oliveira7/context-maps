@@ -179,7 +179,7 @@ O **salvamento é automático** (o estado aparece ao lado do nome: *Salvo / Salv
 #### Ideias relacionadas
 
 <p align="center">
-  <img src="docs/images/14-related-ideas.png" alt="Duas ideias relacionadas ligadas por uma linha pontilhada, cada uma com um selo, e um bloco de API anexado abaixo" width="820"><br>
+  <img src="docs/images/14-related-ideas.png" alt="Duas ideias relacionadas ligadas por uma linha pontilhada, cada uma com um selo, e um símbolo de API anexado abaixo" width="820"><br>
   <sub>Uma linha pontilhada liga as ideias relacionadas; passar o mouse numa delas destaca a linha, e o selo leva até a outra ideia.</sub>
 </p>
 
@@ -215,7 +215,7 @@ chega até ele nunca mudam.
 
 <p align="center">
   <img src="docs/images/10-api-client.png" alt="O cliente de API em tela dividida ao lado do mapa, com uma coleção anexada a um card" width="920"><br>
-  <sub>Mapa à esquerda, cliente de API à direita: o bloco no card é uma coleção anexada a ele.</sub>
+  <sub>Mapa à esquerda, cliente de API à direita: o símbolo da API no card abre a lista da coleção anexada a ele.</sub>
 </p>
 
 O botão **API** na barra inferior divide a tela: o mapa fica à esquerda e abre à direita um **cliente no estilo Postman/Bruno** (arraste a borda, ou use as setas nela, para redimensionar).
@@ -246,7 +246,7 @@ O botão **API** na barra inferior divide a tela: o mapa fica à esquerda e abre
   <sub>Esquerda: as <code>{{variáveis}}</code> ficam vermelhas sem valor e verdes com valor; passe o mouse para ver e editar. Direita: asserts e testes de script na resposta.</sub>
 </p>
 
-**Anexar a um card.** Arraste uma coleção, uma pasta ou uma request avulsa do painel para um card (modo edição), ou abra a roda do card, escolha **API** e clique em ⤓ em uma delas. O card mostra um bloco, como uma imagem, com as primeiras requests. Clicar nele abre o cliente **sem mudar o zoom nem o foco do mapa**, expande só a pasta anexada (ou a pasta da request anexada, selecionando a request) e destaca a linha de destino. O bloco guarda um resumo salvo, então continua legível no modo texto e no HTML exportado (onde não é clicável, já que não há servidor).
+**Anexar a um card.** Arraste uma coleção, uma pasta ou uma request avulsa do painel para um card (modo edição), ou abra a roda do card, escolha **API** e clique em ⤓ em uma delas. O card mostra só o símbolo da API (o mesmo do botão API do rodapé); clique nele para abrir um dropdown com a coleção ou pasta anexada e as pastas e requests dela, e clique em qualquer item para abrir o cliente **sem mudar o zoom nem o foco do mapa**, expande só a pasta anexada (ou a pasta da request anexada, selecionando a request) e destaca a linha de destino. O card guarda uma cópia salva da lista, então continua legível no modo texto e no HTML exportado (onde o dropdown só lista, já que não há servidor).
 
 Uma coleção de exemplo, **Context Maps API**, acompanha o projeto em `collections/` e documenta a própria API do app (escolha o ambiente `local`).
 

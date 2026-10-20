@@ -132,7 +132,9 @@ await page.locator('#api-btn').click();await page.locator('.api-row-name',{hasTe
 await page.locator('#search-btn').click();await page.keyboard.type('Attach a collection');await page.keyboard.press('Enter');await settle(900);
 await page.locator('.api-row-name',{hasText:'Get a presentation'}).click();await page.locator('.api-req-title strong').waitFor();
 await page.locator('.api-send').click();await page.locator('.api-status strong').waitFor();await settle(500);
+await page.locator('.node .api-dd').first().click();await page.locator('.api-dd-pop .api-dd-item').first().waitFor();await settle(300); // o símbolo da API no card, aberto
 await shot('10-api-client.png');
+await page.keyboard.press('Escape');await settle(200);
 
 // 11) variáveis coloridas: sem valor (vermelho), com valor (verde) e o painel ao passar o mouse
 await page.locator('.api-url').fill('{{host}}/api/presentations/:id?token={{token}}&t={{$timestamp}}');await settle(300);
