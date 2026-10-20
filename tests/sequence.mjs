@@ -124,13 +124,13 @@ try{
  await undoBtn.click();assert.equal((await stepRows())[0],'Client ⇢ Orders API: POST /v2/orders');await page.waitForFunction(()=>/Undone/.test(document.querySelector('.seq-ed-status').textContent));
  await undoBtn.click();await undoBtn.click();assert.equal((await stepRows())[0],'Client → Orders API: POST /orders');assert.equal(await undoBtn.isDisabled(),true);
  await redoBtn.click();assert.equal((await stepRows())[0],'Client → Orders API: POST /v2/orders');
- await page.locator('.seq-stage').focus();await page.keyboard.press('Control+z');assert.equal((await stepRows())[0],'Client → Orders API: POST /orders');
- await page.keyboard.press('Control+y');assert.equal((await stepRows())[0],'Client → Orders API: POST /v2/orders');
+ await page.locator('.seq-stage').focus();await page.keyboard.press('ControlOrMeta+z');assert.equal((await stepRows())[0],'Client → Orders API: POST /orders');
+ await page.keyboard.press('ControlOrMeta+y');assert.equal((await stepRows())[0],'Client → Orders API: POST /v2/orders');
  // novo participante
  await ed.getByRole('button',{name:'+ Add participant'}).click();
  assert.deepEqual(await partNames(),['Client','Orders API','Payments','Participant 4']);
  assert.equal(await page.evaluate(()=>document.activeElement.getAttribute('aria-label')),'Name'); // o foco vai para o nome
- await page.keyboard.press('Control+a');await page.keyboard.type('Shipping');await page.keyboard.press('Enter');
+ await page.keyboard.press('ControlOrMeta+a');await page.keyboard.type('Shipping');await page.keyboard.press('Enter');
  assert.deepEqual(await partNames(),['Client','Orders API','Payments','Shipping']);
  assert.equal(await page.locator('.seq-svg-host .seq-actor[data-actor="P"]').count(),1); // o id não muda ao renomear
  await page.locator('.seq-inspector select[aria-label="Type"]').selectOption('actor');
@@ -147,12 +147,12 @@ try{
  const y=(m1.y+m1.height+m2.y)/2;
  await page.mouse.move(hit0.x+hit0.width/2,y);await page.mouse.down();await page.mouse.move(hit1.x+hit1.width/2,y,{steps:8});await page.mouse.up();
  const inline=page.locator('.seq-inline');await inline.waitFor({state:'visible'});
- await page.keyboard.press('Control+a');await page.keyboard.type('dragged');await page.keyboard.press('Enter');await inline.waitFor({state:'hidden'});
+ await page.keyboard.press('ControlOrMeta+a');await page.keyboard.type('dragged');await page.keyboard.press('Enter');await inline.waitFor({state:'hidden'});
  const rows=await stepRows();assert.equal(rows.length,11);assert.equal(rows[2],'Client → Orders API: dragged'); // entrou onde se soltou
  // duplo clique no rótulo
  await page.locator('.seq-svg-host .seq-msg[data-step="2"] .seq-label').dblclick();
  await inline.waitFor({state:'visible'});assert.equal(await inline.inputValue(),'dragged');
- await page.keyboard.press('Control+a');await page.keyboard.type('renamed');await page.keyboard.press('Enter');
+ await page.keyboard.press('ControlOrMeta+a');await page.keyboard.type('renamed');await page.keyboard.press('Enter');
  assert.equal((await stepRows())[2],'Client → Orders API: renamed');
  await page.locator('.seq-svg-host .seq-msg[data-step="2"] .seq-label').dblclick();await page.keyboard.press('Escape');await inline.waitFor({state:'hidden'});
  assert.equal((await stepRows())[2],'Client → Orders API: renamed'); // Esc cancela só o campo
@@ -164,7 +164,7 @@ try{
  // setas selecionam, Delete apaga (e desfazer devolve)
  await page.keyboard.press('ArrowDown');assert.equal(await page.locator('.seq-steps .seq-step-row.is-sel .seq-num').textContent(),'4');
  const before=(await stepRows()).length;await page.keyboard.press('Delete');assert.equal((await stepRows()).length,before-1);
- await page.keyboard.press('Control+z');assert.equal((await stepRows()).length,before);
+ await page.keyboard.press('ControlOrMeta+z');assert.equal((await stepRows()).length,before);
 
  // SEQ-09: blocos, notas, vista em texto, cancelar e aplicar
  await page.locator('.seq-stage').focus();await page.keyboard.press('Escape'); // sem seleção, o bloco entra no fim
