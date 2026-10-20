@@ -91,6 +91,8 @@ try{
  await openEditor();
  await page.locator('#diagram-template').selectOption('seq');
  await page.locator('#diagram-visual').waitFor({state:'visible'});
+ const vb=await page.locator('#diagram-visual').evaluate(e=>({w:e.offsetWidth,h:e.offsetHeight,fits:e.scrollWidth<=e.clientWidth+1}));
+ assert.ok(vb.w>80&&vb.h<40&&vb.fits,`o botão Edit visually cabe o texto (${JSON.stringify(vb)})`);
  await page.locator('#diagram-visual').click();
  const ed=page.locator('.seq-ed');await ed.waitFor();
  assert.equal(await ed.getAttribute('role'),'dialog');assert.equal(await ed.getAttribute('aria-modal'),'true');

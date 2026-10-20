@@ -759,7 +759,8 @@ button.api-dd-item:hover,button.api-dd-item:focus-visible{background:#ffffff14;o
 .api-dd-note.is-offline{color:#e0a458}
 
 /* ---------- editor visual do diagrama de sequência ---------- */
-#diagram-visual{margin-right:.6rem;padding:.25rem .7rem;border-radius:8px;background:#1d2b26;color:#8fd1b0;border:1px solid #4f9d7a66;font:inherit;font-size:.78rem;cursor:pointer}
+#diagram-visual,.modal-card header #diagram-visual{width:auto;height:auto;margin-right:.6rem;padding:.3rem .8rem;border-radius:8px;background:#1d2b26;color:#8fd1b0;border:1px solid #4f9d7a66;font:inherit;font-size:.78rem;line-height:1.2;white-space:nowrap;cursor:pointer}
+.modal-card header #diagram-visual:hover{background:#264036;color:#b8e6cd}
 #diagram-visual[hidden]{display:none}
 .seq-ed{position:fixed;inset:0;z-index:700;display:flex;align-items:center;justify-content:center;padding:1.2rem;background:#000b;color:#e6e6e6;font-size:.82rem}
 .seq-ed-card{width:min(1240px,100%);height:min(780px,100%);display:flex;flex-direction:column;background:#161616;border:1px solid #ffffff26;border-radius:14px;overflow:hidden}
