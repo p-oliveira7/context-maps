@@ -8,6 +8,7 @@ How to cut a release: [`docs/releasing.md`](docs/releasing.md).
 ## [Unreleased]
 
 ### Added
+- **A better response body in the API client**: JSON is shown as a collapsible tree with colours (click a key to copy its path, such as `res.body.items[0].id`, ready for asserts and variables); XML, HTML and SVG get syntax colours; **Ctrl+F** searches inside the body (counter, next/previous, collapsed branches open by themselves); a **path filter** (`items[0].id`, or `res.status`) shows just that value; and **Preview** renders images, SVG and HTML (HTML in an isolated frame with no scripts and no network). Big arrays load 200 items at a time and *Copy* still copies everything.
 - **Request tabs in the API client**: every request you open gets a tab (method badge and name), so you can switch between requests without losing anything: each tab keeps its own response, its inner tab (Params, Headers, Body…) and what you typed, and a send that is still running finishes in the tab it started from. Close tabs with the ×, a middle click or Delete; Left/Right/Home/End move between tabs. The open tabs come back when you reopen the panel. The run report is a tab too.
 - **Editor and response, your way**: show the response below the editor or beside it, drag the divider (or use the arrow keys on it) to resize, and focus on the response with one click. The layout and the divider position are remembered.
 - **Quick open**: Ctrl+K inside the API panel opens a request by typing part of its name, URL, method or folder; Ctrl+S saves right away.

@@ -156,12 +156,12 @@ try{
  await page.keyboard.press('ArrowDown');await page.keyboard.press('ArrowDown');await page.keyboard.press('Enter'); // desce até o fim e volta ao primeiro
  await page.locator('.api-quick').waitFor({state:'detached'});await page.locator('.api-tab.is-active',{hasText:'Alpha'}).waitFor();
 
- // TAB-10: Ctrl+S grava o arquivo (sem ficar lendo o arquivo enquanto ele é gravado: no Windows isso atrapalha)
+ // TAB-10: Ctrl+S grava o arquivo (esperamos a gravação terminar em vez de ler o arquivo sem parar: no Windows isso atrapalha)
  await open('Alpha');
+ const saved=page.waitForResponse(r=>r.request().method()==='PUT'&&r.url().includes('/request?path=alpha.bru')&&(r.request().postData()||'').includes('saved-now'));
  await page.locator('.api-url').fill('{{host}}/saved-now');
- await page.locator('.api-save',{hasText:/^Unsaved/}).waitFor();
  await page.keyboard.press('Control+s');
- await page.locator('.api-save',{hasText:/^Saved$/}).waitFor();
+ assert.equal((await saved).status(),200);
  assert.equal(await urlOf('alpha.bru'),'{{host}}/saved-now');
 
  assert.deepEqual(errors,[]);

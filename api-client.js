@@ -6,6 +6,7 @@ import {runScript,sandboxSupported} from './sandbox.js?v=1';
 import {createVarFields} from './var-field.js?v=1';
 import {collectRequests,runSequence,reportJson,reportText} from './runner.js?v=1';
 import {createRunReport} from './run-report.js?v=1';
+import {createBodyView} from './response-view.js?v=1';
 export {resolveVars,buildRequest};
 
 const $=(s,root=document)=>root.querySelector(s);
@@ -474,12 +475,7 @@ function resolvedPreview(){
 
 /* ---------- resposta ---------- */
 const fmtSize=n=>n<1024?`${n} B`:n<1048576?`${(n/1024).toFixed(1)} KB`:`${(n/1048576).toFixed(1)} MB`;
-function prettyBody(res){
- if(res.binary)return t('apiBinary',fmtSize(res.size));
- const text=res.bodyText||'';
- if(state.pretty&&/json/i.test(res.contentType)||state.pretty&&/^\s*[\[{]/.test(text)){try{return JSON.stringify(JSON.parse(text),null,2);}catch{}}
- return text;
-}
+let bodyUi=null;
 function renderResponse(){
  const box=els.response;if(!box)return;
  refreshVars();
@@ -498,14 +494,14 @@ function renderResponse(){
  if(summary.total)tabs.push(['tests',`${t('apiRespTests')} ${summary.passed}/${summary.total}`]);
  if(extra.logs.length||extra.errors.length)tabs.push(['console',`${t('apiRespConsole')}${extra.errors.length?' !':''}`]);
  if(!tabs.some(([id])=>id===state.respTab))state.respTab='body';
- const body=state.respTab==='tests'?testsView(extra):state.respTab==='console'?consoleView(extra):h('pre',{class:'api-pre api-resp-body',tabindex:'0'},state.respTab==='headers'?r.headers.map(([k,v])=>`${k}: ${v}`).join('\n'):prettyBody(r));
+ const view=state.respTab==='body'?(bodyUi||=createBodyView({h,t,fmtSize})).mount(r):null;
+ const body=state.respTab==='tests'?testsView(extra):state.respTab==='console'?consoleView(extra):view?view.el:h('pre',{class:'api-pre api-resp-body',tabindex:'0'},r.headers.map(([k,v])=>`${k}: ${v}`).join('\n'));
  box.replaceChildren(
   h('div',{class:`api-status ${kind}`},h('strong',{},`${r.status} ${r.statusText||''}`),h('span',{},`${r.timeMs} ms`),h('span',{},fmtSize(r.size)),r.truncated?h('span',{},t('apiTruncated')):null,
    summary.total?h('span',{class:summary.failed?'api-tests-bad':'api-tests-ok'},`${summary.failed?'✗':'✓'} ${t('apiTestsSummary',summary.passed,summary.total)}`):null),
   h('div',{class:'api-resp-tabs',role:'tablist'},
    ...tabs.map(([id,label])=>h('button',{type:'button',role:'tab','aria-selected':String(state.respTab===id),class:state.respTab===id?'is-active':'',onClick:()=>{state.respTab=id;renderResponse();}},label)),
-   state.respTab==='body'?h('button',{type:'button',class:'api-btn',onClick:()=>{state.pretty=!state.pretty;renderResponse();}},state.pretty?t('apiRaw'):t('apiPretty')):null,
-   h('button',{type:'button',class:'api-btn',onClick:async e=>{try{await navigator.clipboard.writeText(body.textContent);e.target.textContent=t('apiCopied');setTimeout(()=>{e.target.textContent=t('apiCopy');},1200);}catch{}}},t('apiCopy'))),
+   h('button',{type:'button',class:'api-btn',onClick:async e=>{try{await navigator.clipboard.writeText(view?view.text():body.textContent);e.target.textContent=t('apiCopied');setTimeout(()=>{e.target.textContent=t('apiCopy');},1200);}catch{}}},t('apiCopy'))),
   body);
 }
 function extraSummary(extra){
