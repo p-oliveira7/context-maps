@@ -55,7 +55,7 @@ try{
  // POL-01: um comando curl colado (ou digitado + Enter) na URL vira a request inteira
  await open('Health');
  await setClip(`curl '${host}/echo?x=1' \\\n  -H 'accept: application/json' \\\n  -H 'content-type: application/json' \\\n  --data-raw '{"a":1}' \\\n  --compressed`);
- await page.locator('.api-url').focus();await page.keyboard.press('Control+v');
+ await page.locator('.api-url').focus();await page.keyboard.press('ControlOrMeta+v');
  await page.waitForFunction(()=>document.querySelector('.api-method-select')?.value==='post');
  assert.equal(await page.locator('.api-url').inputValue(),`${host}/echo?x=1`);
  assert.match(await toast().textContent(),/imported from the cURL command/i);
