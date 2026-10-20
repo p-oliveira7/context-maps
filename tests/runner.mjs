@@ -187,7 +187,7 @@ try{
  await page.locator('.api-run-item',{hasText:'Ban'}).getByRole('button',{name:'Open request'}).click();
  await page.locator('.api-url').waitFor();assert.equal(await page.locator('.api-url').inputValue(),'{{host}}/fail');
  assert.equal(await page.locator('.api-run').count(),0);
- await page.locator('.api-head button',{hasText:'Run report'}).click();
+ await page.locator('.api-tab-report .api-tab-main').click();
  await page.locator('.api-run').waitFor();assert.equal(await page.locator('.api-run-item').count(),7); // o relatório continua o mesmo
 
  // RUN-10: o Stop cancela a request em andamento sem esperar a resposta
