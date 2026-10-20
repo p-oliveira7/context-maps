@@ -123,10 +123,35 @@ try{
  assert.equal((await fetch(`${base}/api/collections/import-folder`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({files:loose('X')})})).status,403);
  for(const id of ['bruno-demo','billing'])assert.equal((await call('DELETE',`/${id}`)).status,200);
 
+ // mocks da coleção: mocks.json normalizado, no detalhe, exportado e limpo ao apagar a request ou a pasta
+ const mk={requests:{'usuarios/listar-usuarios.bru':{mode:'on',scenarios:[{id:'a',name:'OK',status:200,body:'{"ok":true}'},{id:'b',name:'Vazio',status:204}]},'saude.bru':{scenarios:[{id:'x',kind:'timeout'}]},'../fora.bru':{scenarios:[{id:'z'}]}}};
+ const put=await call('PUT','/minha-api/mocks',mk);assert.equal(put.status,200);const savedMocks=await put.json();
+ assert.deepEqual(Object.keys(savedMocks.requests).sort(),['saude.bru','usuarios/listar-usuarios.bru']); // o caminho fora da coleção é descartado
+ assert.equal(savedMocks.requests['saude.bru'].scenarios[0].kind,'timeout');
+ assert.ok(existsSync(path.join(collections,'minha-api','mocks.json')));
+ assert.deepEqual(await json('GET','/minha-api/mocks'),savedMocks);assert.deepEqual((await json('GET','/minha-api')).mocks,savedMocks);
+ assert.equal((await fetch(`${base}/api/collections/minha-api/mocks`,{method:'PUT',headers:{'content-type':'application/json'},body:'{}'})).status,403); // sem o cabeçalho do app
+ assert.equal((await call('PUT','/minha-api/mocks',{requests:{'big.bru':{scenarios:Array.from({length:40},(_,i)=>({id:`s${i}`,body:'x'.repeat(65000)}))}}})).status,413); // arquivo grande demais
+ assert.equal((await call('GET','/nao-existe/mocks')).status>=400,true);
+ const mockZip=Buffer.from(await (await call('GET','/minha-api/export')).arrayBuffer());
+ assert.ok(readZip(mockZip).some(e=>e.name==='minha-api/mocks.json')); // viaja com o pacote
+ const mockImp=await (await call('POST','/import',mockZip)).json();
+ assert.deepEqual(await json('GET',`/${mockImp.id}/mocks`),savedMocks);
+ const tmpReq=await json('POST','/minha-api/items',{type:'request',name:'Temp',method:'get',url:'x'});
+ const tmpDir=await json('POST','/minha-api/items',{type:'folder',name:'Temp dir'});
+ const inner=await json('POST','/minha-api/items',{type:'request',parent:tmpDir.path,name:'Inner',method:'get',url:'y'});
+ await call('PUT','/minha-api/mocks',{requests:{...savedMocks.requests,[tmpReq.path]:{scenarios:[{id:'t',status:200}]},[inner.path]:{scenarios:[{id:'i',status:200}]}}});
+ assert.equal(Object.keys((await json('GET','/minha-api/mocks')).requests).length,4);
+ await call('DELETE',`/minha-api/items?path=${tmpReq.path}`);assert.equal(Object.keys((await json('GET','/minha-api/mocks')).requests).includes(tmpReq.path),false);
+ await call('DELETE',`/minha-api/items?path=${tmpDir.path}`);assert.deepEqual(Object.keys((await json('GET','/minha-api/mocks')).requests).sort(),['saude.bru','usuarios/listar-usuarios.bru']); // a pasta leva os mocks de dentro
+ await call('PUT','/minha-api/mocks',{requests:{}});assert.equal(existsSync(path.join(collections,'minha-api','mocks.json')),false); // sem mocks, o arquivo some
+ assert.deepEqual(await json('GET','/minha-api/mocks'),{version:1,requests:{}});
+ await call('DELETE',`/${mockImp.id}`);
+
  // excluir
  assert.equal((await call('DELETE','/minha-api/items?path=usuarios')).status,200);
  assert.equal((await json('GET','/minha-api')).tree.length,1);
  for(const id of ['minha-api','minha-api-2',evilRes.id])assert.equal((await call('DELETE',`/${id}`)).status,200);
  assert.deepEqual(await json('GET',''),[]);assert.equal(existsSync(path.join(collections,'.secrets','minha-api.json')),false);
- console.log('PASS COLL-01..07 collections API');
+ console.log('PASS COLL-01..08 collections API');
 }finally{server.kill();await rm(work,{recursive:true,force:true});}

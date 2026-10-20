@@ -8,6 +8,7 @@ import {collectRequests,runSequence,reportJson,reportText} from './runner.js?v=1
 import {createRunReport} from './run-report.js?v=1';
 import {createBodyView} from './response-view.js?v=1';
 import {parseCurl,toCurl,toFetch} from './curl.js?v=1';
+import {normalizeMocks,emptyMocks,effectiveMock,mockBadge,mockCounts,scenarioResponse,scenarioFromPreset,newScenarioId,statusText,PRESETS} from './mocks.js?v=1';
 export {resolveVars,buildRequest};
 
 const $=(s,root=document)=>root.querySelector(s);
@@ -51,7 +52,7 @@ export function syncUrlFromParams(model){
 }
 
 /* ---------- estado ---------- */
-const state={open:false,collections:[],coll:null,env:null,envVars:new Map(),envMeta:new Map(),runtime:new Map(),scripts:store.get('cm-api-scripts')!=='0',request:null,reqPath:'',saveTimer:0,saving:Promise.resolve(),response:null,sending:false,abort:null,tab:'params',respTab:'body',pretty:true,expanded:new Set(),filter:'',attach:null,run:null,view:'request',report:null,tabs:[],layout:'',split:0,maxResp:false};
+const state={open:false,collections:[],coll:null,env:null,envVars:new Map(),envMeta:new Map(),runtime:new Map(),scripts:store.get('cm-api-scripts')!=='0',request:null,reqPath:'',saveTimer:0,saving:Promise.resolve(),response:null,sending:false,abort:null,tab:'params',respTab:'body',pretty:true,expanded:new Set(),filter:'',attach:null,run:null,view:'request',report:null,tabs:[],layout:'',split:0,maxResp:false,mocks:emptyMocks(),mockMode:false,mocksDirty:false,mockSel:{}};
 let panel,els={},hooks={};
 
 /* ---------- variáveis {{nome}}: de onde vêm, como salvar, e os campos que as destacam ---------- */
@@ -93,6 +94,7 @@ async function loadCollection(id){
  const detail=await api('GET',`/collections/${id}`);
  if(state.coll?.id!==id)state.runtime=new Map(); // variáveis de execução valem por coleção
  state.coll=detail;store.set('cm-api-coll',id);
+ state.mocks=normalizeMocks(detail.mocks);state.mockMode=store.get(`cm-api-mockmode:${id}`)==='1';state.mocksDirty=false;state.mockSel={};
  const saved=store.get(`cm-api-env:${id}`);
  state.env=detail.environments.includes(saved)?saved:detail.environments[0]||null;
  state.envVars=new Map();
@@ -143,6 +145,7 @@ async function closeTab(path){
  stashActive();
  const entry0=tabEntry(path);if(!entry0)return;
  if(entry0.dirty&&!(await guardUnsaved([entry0])))return;
+ if(entry0.dirty&&state.mocksDirty&&!state.tabs.some(x=>x!==entry0&&x.dirty))await reloadMocks(); // descartou: os mocks voltam ao que está no arquivo
  const i=state.tabs.findIndex(x=>x.path===path);if(i<0)return;
  const wasActive=state.reqPath===path;
  state.tabs[i].abort?.abort();state.tabs.splice(i,1);
@@ -165,7 +168,7 @@ function renderTabbar(){
   const active=state.view==='request'&&e.path===state.reqPath,name=e.request?.name||e.path;
   return h('div',{class:`api-tab${active?' is-active':''}`,role:'presentation',dataset:{path:e.path}},
    h('button',{type:'button',role:'tab',class:'api-tab-main','aria-selected':String(active),tabindex:active?'0':'-1',title:e.path,'aria-keyshortcuts':'Delete',onClick:()=>openRequest(e.path),onAuxclick:ev=>{if(ev.button===1){ev.preventDefault();closeTab(e.path);}}},
-    methodBadge(e.request?.method||'get'),h('span',{class:'api-tab-name'},name),e.dirty?h('span',{class:'api-tab-dirty',role:'img','aria-label':t('unsaved'),title:t('unsaved')},'●'):null),
+    methodBadge(e.request?.method||'get'),h('span',{class:'api-tab-name'},name),effectiveMock(state.mocks,e.path,state.mockMode)?h('span',{class:'api-mock-pill is-on is-tiny',title:t('apiMockActiveTitle')},'M'):null,e.dirty?h('span',{class:'api-tab-dirty',role:'img','aria-label':t('unsaved'),title:t('unsaved')},'●'):null),
    h('button',{type:'button',class:'api-tab-close',tabindex:'-1',title:t('apiTabClose',name),'aria-label':t('apiTabClose',name),onClick:()=>closeTab(e.path)},'×'));
  });
  if(state.run){
@@ -217,11 +220,14 @@ function saveEntry(e){
  if(!e||!state.coll)return Promise.resolve(true);
  const id=state.coll.id,model=modelOf(e),snapshot=JSON.stringify(model);
  if(e.path===state.reqPath)setSaveState(t('saving'),'saving');
- const job=state.saving.then(()=>api('PUT',`/collections/${id}/request?path=${encodeURIComponent(e.path)}`,model)).then(()=>true,()=>false);
+ const job=state.saving.then(()=>api('PUT',`/collections/${id}/request?path=${encodeURIComponent(e.path)}`,model)).then(async()=>{
+  if(state.mocksDirty){try{state.mocks=normalizeMocks(await api('PUT',`/collections/${id}/mocks`,state.mocks));state.mocksDirty=false;}catch{return false;}} // os mocks vão junto com a request
+  return true;
+ },()=>false);
  state.saving=job;
  return job.then(ok=>{
   if(ok){e.dirty=JSON.stringify(modelOf(e))!==snapshot;e.saveError=false;e.savedAt=Date.now();}else e.saveError=true;
-  renderTabbar();if(e.path===state.reqPath)syncSaveUi();
+  renderTabbar();renderTree();if(e.path===state.reqPath)syncSaveUi();
   return ok;
  });
 }
@@ -279,7 +285,7 @@ async function scriptStep(model,kind,code,input,extra){
 }
 /* Uma request do começo ao fim (pré-script, envio, variáveis, asserts, testes). Serve ao botão Enviar e à execução de pastas;
    as variáveis de sessão (state.runtime) passam de uma request para a seguinte. */
-async function execute(model,signal){
+async function execute(model,signal,relPath=''){
  const started=performance.now(),extra={logs:[],tests:[],asserts:[],errors:[]},took=()=>Math.round(performance.now()-started);
  let sent,unresolved=[];
  try{
@@ -291,10 +297,18 @@ async function execute(model,signal){
   const vars=allVars(model),req=resolveRaw(raw,vars);
   sent={method:req.method,url:req.url,headers:req.headers.map(h=>[h.name,h.value]),body:req.body};
   unresolved=findUnresolved(req);
-  const res=await fetch('api/send',{method:'POST',headers:{'x-context-maps':'1','x-lang':lang,'content-type':'application/json'},body:JSON.stringify({...req,timeoutMs:req.timeout}),signal});
-  const data=await res.json();
-  if(!res.ok)return {error:'request',detail:data.error||String(res.status),timeMs:took(),extra,sent,unresolved};
-  const response={...data};
+  const mock=effectiveMock(state.mocks,relPath,state.mockMode),tag=mock?{id:mock.id,name:mock.name}:undefined;
+  let data;
+  if(mock){ // mock: nenhuma chamada de rede; o cenário ativo responde (com o atraso configurado)
+   unresolved=[];await mockDelay(mock.delayMs,signal);
+   data=scenarioResponse(mock,text=>resolveVars(text,allVars(model)),{url:req.url});
+   if(data.error)return {error:data.error,detail:data.detail,timeMs:took(),extra,sent,unresolved,mock:tag};
+  }else{
+   const res=await fetch('api/send',{method:'POST',headers:{'x-context-maps':'1','x-lang':lang,'content-type':'application/json'},body:JSON.stringify({...req,timeoutMs:req.timeout}),signal});
+   data=await res.json();
+   if(!res.ok)return {error:'request',detail:data.error||String(res.status),timeMs:took(),extra,sent,unresolved};
+  }
+  const response={...data,...(tag?{mock:tag}:{})};
   const scope=makeScope(response,req),interpolate=text=>resolveVars(text,allVars(model));
   // 3) variáveis pós-resposta, script pós-resposta, asserts e testes
   for(const e of activeEntries(model.varsPost)){const v=evalValueExpression(e.value,scope,interpolate);state.runtime.set(e.name,v===undefined?'':typeof v==='object'?JSON.stringify(v):String(v));}
@@ -311,7 +325,7 @@ async function send(){
  if(!state.request||!entry||entry.sending)return;
  entry.sending=true;entry.abort=new AbortController();entry.response=null;
  state.sending=true;state.abort=entry.abort;state.response=null;renderResponse();
- const result=await execute(entry.request,entry.abort.signal); // a aba pode mudar enquanto espera: a resposta fica na aba de origem
+ const result=await execute(entry.request,entry.abort.signal,entry.path); // a aba pode mudar enquanto espera: a resposta fica na aba de origem
  entry.sending=false;entry.abort=null;entry.response=result;syncVarsUi();
  if(state.reqPath===entry.path){state.sending=false;state.abort=null;state.response=result;renderResponse();if(state.tab==='vars')renderTab();}
 }
@@ -343,7 +357,7 @@ function treeRows(items,depth,q){
   const row=h('li',{role:'treeitem','aria-level':String(depth+1),'aria-expanded':isFolder?String(open):null,'aria-selected':String(!isFolder&&it.path===state.reqPath),class:`api-row${!isFolder&&it.path===state.reqPath?' is-active':''}`,style:`--depth:${depth}`,draggable:'true',dataset:{path:it.path}},
    h('button',{type:'button',class:'api-row-main',draggable:'true',onClick:()=>{if(isFolder){state.expanded.has(it.path)?state.expanded.delete(it.path):state.expanded.add(it.path);renderTree();}else openRequest(it.path);}},
     isFolder?h('span',{class:'api-caret','aria-hidden':'true'},open?'▾':'▸'):methodBadge(it.method),
-    h('span',{class:'api-row-name'},isFolder?`📁 ${it.name}`:it.name)),
+    h('span',{class:'api-row-name'},isFolder?`📁 ${it.name}`:it.name),mockPill(it)),
    h('span',{class:'api-row-actions'},
     isFolder?h('button',{type:'button',class:'api-icon-btn api-run-btn',title:t('apiRunFolder'),'aria-label':`${t('apiRunFolder')}: ${it.name}`,onClick:()=>startRun({path:it.path,recursive:false})},'▶'):null,
     isFolder?h('button',{type:'button',class:'api-icon-btn api-run-btn',title:t('apiRunFolderAll'),'aria-label':`${t('apiRunFolderAll')}: ${it.name}`,onClick:()=>startRun({path:it.path,recursive:true})},'▶▶'):null,
@@ -377,6 +391,7 @@ function renderTree(){
  if(!state.coll){els.tree.replaceChildren();return;}
  const head=h('li',{role:'presentation',class:'api-collection-row',draggable:'true'},
   h('span',{class:'api-collection-name'},`🗂 ${state.coll.name}`),
+  mockToggle(),
   h('button',{type:'button',class:'api-icon-btn api-run-btn',title:t('apiRunCollection'),'aria-label':`${t('apiRunCollection')}: ${state.coll.name}`,onClick:()=>startRun({path:'',recursive:true})},'▶▶'),
   hooks.attach?h('button',{type:'button',class:'api-icon-btn api-attach',title:t('apiAttach'),'aria-label':`${t('apiAttach')}: ${state.coll.name}`,onClick:()=>attachTo({path:'',name:state.coll.name,type:'collection'})},'⤓'):null);
  head.addEventListener('dragstart',dragData({path:'',name:state.coll.name,type:'collection'}));
@@ -409,7 +424,7 @@ async function deleteItem(item){
 function toast(message){hooks.toast?.(message);}
 
 /* ---------- editor de request ---------- */
-const TABS=['params','headers','body','auth','vars','assert','scripts','docs'];
+const TABS=['params','headers','body','auth','vars','assert','scripts','mock','docs'];
 function renderMain(){
  const main=els.content;if(!main)return;
  renderTabbar();main.classList.remove('is-request');
@@ -519,6 +534,8 @@ function renderTab(){
  }else if(state.tab==='assert'){
   m.assertions||=[];
   box.replaceChildren(h('p',{class:'api-hint'},t('apiAssertNote')),kvTable(m.assertions,{onChange:changed,namePlaceholder:t('apiAssertName'),valuePlaceholder:t('apiAssertValue')}));
+ }else if(state.tab==='mock'){
+  renderMockTab(box);
  }else if(state.tab==='docs'){
   box.replaceChildren(textArea(m.docs||'',v=>{m.docs=v;changed();},t('apiDocsPlaceholder'),{rows:12}));
  }else{
@@ -548,7 +565,7 @@ function renderResponse(){
  const summary=extraSummary(extra);
  if(r.error){
   const text=r.error==='timeout'?t('apiTimeout',r.detail):r.error==='cancelled'?t('apiCancelled'):`${t('apiFailed')}: ${r.detail||r.error}`;
-  box.replaceChildren(...[unresolvedBanner(r.unresolved)].filter(Boolean),h('div',{class:'api-status is-error',role:'alert'},text,h('span',{},`${r.timeMs} ms`)),...(extra.errors.length?[consoleView(extra)]:[]));return;
+  box.replaceChildren(...[unresolvedBanner(r.unresolved)].filter(Boolean),h('div',{class:'api-status is-error',role:'alert'},text,r.mock?mockResponsePill(r.mock):null,h('span',{},`${r.timeMs} ms`)),...(extra.errors.length?[consoleView(extra)]:[]));return;
  }
  const kind=r.status>=500?'is-error':r.status>=400?'is-warn':r.status>=300?'is-redirect':'is-ok';
  const tabs=[['body',t('apiRespBody')],['headers',t('apiRespHeaders')]];
@@ -559,7 +576,7 @@ function renderResponse(){
  const body=state.respTab==='tests'?testsView(extra):state.respTab==='console'?consoleView(extra):view?view.el:h('pre',{class:'api-pre api-resp-body',tabindex:'0'},r.headers.map(([k,v])=>`${k}: ${v}`).join('\n'));
  box.replaceChildren(
   ...[unresolvedBanner(r.unresolved)].filter(Boolean),
-  h('div',{class:`api-status ${kind}`},h('strong',{},`${r.status} ${r.statusText||''}`),h('span',{},`${r.timeMs} ms`),h('span',{},fmtSize(r.size)),r.truncated?h('span',{},t('apiTruncated')):null,
+  h('div',{class:`api-status ${kind}`},h('strong',{},`${r.status} ${r.statusText||''}`),r.mock?mockResponsePill(r.mock):null,h('span',{},`${r.timeMs} ms`),h('span',{},fmtSize(r.size)),r.truncated?h('span',{},t('apiTruncated')):null,
    summary.total?h('span',{class:summary.failed?'api-tests-bad':'api-tests-ok'},`${summary.failed?'✗':'✓'} ${t('apiTestsSummary',summary.passed,summary.total)}`):null),
   h('div',{class:'api-resp-tabs',role:'tablist'},
    ...tabs.map(([id,label])=>h('button',{type:'button',role:'tab','aria-selected':String(state.respTab===id),class:state.respTab===id?'is-active':'',onClick:()=>{state.respTab=id;renderResponse();}},label)),
@@ -694,7 +711,7 @@ async function runOne(item,run){
  let model;
  try{model=tabEntry(item.path)?.request||await api('GET',`/collections/${run.collection}/request?path=${encodeURIComponent(item.path)}`);}
  catch(e){return {error:'request',detail:e.message,timeMs:0,extra:{logs:[],tests:[],asserts:[],errors:[]}};}
- const out=await execute(model,run.abort.signal);
+ const out=await execute(model,run.abort.signal,item.path);
  if(out.bodyText&&out.bodyText.length>BODY_KEEP)out.bodyText=out.bodyText.slice(0,BODY_KEEP);
  if(out.sent?.body&&out.sent.body.length>BODY_KEEP)out.sent={...out.sent,body:out.sent.body.slice(0,BODY_KEEP)};
  return out;
@@ -1054,6 +1071,119 @@ function mergeCurl(m,parsed){ // aplica um curl lido (parseCurl) sobre um modelo
  m.bodyMode=parsed.bodyMode;m.body=parsed.body||{};m.formUrlEncoded=parsed.formUrlEncoded||[];
  m.authMode=parsed.authMode;if(parsed.basic)m.basic=parsed.basic;
  syncParamsFromUrl(m);
+}
+
+/* ---------- mocks: respostas simuladas por request (cenários) ---------- */
+const mockDelay=(ms,signal)=>new Promise((resolve,reject)=>{
+ if(signal?.aborted)return reject(Object.assign(new Error('aborted'),{name:'AbortError'}));
+ const timer=setTimeout(()=>{signal?.removeEventListener('abort',onAbort);resolve();},Math.max(0,ms||0));
+ function onAbort(){clearTimeout(timer);reject(Object.assign(new Error('aborted'),{name:'AbortError'}));}
+ signal?.addEventListener('abort',onAbort,{once:true});
+});
+const mockEntry=(rel,create=false)=>{
+ const all=state.mocks.requests;
+ if(!all[rel]&&create)all[rel]={mode:'auto',active:'',scenarios:[]};
+ return all[rel]||null;
+};
+const modeKey=id=>`cm-api-mockmode:${id}`;
+function setMockMode(on){state.mockMode=on;if(state.coll)store.set(modeKey(state.coll.id),on?'1':'0');renderTree();renderTabbar();if(state.tab==='mock'&&state.view==='request')renderTab();}
+async function reloadMocks(){
+ try{state.mocks=normalizeMocks(await api('GET',`/collections/${state.coll.id}/mocks`));}catch{state.mocks=emptyMocks();}
+ state.mocksDirty=false;renderTree();renderTabbar();if(state.tab==='mock'&&state.view==='request')renderTab();
+}
+/* "MOCK" ligado (responde com mock) ou apagado (tem cenários, mas está desligado) */
+function mockPill(item){
+ const wrap=document.createDocumentFragment();
+ if(item.type==='request'){
+  const badge=mockBadge(state.mocks,item.path,state.mockMode);if(!badge)return wrap;
+  const entry=state.mocks.requests[item.path],sc=effectiveMock(state.mocks,item.path,state.mockMode)||entry.scenarios.find(s=>s.id===entry.active)||entry.scenarios[0];
+  const on=badge==='on',label=sc.kind==='response'?`${sc.status} ${sc.name}`:sc.name;
+  wrap.append(h('span',{class:`api-mock-pill ${on?'is-on':'is-ready'}`,title:t(on?'apiMockOnTitle':'apiMockReadyTitle',label)},on?'MOCK':'mock'));
+  return wrap;
+ }
+ const counts=mockCounts(item.children,state.mocks,state.mockMode);
+ if(counts.on)wrap.append(h('span',{class:'api-mock-pill is-on',title:t('apiMockFolderTitle',counts.on,counts.ready)},`MOCK ${counts.on}`));
+ else if(counts.ready)wrap.append(h('span',{class:'api-mock-pill is-ready',title:t('apiMockFolderTitle',0,counts.ready)},`mock ${counts.ready}`));
+ return wrap;
+}
+function mockToggle(){
+ const counts=mockCounts(state.coll.tree,state.mocks,state.mockMode),total=counts.on+counts.ready;
+ const btn=h('button',{type:'button',class:`api-mock-toggle${state.mockMode?' is-on':''}`,'aria-pressed':String(state.mockMode),title:t('apiMockModeTitle'),'aria-label':`${t('apiMockModeLabel')}: ${t(state.mockMode?'apiOn':'apiOff')}`,onClick:()=>setMockMode(!state.mockMode)},
+  h('span',{class:'api-mock-dot','aria-hidden':'true'}),h('span',{},t('apiMockMode')),h('span',{class:'api-mock-count'},state.mockMode?String(counts.on):String(total)));
+ return btn;
+}
+const mockResponsePill=m=>h('span',{class:'api-mock-pill is-on',title:t('apiMockResponseTitle',m.name)},`MOCK · ${m.name}`);
+function mockChanged(){state.mocksDirty=true;markDirty();renderTree();renderTabbar();updateMockTabLabel();}
+function updateMockTabLabel(){
+ const b=document.getElementById('api-tab-mock');if(!b)return;
+ const entry=mockEntry(state.reqPath),n=entry?.scenarios.length||0;
+ b.textContent=n?`${t('apiTab_mock')} (${n})`:t('apiTab_mock');
+}
+const statusClass=s=>s.kind!=='response'?'is-warn':s.status>=500?'is-error':s.status>=400?'is-warn':s.status>=300?'is-redirect':'is-ok';
+function renderMockTab(box){
+ const rel=state.reqPath,entry=mockEntry(rel);
+ const sel=()=>{const e=mockEntry(rel);return e?.scenarios.find(s=>s.id===state.mockSel[rel])||e?.scenarios.find(s=>s.id===e.active)||e?.scenarios[0]||null;};
+ const redraw=()=>renderMockTab(box);
+ const will=h('p',{class:'api-hint api-mock-will',role:'status'});
+ const describeWill=()=>{
+  const sc=effectiveMock(state.mocks,rel,state.mockMode);
+  will.textContent=sc?t('apiMockWillMock',sc.kind==='response'?`${sc.status} ${sc.name}`:sc.name):t('apiMockWillReal');
+  will.classList.toggle('is-on',!!sc);
+ };
+ const e0=mockEntry(rel);
+ const modeSel=h('select',{'aria-label':t('apiMockWhen'),onChange:ev=>{mockEntry(rel,true).mode=ev.target.value;mockChanged();describeWill();}},
+  ...[['auto',t('apiMockAuto',t(state.mockMode?'apiOn':'apiOff'))],['on',t('apiMockAlways')],['off',t('apiMockNever')]].map(([v,l])=>h('option',{value:v,selected:v===(e0?.mode||'auto')||null},l)));
+ const addPreset=preset=>{
+  const e=mockEntry(rel,true),sc=scenarioFromPreset(preset,e.scenarios,t(`apiMockPreset_${preset.key}`));
+  e.scenarios.push(sc);if(!e.active)e.active=sc.id;state.mockSel[rel]=sc.id;mockChanged();redraw();box.querySelector('.api-mock-editor input')?.focus();
+ };
+ const addMenu=h('div',{class:'api-menu-wrap'},
+  h('button',{type:'button',class:'api-btn','aria-haspopup':'menu',onClick:()=>{menu.hidden=!menu.hidden;}},`+ ${t('apiMockAdd')}`),
+  h('div',{class:'api-menu',role:'menu',hidden:true},...PRESETS.map(p=>h('button',{type:'button',role:'menuitem',onClick:()=>{menu.hidden=true;addPreset(p);}},`${p.kind==='response'?`${p.status} · `:''}${t(`apiMockPreset_${p.key}`)}`))));
+ const menu=addMenu.querySelector('.api-menu');
+ const rows=(entry?.scenarios||[]).map(s=>{
+  const active=entry.active===s.id,editing=sel()?.id===s.id;
+  return h('li',{class:`api-mock-sc${editing?' is-editing':''}${active?' is-active':''}`},
+   h('input',{type:'radio',name:'api-mock-active','aria-label':`${t('apiMockUse')}: ${s.name}`,title:t('apiMockUse'),checked:active||null,onChange:()=>{mockEntry(rel).active=s.id;mockChanged();describeWill();redraw();}}),
+   h('button',{type:'button',class:'api-mock-sc-main','aria-pressed':String(editing),onClick:()=>{state.mockSel[rel]=s.id;redraw();}},
+    h('span',{class:`api-mock-code ${statusClass(s)}`},s.kind==='response'?String(s.status):s.kind==='timeout'?'TIME':'ERR'),
+    h('span',{class:'api-mock-sc-name'},s.name),h('span',{class:'api-mock-sc-delay'},s.delayMs?`${s.delayMs} ms`:'')),
+   h('button',{type:'button',class:'api-icon-btn','aria-label':`${t('apiDuplicate')}: ${s.name}`,title:t('apiDuplicate'),onClick:()=>{const e=mockEntry(rel),copy={...JSON.parse(JSON.stringify(s)),id:newScenarioId(e.scenarios),name:`${s.name} ${t('apiCopySuffix')}`};e.scenarios.splice(e.scenarios.indexOf(s)+1,0,copy);state.mockSel[rel]=copy.id;mockChanged();redraw();}},'⧉'),
+   h('button',{type:'button',class:'api-icon-btn danger','aria-label':`${t('apiRemove')}: ${s.name}`,title:t('apiRemove'),onClick:()=>{
+    const e=mockEntry(rel);e.scenarios=e.scenarios.filter(x=>x!==s);
+    if(!e.scenarios.length)delete state.mocks.requests[rel];else if(e.active===s.id)e.active=e.scenarios[0].id;
+    mockChanged();describeWill();redraw();}},'×'));
+ });
+ const cur=sel();
+ const editor=cur?h('div',{class:'api-mock-editor'},
+  h('h4',{},t('apiMockEdit')),
+  h('div',{class:'api-field-row'},
+   h('label',{class:'api-field'},h('span',{},t('apiName')),h('input',{type:'text',value:cur.name,spellcheck:'false',onInput:ev=>{cur.name=ev.target.value;mockChanged();const li=box.querySelector('.api-mock-sc.is-editing .api-mock-sc-name');if(li)li.textContent=cur.name;describeWill();}})),
+   h('label',{class:'api-field'},h('span',{},t('apiMockKind')),h('select',{onChange:ev=>{cur.kind=ev.target.value;if(cur.kind!=='response')cur.status=0;else if(!cur.status)cur.status=200;if(cur.kind==='timeout'&&!cur.delayMs)cur.delayMs=5000;mockChanged();redraw();}},...[['response',t('apiMockKindResponse')],['timeout',t('apiMockKindTimeout')],['network',t('apiMockKindNetwork')]].map(([v,l])=>h('option',{value:v,selected:v===cur.kind||null},l))))),
+  h('div',{class:'api-field-row'},
+   cur.kind==='response'?h('label',{class:'api-field'},h('span',{},t('apiMockStatus')),h('input',{type:'number',min:'100',max:'599',value:String(cur.status),onInput:ev=>{cur.status=Math.min(599,Math.max(100,Number(ev.target.value)||200));mockChanged();const c=box.querySelector('.api-mock-sc.is-editing .api-mock-code');if(c){c.textContent=String(cur.status);c.className=`api-mock-code ${statusClass(cur)}`;}hint.textContent=statusText(cur.status);describeWill();}})):null,
+   cur.kind==='response'?h('span',{class:'api-hint api-mock-status-text'},statusText(cur.status)):null,
+   h('label',{class:'api-field'},h('span',{},t('apiMockDelay')),h('input',{type:'number',min:'0',max:'60000',step:'50',value:String(cur.delayMs||0),onInput:ev=>{cur.delayMs=Math.min(60000,Math.max(0,Number(ev.target.value)||0));mockChanged();const d=box.querySelector('.api-mock-sc.is-editing .api-mock-sc-delay');if(d)d.textContent=cur.delayMs?`${cur.delayMs} ms`:'';}}))),
+  ...(cur.kind==='response'?[
+   h('h4',{},t('apiRespHeaders')),kvTable(cur.headers,{onChange:()=>mockChanged(),toggle:false}),
+   h('h4',{},t('apiRespBody')),h('p',{class:'api-hint'},t('apiMockBodyNote')),
+   vf.varField(textArea(cur.body,v=>{cur.body=v;mockChanged();},'{ "ok": true }',{rows:9}))]:[h('p',{class:'api-hint'},t(cur.kind==='timeout'?'apiMockTimeoutNote':'apiMockNetworkNote'))])
+ ):null;
+ const hint=editor?.querySelector('.api-mock-status-text')||h('span');
+ const capture=state.response&&!state.response.mock&&!state.response.error&&state.response.status?h('button',{type:'button',class:'api-btn',title:t('apiMockCaptureTitle'),onClick:()=>{
+  const r=state.response,e=mockEntry(rel,true);
+  const headers=(r.headers||[]).filter(([k])=>/^content-type$/i.test(k)).map(([k,v])=>({name:k,value:v}));
+  const sc={id:newScenarioId(e.scenarios),name:`${r.status} ${t('apiMockCaptured')}`,kind:'response',status:r.status,headers,body:r.bodyText||'',delayMs:Math.min(r.timeMs||0,5000)};
+  e.scenarios.push(sc);if(!e.active)e.active=sc.id;state.mockSel[rel]=sc.id;mockChanged();describeWill();redraw();
+ }},t('apiMockCapture')):null;
+ box.replaceChildren(
+  h('p',{class:'api-hint'},t('apiMockIntro')),
+  h('div',{class:'api-field-row api-mock-top'},h('label',{class:'api-field'},h('span',{},t('apiMockWhen')),modeSel),addMenu,capture),
+  will,
+  h('ul',{class:'api-mock-list','aria-label':t('apiMockScenarios')},...rows),
+  rows.length?null:h('p',{class:'api-hint'},t('apiMockNone')),
+  editor);
+ describeWill();
 }
 
 /* ---------- abrir request pelo teclado (Ctrl+K no painel) ---------- */

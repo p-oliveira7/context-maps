@@ -5,6 +5,7 @@ import {existsSync} from 'node:fs';
 import path from 'node:path';
 import {parseBru,stringifyBru,parseBlocks,stringifyBlocks,toModel,fromModel,parseEnv,stringifyEnv,METHODS} from './bru.mjs';
 import {writeZip,readZip} from './zip.mjs';
+import {normalizeMocks,emptyMocks,MAX_FILE} from './mocks.js';
 
 const ALLOWED_EXT=new Set(['.bru','.json','.md']);
 const fail=(status,message)=>Object.assign(new Error(message),{status});
@@ -128,6 +129,27 @@ export function createCollections({dir,writeJson}){
   const {file,parts}=inside(id,rel);if(!parts.length)throw fail(400,'Caminho inválido');
   if(!existsSync(file))throw fail(404,'Item inexistente');
   await rm(file,{recursive:true,force:true});
+  await dropMocks(id,parts.join('/'));
+ }
+ // mocks.json: cenários de resposta simulada por request (fica na coleção, junto do Git; os .bru não mudam)
+ const mocksFile=id=>path.join(collDir(id),'mocks.json');
+ async function readMocks(id){
+  if(!existsSync(path.join(collDir(id),'bruno.json')))throw fail(404,'Coleção inexistente');
+  const file=mocksFile(id);if(!existsSync(file))return emptyMocks();
+  try{return normalizeMocks(JSON.parse(await readText(file)));}catch{return emptyMocks();}
+ }
+ async function writeMocks(id,data){
+  if(!existsSync(path.join(collDir(id),'bruno.json')))throw fail(404,'Coleção inexistente');
+  const clean=normalizeMocks(data);
+  if(JSON.stringify(clean).length>MAX_FILE)throw Object.assign(new Error('Corpo grande demais'),{status:413});
+  if(!Object.keys(clean.requests).length)await rm(mocksFile(id),{force:true});else await writeJson(mocksFile(id),clean);
+  return clean;
+ }
+ async function dropMocks(id,rel){ // a request (ou pasta) foi apagada: os mocks dela também
+  const mocks=await readMocks(id),keys=Object.keys(mocks.requests).filter(k=>k===rel||k.startsWith(`${rel}/`));
+  if(!keys.length)return;
+  for(const k of keys)delete mocks.requests[k];
+  await writeMocks(id,mocks);
  }
  async function reorder(id,parent,order){
   const {file:folder,parts}=inside(id,parent);
@@ -225,5 +247,5 @@ export function createCollections({dir,writeJson}){
   }
   return {id,name:created?.name||await readName(id),files:count,...(folderPath?{folder:folderPath}:{})};
  }
- return {list,tree,defaults,environments,readEnv,writeEnv,createCollection,createItem,readRequest,writeRequest,renameItem,removeItem,reorder,removeEnv,removeCollection,exportZip,importZip,importFolder,readName,collDir,secretsOf};
+ return {readMocks,writeMocks,list,tree,defaults,environments,readEnv,writeEnv,createCollection,createItem,readRequest,writeRequest,renameItem,removeItem,reorder,removeEnv,removeCollection,exportZip,importZip,importFolder,readName,collDir,secretsOf};
 }
