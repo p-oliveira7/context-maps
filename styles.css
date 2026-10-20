@@ -757,3 +757,26 @@ button.api-dd-item:hover,button.api-dd-item:focus-visible{background:#ffffff14;o
 .api-dd-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .api-dd-note{padding:.35rem .6rem;color:#ffffff80;font-size:.72rem}
 .api-dd-note.is-offline{color:#e0a458}
+
+/* ---------- mocks do API client ---------- */
+.api-mock-pill{flex:none;margin-left:.35rem;padding:0 .4rem;border-radius:4px;font-size:.62rem;font-weight:700;letter-spacing:.04em;line-height:1.5;white-space:nowrap}
+.api-mock-pill.is-on{background:#e0a45833;color:#f0c27a;border:1px solid #e0a45866}
+.api-mock-pill.is-ready{background:none;color:#ffffff80;border:1px dashed #ffffff40;font-weight:600}
+.api-mock-pill.is-tiny{padding:0 .25rem;margin-left:.2rem}
+.api-mock-toggle{display:inline-flex;align-items:center;gap:.3rem;margin-left:.5rem;padding:.1rem .5rem;border-radius:999px;border:1px solid #ffffff26;background:none;color:#ffffffb0;font:inherit;font-size:.68rem;font-weight:600;cursor:pointer}
+.api-mock-toggle:hover{background:#ffffff12}
+.api-mock-dot{width:7px;height:7px;border-radius:50%;background:#ffffff59}
+.api-mock-toggle.is-on{border-color:#e0a458;background:#e0a45822;color:#f0c27a}.api-mock-toggle.is-on .api-mock-dot{background:#e0a458}
+.api-mock-count{font-weight:700}
+.api-mock-top{align-items:flex-end;flex-wrap:wrap}
+.api-mock-will{padding:.4rem .6rem;border-radius:8px;background:#ffffff0a}.api-mock-will.is-on{background:#e0a45820;color:#f3d29c}
+.api-mock-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.25rem}
+.api-mock-sc{display:flex;align-items:center;gap:.4rem;padding:.2rem .4rem;border:1px solid #ffffff17;border-radius:8px}
+.api-mock-sc.is-editing{border-color:#4f9d7a;background:#4f9d7a1f}
+.api-mock-sc.is-active .api-mock-sc-name{font-weight:600}
+.api-mock-sc-main{flex:1;min-width:0;display:flex;align-items:center;gap:.5rem;padding:.25rem .2rem;background:none;border:0;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.api-mock-code{min-width:2.6rem;padding:0 .35rem;border-radius:4px;text-align:center;font-size:.72rem;font-weight:700;background:#ffffff14}
+.api-mock-code.is-ok{color:#6fcf97}.api-mock-code.is-warn{color:#e0a458}.api-mock-code.is-error{color:#e57373}.api-mock-code.is-redirect{color:#e4c583}
+.api-mock-sc-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.api-mock-sc-delay{color:#ffffff80;font-size:.72rem}
+.api-mock-editor{display:flex;flex-direction:column;gap:.5rem;padding-top:.4rem;border-top:1px solid #ffffff14}
+.api-mock-status-text{align-self:flex-end;padding-bottom:.4rem}

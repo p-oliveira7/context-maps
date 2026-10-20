@@ -68,7 +68,7 @@ export function createRunReport({h,t,fmtSize}){
     const text=out.error==='cancelled'?t('apiCancelled'):out.error==='timeout'?t('apiTimeout',out.detail):`${t('apiFailed')}: ${out.detail||out.error}`;
     box.append(h('p',{class:'api-run-error',role:'alert'},text));
    }else{
-    box.append(section(t('apiRunResponse'),h('p',{class:'api-run-respline'},`${out.status} ${out.statusText||''} · ${out.timeMs} ms · ${fmtSize(out.size||0)}`),
+    box.append(section(t('apiRunResponse'),out.mock?h('p',{class:'api-hint'},t('apiMockResponseTitle',out.mock.name)):null,h('p',{class:'api-run-respline'},`${out.status} ${out.statusText||''} · ${out.timeMs} ms · ${fmtSize(out.size||0)}`),
      bodyBox(t('apiRespBody'),prettyBody(out),'api-resp-body'),
      bodyBox(t('apiRespHeaders'),pairs(out.headers),'api-resp-headers',false)));
    }
@@ -98,7 +98,7 @@ export function createRunReport({h,t,fmtSize}){
       h('span',{class:'api-run-icon','aria-hidden':'true'},ICON[item.status]),
       h('span',{class:'sr-only'},t(`apiRunSt_${item.status}`)),
       h('span',{class:`api-method api-m-${item.method}`},String(item.method).toUpperCase().slice(0,7)),
-      h('span',{class:'api-run-item-name'},item.name),
+      h('span',{class:'api-run-item-name'},item.name),out?.mock?h('span',{class:'api-mock-pill is-on',title:t('apiMockResponseTitle',out.mock.name)},'MOCK'):null,
       out&&out.status?h('span',{class:`api-run-http ${kind}`},String(out.status)):null,
       checks.length?h('span',{class:`api-run-checks-count${passedChecks<checks.length?' is-bad':''}`,title:t('apiRunChecks')},`${passedChecks}/${checks.length}`):null,
       out?h('span',{class:'api-run-time'},h('i',{style:`width:${Math.max(4,Math.round((out.timeMs||0)/maxTime*100))}%`}),h('em',{},`${out.timeMs||0} ms`)):null),
