@@ -218,18 +218,18 @@ export function openSequenceEditor({source,t,measure,onApply,onClose,loadRequest
   const list=h('ol',{class:'seq-rules','aria-label':t('seqFlowRules')});
   cur.rules.forEach((r,i)=>{
    const upd=patch=>save(cur.rules.map((x,j)=>j===i?{...x,...patch}:x));
-   const row=h('li',{class:'seq-rule'},
+   const row=h('li',{class:'seq-rule'}),cond=h('div',{class:'seq-rule-cond'},
     select$(r.when,[['status',t('seqFlowWhen_status')],['body',t('seqFlowWhen_body')],['asserts',t('seqFlowWhen_asserts')]],v=>save(cur.rules.map((x,j)=>j!==i?x:v==='status'?{when:v,op:'eq',value:'200',result:x.result}:v==='body'?{when:v,op:'eq',path:'res.body.',value:'',result:x.result}:{when:v,op:'pass',result:x.result})),t('seqFlowRuleWhen')));
    if(r.when==='status'){
-    row.append(select$(r.op,[['eq','='],['not','≠'],['range',t('seqFlowClass')]],v=>upd({op:v,value:v==='range'?'2xx':'200'}),t('seqFlowRuleOp')),
+    cond.append(select$(r.op,[['eq','='],['not','≠'],['range',t('seqFlowClass')]],v=>upd({op:v,value:v==='range'?'2xx':'200'}),t('seqFlowRuleOp')),
      r.op==='range'?select$(r.value,['1xx','2xx','3xx','4xx','5xx'].map(x=>[x,x]),v=>upd({value:v}),t('seqFlowRuleValue')):input$(r.value,v=>upd({value:v}),{label:t('seqFlowRuleValue')}));
    }else if(r.when==='body'){
-    row.append(input$(r.path,v=>upd({path:v}),{label:t('seqFlowRulePath')}),
+    cond.append(input$(r.path,v=>upd({path:v}),{label:t('seqFlowRulePath')}),
      select$(r.op,[['eq','='],['neq','≠'],['exists',t('seqFlowExists')],['missing',t('seqFlowMissing')]],v=>upd({op:v}),t('seqFlowRuleOp')),
      r.op==='eq'||r.op==='neq'?input$(r.value||'',v=>upd({value:v}),{label:t('seqFlowRuleValue')}):null);
-   }else row.append(select$(r.op,[['pass',t('seqFlowAssertsPass')],['fail',t('seqFlowAssertsFail')]],v=>upd({op:v}),t('seqFlowRuleOp')));
-   row.append(select$(r.result,[['ok',t('seqFlowOk')],['fail',t('seqFlowFail')]],v=>upd({result:v}),t('seqFlowRuleResult')),
-    h('button',{type:'button',class:'seq-mini','aria-label':`${t('seqEdDelete')}: ${describeRule(r,t)}`,onClick:()=>save(cur.rules.filter((_,j)=>j!==i))},'×'));
+   }else cond.append(select$(r.op,[['pass',t('seqFlowAssertsPass')],['fail',t('seqFlowAssertsFail')]],v=>upd({op:v}),t('seqFlowRuleOp')));
+   row.append(cond,h('div',{class:'seq-rule-res'},h('span',{'aria-hidden':'true'},'→'),select$(r.result,[['ok',t('seqFlowOk')],['fail',t('seqFlowFail')]],v=>upd({result:v}),t('seqFlowRuleResult')),
+    h('button',{type:'button',class:'seq-mini','aria-label':`${t('seqEdDelete')}: ${describeRule(r,t)}`,onClick:()=>save(cur.rules.filter((_,j)=>j!==i))},'×')));
    list.append(row);
   });
   out.push(list,actionRow(h('button',{type:'button',class:'seq-btn',disabled:cur.rules.length>=MAX_RULES||null,onClick:()=>save([...cur.rules,{when:'status',op:'eq',value:'402',result:'fail'}])},`+ ${t('seqFlowAddRule')}`)));

@@ -818,3 +818,6 @@ button.api-dd-item:hover,button.api-dd-item:focus-visible{background:#ffffff14;o
 .seq-rules{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.35rem}
 .seq-rule{display:flex;flex-wrap:wrap;align-items:center;gap:.25rem;padding:.3rem;border:1px solid #ffffff17;border-radius:8px}
 .seq-rule select,.seq-rule input{min-width:0;flex:1 1 4.5rem}
+.seq-rule{flex-direction:column;align-items:stretch;gap:.3rem}
+.seq-rule-cond,.seq-rule-res{display:flex;flex-wrap:wrap;align-items:center;gap:.25rem}
+.seq-rule-res select{flex:1 1 6rem}
