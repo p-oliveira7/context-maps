@@ -229,6 +229,8 @@ The **API** button in the bottom bar splits the screen: the map stays on the lef
 - **Scripts, tests and assertions.** The **Scripts** tab edits the pre-request script, the post-response script and `tests`; the **Assert** tab edits the declarative `assert` block (`res.status eq 200`, `res.body.items length 3`, `res.headers.content-type contains json`… 30 operators); the **Vars** tab also takes post-response variables (`token = res.body.token`). Everything is stored in the `.bru` file, so Bruno runs it too. Results appear in the **Tests** tab (pass/fail summary next to the status) and the **Console**.
 - **Scripts run in an isolated sandbox.** Each script runs in a sandboxed iframe (opaque origin, CSP `default-src 'none'`) inside a Worker that is stopped after 5 s: **no network, no storage, no access to the app or its data**, so a collection you imported cannot read or leak anything. Available: `bru` (`getVar`/`setVar`, `getEnvVar`/`setEnvVar`, `interpolate`, `sleep`…), `req` (`getUrl`/`setUrl`, `setHeader`, `setBody`…), `res` (`res.status`, `res.body`, `res('path')`…), `test`, `expect` (Chai-style) and `require("chai")`. A pre-request script runs before `{{variables}}` are resolved, so `bru.setVar` can feed the same request. Not available: `bru.sendRequest`/`runRequest`, `axios`, `lodash` and other modules. The **Scripts** switch next to Send turns script execution off.
 - **Reorder** requests and folders by dragging them in the tree.
+- **Run a folder.** Hover a folder (or the collection) and use **▶** to run its requests, or **▶▶** to run it with all subfolders, in tree order. Session variables flow from one request to the next (log in once, then call the protected requests). The interactive report has a progress bar with one segment per request (click one to jump to it), passed/failed/error counts, assertions and tests, total time, filters, search, and an expandable detail per request with the sent URL, checks, body, headers and script console. You can **stop** the run, **stop at the first failure**, set a **delay** between requests, **run only the failed** requests or a single one again, open a request from the report, **copy a summary** or **export a JSON report** (it carries no bodies or headers).
+- **Import Bruno folders.** *Import Bruno folder…* in the ⋯ menu (or dropping a folder on the panel) reads a folder in the Bruno format. A folder with `bruno.json` becomes a new collection, environments included; a plain folder of `.bru` files is added to the open collection (or becomes a new one). Hidden folders, `node_modules` and files that are not Bruno files are skipped, and secret values never come from the files.
 
 <p align="center">
   <img src="docs/images/11-api-variables.png" alt="A URL with a red variable without a value and the hover panel to set it" width="440">
@@ -359,7 +361,7 @@ Listens on `127.0.0.1` only. Every route answers JSON with `Cache-Control: no-st
 | `GET/POST /api/libraries`, `DELETE /api/libraries/:key` | List, add or forget extra folders |
 | `POST /api/pick-folder` | Opens the system folder picker and returns the chosen path |
 | `GET /api/presentations/:id/export?format=html\|zip` | Download the presentation as one self-contained HTML file or as a ZIP package |
-| `GET/POST/DELETE /api/collections…` | Collections in the Bruno format: list, create, items, requests, environments, ZIP export/import (`/api/collections/import`) |
+| `GET/POST/DELETE /api/collections…` | Collections in the Bruno format: list, create, items, requests, environments, ZIP export/import (`/api/collections/import`), folder import (`/api/collections/import-folder`) |
 | `POST /api/send` | Send an HTTP request from the local server (`http`/`https` only) for the API client |
 | `POST /api/import?name=…` | Import a ZIP package or an exported HTML file (raw body) as a new presentation |
 | `DELETE /api/presentations/:id` | Remove the file and its images |
@@ -389,8 +391,9 @@ node tests/edit.mjs                     # or run a single suite
 | `cards` CARD-01..06 | titles, root, keyboard, images |
 | `motion` MOT-01..05 | animations and reduced motion |
 | `sandbox` SBX-01..05 · `scripting` SCR-01..07 | script sandbox (no network, timeouts), expect, asserts, request pipeline |
-| `collections` COLL-01..06 · `bru` BRU-01..05 | Bruno format, collections API, secrets, ZIP |
+| `collections` COLL-01..07 · `bru` BRU-01..05 | Bruno format, collections API, secrets, ZIP |
 | `api` API-01..13 | split-view client, environments, sending, attaching to cards |
+| `runner` RUN-01..11 · `runner.test` | running folders, interactive report, Bruno folder import |
 | `a11y` A11Y-01..07 | tree semantics, keyboard navigation, accessible names, dialog focus, pinch zoom |
 
 `BROWSER_EXECUTABLE` selects a specific Chrome/Chromium binary. The same checks run on Linux, macOS and Windows

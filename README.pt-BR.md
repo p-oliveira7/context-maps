@@ -228,6 +228,8 @@ O botão **API** na barra inferior divide a tela: o mapa fica à esquerda e abre
 - **Scripts, testes e asserts.** A aba **Scripts** edita o script de pré-requisição, o de pós-resposta e os `tests`; a aba **Asserts** edita o bloco declarativo `assert` (`res.status eq 200`, `res.body.items length 3`, `res.headers.content-type contains json`… 30 operadores); a aba **Variáveis** também aceita variáveis pós-resposta (`token = res.body.token`). Tudo fica no arquivo `.bru`, então o Bruno executa igual. Os resultados aparecem na aba **Testes** (resumo de passou/falhou ao lado do status) e no **Console**.
 - **Os scripts rodam num sandbox isolado.** Cada script roda numa moldura isolada (origem opaca, CSP `default-src 'none'`) dentro de um Worker que é interrompido após 5 s: **sem rede, sem armazenamento, sem acesso ao app nem aos seus dados**, então uma coleção importada não consegue ler nem vazar nada. Disponíveis: `bru` (`getVar`/`setVar`, `getEnvVar`/`setEnvVar`, `interpolate`, `sleep`…), `req` (`getUrl`/`setUrl`, `setHeader`, `setBody`…), `res` (`res.status`, `res.body`, `res('caminho')`…), `test`, `expect` (estilo Chai) e `require("chai")`. O script de pré-requisição roda antes de as `{{variáveis}}` serem resolvidas, então `bru.setVar` pode alimentar a mesma request. Indisponíveis: `bru.sendRequest`/`runRequest`, `axios`, `lodash` e outros módulos. A chave **Scripts** ao lado do Enviar desliga a execução dos scripts.
 - **Reordene** requests e pastas arrastando na árvore.
+- **Execute uma pasta.** Passe o mouse numa pasta (ou na coleção) e use **▶** para rodar as requests dela, ou **▶▶** para rodar com todas as subpastas, na ordem da árvore. As variáveis de sessão passam de uma request para a seguinte (faça o login uma vez e chame as requests protegidas). O relatório interativo tem uma barra de progresso com um trecho por request (clique para ir até ela), contagem de passou/falhou/erro, asserts e testes, tempo total, filtros, busca e um detalhe expansível de cada request com a URL enviada, as verificações, o corpo, os cabeçalhos e o console dos scripts. Dá para **parar** a execução, **parar na primeira falha**, definir um **intervalo** entre as requests, **executar de novo só as que falharam** ou uma só, abrir a request pelo relatório, **copiar um resumo** ou **exportar um relatório JSON** (sem corpos nem cabeçalhos).
+- **Importe pastas do Bruno.** *Importar pasta do Bruno…* no menu ⋯ (ou soltar uma pasta no painel) lê uma pasta no formato do Bruno. Com `bruno.json` ela vira uma coleção nova, com os ambientes; uma pasta solta de arquivos `.bru` entra na coleção aberta (ou vira uma coleção nova). Pastas ocultas, `node_modules` e arquivos que não são do Bruno são ignorados, e valores secretos nunca vêm dos arquivos.
 
 <p align="center">
   <img src="docs/images/11-api-variables.png" alt="Uma URL com uma variável vermelha sem valor e o painel para defini-la ao passar o mouse" width="440">
@@ -358,7 +360,7 @@ Escuta apenas em `127.0.0.1`. Todas as rotas respondem JSON e `Cache-Control: no
 | `GET/POST /api/libraries`, `DELETE /api/libraries/:key` | Lista, adiciona ou esquece pastas extras |
 | `POST /api/pick-folder` | Abre o seletor de pastas do sistema e devolve o caminho escolhido |
 | `GET /api/presentations/:id/export?format=html\|zip` | Baixa a apresentação como um HTML único e autocontido ou como pacote ZIP |
-| `GET/POST/DELETE /api/collections…` | Coleções no formato do Bruno: listar, criar, itens, requests, ambientes, exportar/importar ZIP (`/api/collections/import`) |
+| `GET/POST/DELETE /api/collections…` | Coleções no formato do Bruno: listar, criar, itens, requests, ambientes, exportar/importar ZIP (`/api/collections/import`), importar pasta (`/api/collections/import-folder`) |
 | `POST /api/send` | Envia uma requisição HTTP a partir do servidor local (só `http`/`https`) para o cliente de API |
 | `POST /api/import?name=…` | Importa um pacote ZIP ou um HTML exportado (corpo bruto) como uma apresentação nova |
 | `DELETE /api/presentations/:id` | Remove o arquivo e as imagens |
@@ -388,8 +390,9 @@ node tests/edit.mjs                     # ou rode uma suíte só
 | `cards` CARD-01..06 | títulos, raiz, teclado, imagens |
 | `motion` MOT-01..05 | animações e movimento reduzido |
 | `sandbox` SBX-01..05 · `scripting` SCR-01..07 | sandbox dos scripts (sem rede, tempo limite), expect, asserts, pipeline da request |
-| `collections` COLL-01..06 · `bru` BRU-01..05 | formato Bruno, API de coleções, segredos, ZIP |
+| `collections` COLL-01..07 · `bru` BRU-01..05 | formato Bruno, API de coleções, segredos, ZIP |
 | `api` API-01..13 | cliente em tela dividida, ambientes, envio, anexar a cards |
+| `runner` RUN-01..11 · `runner.test` | executar pastas, relatório interativo, importar pasta do Bruno |
 | `a11y` A11Y-01..07 | semântica de árvore, navegação por teclado, nomes acessíveis, foco nas janelas, zoom por pinça |
 
 `BROWSER_EXECUTABLE` escolhe um binário específico do Chrome/Chromium. As mesmas verificações rodam em Linux,

@@ -112,6 +112,18 @@ const dict={
 };
 const apiStrings={
  en:{
+  apiRunFolder:'Run this folder',apiRunFolderAll:'Run this folder and its subfolders',apiRunCollection:'Run collection',apiRunReport:'Run report',apiRunBusy:'A run is already in progress.',apiRunEmpty:'There are no requests to run here.',
+  apiRunStop:'Stop',apiRunAgain:'Run again',apiRunFailedOnly:'Run failed only',apiRunExport:'Export JSON',apiRunCopy:'Copy summary',apiRunClose:'Close the report',apiRunProgress:'Progress of the run',
+  apiRunStopOnFail:'Stop at the first failure',apiRunDelay:'Delay between requests',apiRunSearch:'Search the run…',
+  apiRunTile_passed:'passed',apiRunTile_failed:'failed',apiRunTile_errors:'errors',apiRunTile_checks:'checks',apiRunTile_time:'time',
+  apiRunFilter_all:'All',apiRunFilter_failed:'Failed',apiRunFilter_error:'Errors',apiRunFilter_passed:'Passed',
+  apiRunSt_passed:'Passed',apiRunSt_failed:'Failed',apiRunSt_error:'Error',apiRunSt_skipped:'Skipped',apiRunSt_pending:'Waiting',apiRunSt_running:'Running',
+  apiRunEnv:n=>`Environment: ${n}`,apiRunNoEnv:'No environment',apiRunRecursive:'With subfolders',apiRunThisFolder:'This folder only',apiRunProgressText:(done,total)=>`Running ${done} of ${total}`,
+  apiRunDone_done:'Finished',apiRunDone_stopped:'Stopped at the first failure',apiRunDone_cancelled:'Cancelled',
+  apiRunSummaryLine:(passed,total,failed,errors)=>`${passed}/${total} passed, ${failed} failed, ${errors} with errors`,apiRunChecks:'Assertions and tests that passed',apiRunNothing:'Nothing matches this filter.',
+  apiRunRequest:'Request',apiRunResponse:'Response',apiRunRequestBody:'Request body',apiRunRequestHeaders:'Request headers',
+  apiRunOpenRequest:'Open request',apiRunRerunOne:'Run only this',
+  apiImportFolder:'Import Bruno folder…',apiImportFolderEmpty:'No Bruno files (.bru) found in that folder.',apiImportedFolder:(n,coll)=>`${n} files imported into “${coll}”`,
   apiButton:'API',apiButtonTitle:'API client (split view)',apiTitle:'API client',apiClose:'Close API client',apiResize:'Resize the API panel',
   apiCollection:'Collection',apiNoCollections:'No collections yet. Create one or import a Bruno collection (.zip).',apiNoCollectionsShort:'No collections',
   apiNewCollection:'New collection…',apiPromptCollection:'Collection name',apiImport:'Import (.zip)…',apiExport:'Export as ZIP',apiDeleteCollection:'Delete collection',
@@ -133,6 +145,18 @@ const apiStrings={
   apiTileLabel:n=>`API: ${n}`,apiTileCount:n=>`${n} ${n===1?'request':'requests'}`,apiTileMore:n=>`+${n} more`,apiOpenTile:n=>`Open API client: ${n}`,apiDetach:'Remove API from card',apiAttachHint:n=>`Drag a collection or folder from the API panel onto “${n}”, or use ⤓ on one of them`,apiAttached:n=>`“${n}” attached to the card`,apiMissing:'collection not found',apiAttachBanner:n=>`Attaching to “${n}”: click ⤓ on a collection or folder, or drag it onto the card`,apiAttachCancel:'Cancel',apiPickCard:'Open the card’s wheel (✎) and choose API first, or drag the item onto a card in edit mode',apiOffline:'saved snapshot',apiReadingLabel:(n,c)=>`API: ${n} (${c})`
  },
  pt:{
+  apiRunFolder:'Executar esta pasta',apiRunFolderAll:'Executar esta pasta e as subpastas',apiRunCollection:'Executar a coleção',apiRunReport:'Relatório',apiRunBusy:'Já existe uma execução em andamento.',apiRunEmpty:'Não há requests para executar aqui.',
+  apiRunStop:'Parar',apiRunAgain:'Executar de novo',apiRunFailedOnly:'Executar só as que falharam',apiRunExport:'Exportar JSON',apiRunCopy:'Copiar resumo',apiRunClose:'Fechar o relatório',apiRunProgress:'Progresso da execução',
+  apiRunStopOnFail:'Parar na primeira falha',apiRunDelay:'Intervalo entre requests',apiRunSearch:'Buscar na execução…',
+  apiRunTile_passed:'passaram',apiRunTile_failed:'falharam',apiRunTile_errors:'com erro',apiRunTile_checks:'verificações',apiRunTile_time:'tempo',
+  apiRunFilter_all:'Todas',apiRunFilter_failed:'Falharam',apiRunFilter_error:'Com erro',apiRunFilter_passed:'Passaram',
+  apiRunSt_passed:'Passou',apiRunSt_failed:'Falhou',apiRunSt_error:'Erro',apiRunSt_skipped:'Ignorada',apiRunSt_pending:'Aguardando',apiRunSt_running:'Executando',
+  apiRunEnv:n=>`Ambiente: ${n}`,apiRunNoEnv:'Sem ambiente',apiRunRecursive:'Com subpastas',apiRunThisFolder:'Só esta pasta',apiRunProgressText:(done,total)=>`Executando ${done} de ${total}`,
+  apiRunDone_done:'Concluída',apiRunDone_stopped:'Parou na primeira falha',apiRunDone_cancelled:'Cancelada',
+  apiRunSummaryLine:(passed,total,failed,errors)=>`${passed}/${total} passaram, ${failed} falharam, ${errors} com erro`,apiRunChecks:'Asserts e testes que passaram',apiRunNothing:'Nada corresponde a este filtro.',
+  apiRunRequest:'Request',apiRunResponse:'Resposta',apiRunRequestBody:'Corpo enviado',apiRunRequestHeaders:'Cabeçalhos enviados',
+  apiRunOpenRequest:'Abrir request',apiRunRerunOne:'Executar só esta',
+  apiImportFolder:'Importar pasta do Bruno…',apiImportFolderEmpty:'Nenhum arquivo do Bruno (.bru) encontrado nessa pasta.',apiImportedFolder:(n,coll)=>`${n} arquivos importados em “${coll}”`,
   apiButton:'API',apiButtonTitle:'Cliente de API (tela dividida)',apiTitle:'Cliente de API',apiClose:'Fechar o cliente de API',apiResize:'Redimensionar o painel de API',
   apiCollection:'Coleção',apiNoCollections:'Nenhuma coleção ainda. Crie uma ou importe uma coleção do Bruno (.zip).',apiNoCollectionsShort:'Sem coleções',
   apiNewCollection:'Nova coleção…',apiPromptCollection:'Nome da coleção',apiImport:'Importar (.zip)…',apiExport:'Exportar como ZIP',apiDeleteCollection:'Excluir coleção',

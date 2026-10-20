@@ -89,10 +89,44 @@ try{
  assert.equal((await fetch(`${base}/api/collections`)).status,200); // leitura não exige o cabeçalho
  assert.equal((await fetch(`${base}/api/collections`,{method:'POST',headers:{'content-type':'application/json'},body:'{"name":"X"}'})).status,403); // escrita sem cabeçalho é recusada
 
+ // importar pasta (formato Bruno): coleção inteira, pasta solta dentro da coleção aberta e pasta solta como coleção nova
+ const bru=(name,seq,url)=>`meta {\n  name: ${name}\n  type: http\n  seq: ${seq}\n}\n\nget {\n  url: ${url}\n}\n`;
+ const file=(p,content)=>({path:p,content});
+ const demo=[file('Bruno Demo/bruno.json','{"version":"1","name":"Bruno Demo","type":"collection"}'),file('Bruno Demo/ping.bru',bru('Ping',1,'{{host}}/ping')),
+  file('Bruno Demo/auth/folder.bru','meta {\n  name: Auth\n  seq: 2\n}\n'),file('Bruno Demo/auth/login.bru',bru('Login',1,'{{host}}/login')),
+  file('Bruno Demo/environments/dev.bru','vars {\n  host: http://localhost:1\n}\n'),
+  file('Bruno Demo/.git/config','x'),file('Bruno Demo/run.js','process.exit()'),file('Bruno Demo/../evil.bru','x'),{path:'Bruno Demo/binary.bru',content:42}];
+ const demoMade=await (await call('POST','/import-folder',{files:demo})).json();
+ assert.deepEqual([demoMade.id,demoMade.name],['bruno-demo','Bruno Demo']);
+ const demoDetail=await json('GET','/bruno-demo');
+ assert.deepEqual(demoDetail.tree.map(i=>[i.type,i.name]),[['request','Ping'],['folder','Auth']]);assert.deepEqual(demoDetail.environments,['dev']);
+ assert.deepEqual((await readdir(path.join(collections,'bruno-demo'))).sort(),['auth','bruno.json','environments','ping.bru']); // .git, .js e ".." ficam de fora
+ assert.equal(existsSync(path.join(work,'evil.bru')),false);
+ const loose=name=>[file(`${name}/list.bru`,bru('List orders',1,'{{host}}/orders')),file(`${name}/v2/get.bru`,bru('Get order',1,'{{host}}/v2/orders/1')),file(`${name}/environments/dev.bru`,'vars {\n  x: 1\n}\n'),file(`${name}/notes.txt`,'ignored')];
+ const into=await (await call('POST','/import-folder',{files:loose('Orders'),into:{collection:'bruno-demo',parent:''}})).json();
+ assert.deepEqual([into.id,into.folder,into.files],['bruno-demo','orders',2]); // environments/ e .txt não entram
+ let after=await json('GET','/bruno-demo');
+ assert.deepEqual(after.tree.map(i=>i.name),['Ping','Auth','Orders']);
+ assert.deepEqual(after.tree[2].children.map(i=>[i.type,i.name]),[['request','List orders'],['folder','v2']]);assert.deepEqual(after.environments,['dev']);
+ const again=await (await call('POST','/import-folder',{files:loose('Orders'),into:{collection:'bruno-demo',parent:'auth'}})).json();
+ assert.equal(again.folder,'auth/orders');
+ assert.equal((await json('GET','/bruno-demo')).tree[1].children.some(i=>i.name==='Orders'),true);
+ const fresh=await (await call('POST','/import-folder',{files:loose('Billing')})).json();
+ assert.deepEqual([fresh.id,fresh.name,fresh.folder],['billing','Billing',undefined]);
+ assert.deepEqual((await json('GET','/billing')).tree.map(i=>i.name),['List orders','v2']);assert.deepEqual((await json('GET','/billing')).environments,['dev']); // coleção nova leva o ambiente
+ assert.equal((await call('POST','/import-folder',{files:[file('Docs/readme.md','x'),file('Docs/data.json','{}')]})).status,400); // sem .bru
+ assert.equal((await call('POST','/import-folder',{files:[]})).status,400);assert.equal((await call('POST','/import-folder',{})).status,400);
+ assert.equal((await call('POST','/import-folder',{files:loose('Orders'),into:{collection:'bruno-demo',parent:'nao-existe'}})).status,404);
+ assert.equal((await call('POST','/import-folder',{files:loose('Orders'),into:{collection:'bruno-demo',parent:'../x'}})).status,400);
+ assert.equal((await call('POST','/import-folder',{files:loose('Orders'),into:{collection:'nao-existe',parent:''}})).status,404);
+ assert.equal((await call('GET','/import-folder')).status,405);
+ assert.equal((await fetch(`${base}/api/collections/import-folder`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({files:loose('X')})})).status,403);
+ for(const id of ['bruno-demo','billing'])assert.equal((await call('DELETE',`/${id}`)).status,200);
+
  // excluir
  assert.equal((await call('DELETE','/minha-api/items?path=usuarios')).status,200);
  assert.equal((await json('GET','/minha-api')).tree.length,1);
  for(const id of ['minha-api','minha-api-2',evilRes.id])assert.equal((await call('DELETE',`/${id}`)).status,200);
  assert.deepEqual(await json('GET',''),[]);assert.equal(existsSync(path.join(collections,'.secrets','minha-api.json')),false);
- console.log('PASS COLL-01..06 collections API');
+ console.log('PASS COLL-01..07 collections API');
 }finally{server.kill();await rm(work,{recursive:true,force:true});}

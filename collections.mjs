@@ -165,6 +165,10 @@ export function createCollections({dir,writeJson}){
  }
  async function importZip(buffer){
   let entries;try{entries=readZip(buffer,{maxEntries:3000});}catch{throw fail(400,'Arquivo de importação inválido');}
+  return importEntries(entries);
+ }
+ // entries: [{name:'<pasta>/bruno.json', data}], vindas de um ZIP ou de uma pasta enviada pelo navegador
+ async function importEntries(entries){
   const marker=entries.filter(e=>e.name==='bruno.json'||e.name.endsWith('/bruno.json')).sort((a,b)=>a.name.length-b.name.length)[0];
   if(!marker)throw fail(400,'Pacote sem bruno.json');
   const prefix=marker.name.slice(0,-'bruno.json'.length);
@@ -186,5 +190,40 @@ export function createCollections({dir,writeJson}){
   await writeJson(path.join(root,'bruno.json'),{...config,name:title});
   return {id,name:title,files};
  }
- return {list,tree,defaults,environments,readEnv,writeEnv,createCollection,createItem,readRequest,writeRequest,renameItem,removeItem,reorder,removeEnv,removeCollection,exportZip,importZip,readName,collDir,secretsOf};
+ // Pasta enviada pelo navegador ({path,content}[]). Com bruno.json vira uma coleção. Sem ele é uma pasta de requests: entra na
+ // coleção/pasta indicada em `into` ({collection,parent}) ou, sem `into`, vira uma coleção nova com o nome da pasta.
+ async function importFolder(files,into){
+  if(!Array.isArray(files)||!files.length||files.length>3000)throw fail(400,'Arquivo de importação inválido');
+  const entries=[];
+  for(const f of files){
+   const name=String(f?.path||'').replace(/\\/g,'/').replace(/^\/+/,'');
+   if(typeof f?.content!=='string'||name.split('/').some(p=>!p||p==='..'))continue;
+   entries.push({name,data:Buffer.from(f.content,'utf8')});
+  }
+  if(entries.some(e=>e.name==='bruno.json'||e.name.endsWith('/bruno.json')))return importEntries(entries);
+  const firsts=new Set(entries.map(e=>e.name.split('/')[0])),single=firsts.size===1&&entries.every(e=>e.name.includes('/'));
+  const rootName=single?[...firsts][0]:'';
+  const items=entries.map(e=>({rel:single?e.name.slice(rootName.length+1):e.name,data:e.data}))
+   .filter(e=>!e.rel.split('/').some(p=>p.startsWith('.'))&&ALLOWED_EXT.has(path.extname(e.rel).toLowerCase()));
+  if(!items.some(e=>e.rel.endsWith('.bru')))throw fail(400,'Pasta sem arquivos .bru');
+  let id,created=null,base,folderPath='',seq=0;
+  if(into?.collection){
+   const target=inside(into.collection,into.parent||'');
+   if(!existsSync(path.join(target.root,'bruno.json'))||!existsSync(target.file))throw fail(404,'Pasta inexistente');
+   id=into.collection;seq=Math.max(0,...(await tree(id,into.parent||'')).map(s=>s.seq||0))+1;
+   const dirName=uniqueName(target.file,slugOf(rootName)||'pasta');
+   base=path.join(target.file,dirName);await mkdir(base);folderPath=[...target.parts,dirName].join('/');
+  }else{created=await createCollection(rootName||'Pasta importada');id=created.id;base=collDir(id);}
+  let count=0;
+  for(const {rel,data} of items){
+   if(rel==='bruno.json'||(!created&&rel.startsWith('environments/')))continue;
+   const target=path.join(base,...rel.split('/'));await mkdir(path.dirname(target),{recursive:true});await writeFile(target,data);count++;
+  }
+  if(!created){
+   const meta=path.join(base,'folder.bru'),model=existsSync(meta)?parseBru(await readText(meta)):{name:rootName||path.basename(base),type:'folder'};
+   model.seq=seq;await writeFile(meta,stringifyBlocks(fromModel(model)));
+  }
+  return {id,name:created?.name||await readName(id),files:count,...(folderPath?{folder:folderPath}:{})};
+ }
+ return {list,tree,defaults,environments,readEnv,writeEnv,createCollection,createItem,readRequest,writeRequest,renameItem,removeItem,reorder,removeEnv,removeCollection,exportZip,importZip,importFolder,readName,collDir,secretsOf};
 }

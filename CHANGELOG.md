@@ -7,6 +7,10 @@ How to cut a release: [`docs/releasing.md`](docs/releasing.md).
 
 ## [Unreleased]
 
+### Added
+- **Run a folder (and its subfolders) with an interactive report**: every folder and the collection get **▶** (run this folder) and **▶▶** (run it with all subfolders) buttons. Requests run one after another in tree order and session variables (a token saved by a login request, for example) flow into the next ones. The report shows a progress bar with one segment per request, passed/failed/error counts, assertions and tests, total time, filters, search and, for each request, the sent URL, checks, body, headers and script console. You can stop the run, stop at the first failure, add a delay between requests, run only the failed ones or a single request again, open a request from the report, copy a summary and export a JSON report (no bodies or headers).
+- **Import Bruno folders**: *Import Bruno folder…* (or dropping a folder on the API panel) reads a folder in the Bruno format. With a `bruno.json` it becomes a new collection, environments included; a plain folder of `.bru` files goes into the open collection (or becomes a new one). Dot-folders, `node_modules` and non-Bruno files are skipped. New endpoint `POST /api/collections/import-folder`.
+
 ### Fixed
 - **Script time limit on slow machines**: the 5 s limit now starts when the script starts running, not when the sandbox is created, so a busy machine no longer reports a timeout for a trivial script. A script cannot extend its own deadline.
 ### Changed
