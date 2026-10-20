@@ -42,7 +42,7 @@ try{
  await call('PUT','/collections/suite/environments/local',{vars:[{name:'host',value:host,enabled:true}]});
  await add('','Health','{{host}}/health',{assertions:status200});
  const users=await call('POST','/collections/suite/items',{type:'folder',name:'Users'});
- await add('users','Login','{{host}}/login',{method:'post',assertions:status200,varsPost:[{name:'token',value:'res.body.token',enabled:true}]});
+ await add('users','Login','{{host}}/login',{method:'post',assertions:status200,bodyMode:'json',body:{json:'{"user":"ana"}'},varsPost:[{name:'token',value:'res.body.token',enabled:true}]});
  await add('users','Me','{{host}}/me',{assertions:status200,headers:[{name:'Authorization',value:'Bearer {{token}}',enabled:true}]});
  const admin=await call('POST','/collections/suite/items',{type:'folder',name:'Admin',parent:users.path});
  await add(admin.path,'Ban','{{host}}/fail',{method:'post',assertions:status200});
@@ -120,7 +120,18 @@ try{
  assert.match(await ban.locator('.api-run-sent').textContent(),new RegExp(`POST ${host.replace(/[.]/g,'\\.')}/fail`));
  assert.match(await ban.locator('.api-run-checks li.is-fail').textContent(),/res\.status eq 200/);
  assert.match(await ban.locator('.api-run-checks li.is-fail').textContent(),/expected res\.status \(500\) to eq 200/);
- await ban.locator('summary',{hasText:'Body'}).click();assert.match(await ban.locator('.api-resp-body').textContent(),/boom/);
+ assert.equal(await ban.locator('.api-resp-body').isVisible(),true); // o corpo da resposta já aparece aberto
+ assert.match(await ban.locator('.api-resp-body').textContent(),/boom/);
+ assert.match(await ban.locator('.api-run-respline').textContent(),/^500 /);
+ assert.equal(await ban.locator('.api-req-body').count(),0); // a Ban não envia corpo
+ assert.equal(await ban.locator('.api-resp-headers').isVisible(),false); // cabeçalhos ficam recolhidos
+ const login=page.locator('.api-run-item',{hasText:'Login'});
+ await login.locator('.api-run-item-main').click();
+ assert.equal(await login.locator('.api-req-body').isVisible(),true); // corpo enviado visível, formatado
+ assert.match(await login.locator('.api-req-body').textContent(),/"user": "ana"/);
+ assert.match(await login.locator('.api-resp-body').textContent(),/"token": "abc"/);
+ await login.locator('summary',{hasText:'Request headers'}).click();assert.match(await login.locator('.api-req-headers').textContent(),/content-type: application\/json/i);
+ await login.locator('.api-run-item-main').click();
  const broken=page.locator('.api-run-item',{hasText:'Broken'});
  await broken.locator('.api-run-item-main').click();assert.equal(await broken.locator('.api-run-error').count(),1);
  await ban.locator('.api-run-item-main').click();assert.equal(await ban.locator('.api-run-detail').count(),0); // fecha de novo

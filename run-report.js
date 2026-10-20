@@ -7,12 +7,11 @@ const FILTERS=['all','failed','error','passed'];
 
 export function createRunReport({h,t,fmtSize}){
  const matchesFilter=(item,filter)=>filter==='all'||item.status===filter;
- const prettyBody=out=>{
-  if(out.binary)return t('apiBinary',fmtSize(out.size||0));
-  const text=out.bodyText||'';
+ const prettyText=text=>{
   if(/^\s*[\[{]/.test(text)){try{return JSON.stringify(JSON.parse(text),null,2);}catch{}}
   return text;
  };
+ const prettyBody=out=>out.binary?t('apiBinary',fmtSize(out.size||0)):prettyText(out.bodyText||'');
 
  function mount(container,run,act){
   const view=run.view,refs={};
@@ -57,18 +56,24 @@ export function createRunReport({h,t,fmtSize}){
   function detail(item){
    const out=item.out,box=h('div',{class:'api-run-detail'});
    if(!out){box.append(h('p',{class:'api-hint'},t(`apiRunSt_${item.status}`)));return box;}
-   if(out.sent)box.append(h('pre',{class:'api-pre api-run-sent'},`${out.sent.method} ${out.sent.url}`));
+   const pairs=list=>(list||[]).map(([k,v])=>`${k}: ${v}`).join('\n');
+   const section=(title,...kids)=>h('section',{class:'api-run-sec'},h('h5',{},title),...kids);
+   const bodyBox=(summary,text,cls,open=true)=>h('details',{open:open||null},h('summary',{},summary),h('pre',{class:`api-pre ${cls}`,tabindex:'0'},text));
+   const sent=out.sent;
+   if(sent)box.append(section(t('apiRunRequest'),h('pre',{class:'api-pre api-run-sent'},`${sent.method} ${sent.url}`),
+    sent.body?bodyBox(t('apiRunRequestBody'),prettyText(sent.body),'api-req-body'):null,
+    sent.headers?.length?bodyBox(t('apiRunRequestHeaders'),pairs(sent.headers),'api-req-headers',false):null));
    if(out.error){
     const text=out.error==='cancelled'?t('apiCancelled'):out.error==='timeout'?t('apiTimeout',out.detail):`${t('apiFailed')}: ${out.detail||out.error}`;
     box.append(h('p',{class:'api-run-error',role:'alert'},text));
+   }else{
+    box.append(section(t('apiRunResponse'),h('p',{class:'api-run-respline'},`${out.status} ${out.statusText||''} · ${out.timeMs} ms · ${fmtSize(out.size||0)}`),
+     bodyBox(t('apiRespBody'),prettyBody(out),'api-resp-body'),
+     bodyBox(t('apiRespHeaders'),pairs(out.headers),'api-resp-headers',false)));
    }
    const checks=checksOf(out);
-   if(checks.length)box.append(h('ul',{class:'api-run-checks'},...checks.map(c=>h('li',{class:c.passed?'is-pass':'is-fail'},h('span',{class:'api-mark','aria-hidden':'true'},c.passed?'✓':'✗'),h('span',{},c.name||`${c.expression} ${c.assertion}`),c.error?h('small',{},c.error):null))));
+   if(checks.length)box.append(section(t('apiRunTile_checks'),h('ul',{class:'api-run-checks'},...checks.map(c=>h('li',{class:c.passed?'is-pass':'is-fail'},h('span',{class:'api-mark','aria-hidden':'true'},c.passed?'✓':'✗'),h('span',{},c.name||`${c.expression} ${c.assertion}`),c.error?h('small',{},c.error):null)))));
    else if(!out.error)box.append(h('p',{class:'api-hint'},t('apiNoTests')));
-   if(!out.error){
-    box.append(h('details',{},h('summary',{},`${t('apiRespBody')} · ${fmtSize(out.size||0)}`),h('pre',{class:'api-pre api-resp-body',tabindex:'0'},prettyBody(out))),
-     h('details',{},h('summary',{},t('apiRespHeaders')),h('pre',{class:'api-pre',tabindex:'0'},(out.headers||[]).map(([k,v])=>`${k}: ${v}`).join('\n'))));
-   }
    const lines=[...(out.extra?.errors||[]).map(e=>({level:'error',text:`${t('apiScriptError')} (${e.where}): ${e.message}`})),...(out.extra?.logs||[]).map(l=>({level:l.level,text:`[${l.where}] ${l.text}`}))];
    if(lines.length)box.append(h('div',{class:'api-console',role:'log'},...lines.map(l=>h('div',{class:`api-log is-${l.level}`},l.text))));
    box.append(h('div',{class:'api-run-detail-actions'},

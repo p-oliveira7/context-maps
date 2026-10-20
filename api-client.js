@@ -155,7 +155,7 @@ async function execute(model,signal){
   if(pre)applyScriptReq(raw,pre.req);
   // 2) resolver variáveis e enviar pelo servidor
   const vars=allVars(model),req=resolveRaw(raw,vars);
-  sent={method:req.method,url:req.url};
+  sent={method:req.method,url:req.url,headers:req.headers.map(h=>[h.name,h.value]),body:req.body};
   const res=await fetch('api/send',{method:'POST',headers:{'x-context-maps':'1','x-lang':lang,'content-type':'application/json'},body:JSON.stringify({...req,timeoutMs:req.timeout}),signal});
   const data=await res.json();
   if(!res.ok)return {error:'request',detail:data.error||String(res.status),timeMs:took(),extra,sent};
@@ -511,6 +511,7 @@ async function runOne(item,run){
  catch(e){return {error:'request',detail:e.message,timeMs:0,extra:{logs:[],tests:[],asserts:[],errors:[]}};}
  const out=await execute(model,run.abort.signal);
  if(out.bodyText&&out.bodyText.length>BODY_KEEP)out.bodyText=out.bodyText.slice(0,BODY_KEEP);
+ if(out.sent?.body&&out.sent.body.length>BODY_KEEP)out.sent={...out.sent,body:out.sent.body.slice(0,BODY_KEEP)};
  return out;
 }
 async function runItems(run,subset){

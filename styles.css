@@ -598,3 +598,8 @@ body.is-fullscreen.ui-bottom .zoom-controls,body.is-fullscreen .zoom-controls:ha
 .api-run-detail summary{cursor:pointer;color:#ffffffb3}
 .api-run-detail-actions{display:flex;gap:.4rem;flex-wrap:wrap}
 @media (prefers-reduced-motion:reduce){.api-run-seg.is-running,.api-run-item.is-running .api-run-icon{animation:none}}
+
+.api-run-sec{display:flex;flex-direction:column;gap:.35rem}
+.api-run-sec h5{margin:0;font-size:.72rem;letter-spacing:.04em;text-transform:uppercase;color:#ffffff99}
+.api-run-respline{margin:0;color:#ffffffc7}
+.api-run-detail .api-resp-body,.api-run-detail .api-req-body{max-height:16rem}
