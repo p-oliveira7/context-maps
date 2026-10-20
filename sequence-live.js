@@ -70,19 +70,47 @@ export function openLiveFlow({source,title,t,measure,api,onClose}){
  const stopOnFail=h('input',{type:'checkbox',checked:true,'aria-label':t('seqLiveStopOnFail')});
  const info=h('span',{class:'seq-flow-info',role:'status'});
  const closeBtn=h('button',{type:'button',class:'seq-btn seq-live-close','aria-label':t('seqLiveClose'),title:t('seqLiveClose'),onClick:()=>close()},'×');
- const head=h('div',{class:'seq-live-head'},h('strong',{id:'seq-live-title'},title||t('seqLiveGroup')),h('span',{class:'seq-spacer'}),closeBtn);
+ // zoom do desenho: por padrão o diagrama inteiro cabe na largura da janela
+ let zoom=0; // 0 = ajustar à largura
+ const zoomLabel=h('span',{class:'seq-zoom-label'},'');
+ const zoomBtn=(label,aria,fn)=>h('button',{type:'button',class:'seq-btn seq-live-zoom','aria-label':aria,title:aria,onClick:fn},label);
+ const head=h('div',{class:'seq-live-head'},h('strong',{id:'seq-live-title'},title||t('seqLiveGroup')),h('span',{class:'seq-spacer'}),
+  zoomBtn('−',t('seqEdZoomOut'),()=>setZoom((zoom||fitZoom())-.15)),zoomLabel,zoomBtn('⤢',t('seqLiveFit'),()=>setZoom(0)),zoomBtn('+',t('seqEdZoomIn'),()=>setZoom((zoom||fitZoom())+.15)),closeBtn);
  const bar=h('div',{class:'seq-flow',role:'group','aria-label':t('seqLiveGroup')},apiBtn,playBtn,stopBtn,stepBtn,resetBtn,h('label',{class:'seq-flow-chk'},stopOnFail,h('span',{},t('seqLiveStopOnFail'))),info);
- const win=h('div',{class:'seq-live-win',role:'dialog','aria-labelledby':'seq-live-title'},head,bar,host,h('div',{class:'seq-live-foot'},status));
+ const scen=h('details',{class:'seq-live-scen',hidden:true,open:true});
+ const win=h('div',{class:'seq-live-win',role:'dialog','aria-labelledby':'seq-live-title'},head,bar,scen,host,h('div',{class:'seq-live-foot'},status));
 
+ const fitZoom=()=>layout?Math.min(1.4,Math.max(.2,(host.clientWidth-24)/layout.width)):1;
+ function setZoom(z){zoom=z?Math.min(2.5,Math.max(.2,z)):0;applyZoom();}
+ function applyZoom(){
+  const svg=host.querySelector('svg');if(!svg||!layout)return;
+  const z=zoom||fitZoom();svg.style.width=`${Math.round(layout.width*z)}px`;svg.style.height='auto';zoomLabel.textContent=`${Math.round(z*100)}%`;
+ }
  function draw(){
   layout=layoutSequence(model,{measure});
   host.innerHTML=renderSequenceSvg(layout,{summary:''});
   const svg=host.querySelector('svg');svg.removeAttribute('role');svg.setAttribute('aria-hidden','true');
-  paint();
+  applyZoom();paint();
  }
  function paint(){
   const svg=host.querySelector('svg');if(svg&&layout)paintLiveSvg(svg,layout,live,{model,running:runCtl?.current||'',pulse,t});
   sync();
+ }
+
+ /* um seletor de cenário de mock por passo ligado (só aparece para requests que têm mock) */
+ async function loadScenarios(){
+  if(!api.scenarios)return;
+  const rows=[];
+  for(const i of boundIdx()){
+   const s=model.steps[i];let info;
+   try{info=await api.scenarios({collection:s.bind.collection,path:s.bind.request});}catch{continue;}
+   if(!info.scenarios.length)continue;
+   const select=h('select',{'aria-label':`${t('seqLiveScenarioFor')}: ${s.text||s.bind.request}`,onChange:async e=>{await api.setScenario({collection:s.bind.collection,path:s.bind.request,id:e.target.value});say(t('seqLiveScenarioSet',s.text||s.bind.request,select.selectedOptions[0].textContent));}},
+    ...info.scenarios.map(sc=>h('option',{value:sc.id,selected:sc.id===info.active||null},sc.kind==='response'?`${sc.status} · ${sc.name}`:sc.name)));
+   rows.push(h('label',{class:'seq-live-scen-row'},h('span',{},s.text||s.bind.request),select));
+  }
+  scen.hidden=!rows.length;
+  scen.replaceChildren(h('summary',{},`${t('seqLiveScenarios')} (${rows.length})`),...rows);
  }
  function sync(){
   const n=boundIdx().length,running=!!runCtl;
@@ -137,6 +165,7 @@ export function openLiveFlow({source,title,t,measure,api,onClose}){
  unsubscribe=api.onResult(onResult);
  observer=new MutationObserver(()=>sync());observer.observe(document.body,{attributes:true,attributeFilter:['class']});
  document.addEventListener('keydown',onKey,true);
- document.body.append(win);draw();playBtn.focus();
+ new ResizeObserver(()=>{if(!zoom)applyZoom();}).observe(host);
+ document.body.append(win);draw();playBtn.focus();loadScenarios();
  return true;
 }

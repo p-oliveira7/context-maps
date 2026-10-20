@@ -94,3 +94,30 @@ test('tracePath: sem códigos nos ramos, sucesso vai no 1º e falha no último; 
  const bad=tracePath(m,new Map([['s1',{status:500,outcome:'fail'}]])).state;
  assert.deepEqual(bad,['ok','ok','skip','ok','ok','ok','ok','ok','ok','ok','ok','ok']);
 });
+
+test('tracePath: blocos aninhados escolhem o ramo pelos códigos de cada nível', () => {
+ const src=`sequenceDiagram
+  %% @step s1 {"collection":"a","request":"x.bru"}
+  A->>B: create
+  alt created
+    B-->>A: 201 Created
+    %% @step s2 {"collection":"a","request":"y.bru"}
+    A->>B: reserve
+    alt reserved
+      B-->>A: 200 Reserved
+    else out of stock
+      B-->>A: 409 Conflict
+    end
+  else invalid
+    B-->>A: 422 Unprocessable
+  end
+`;
+ const m=parseSequence(src);
+ // 0 create, 1 alt, 2 201, 3 reserve, 4 alt, 5 200, 6 else, 7 409, 8 end, 9 else, 10 422, 11 end
+ const bad=tracePath(m,new Map([['s1',{status:422,outcome:'fail'}]])).state;
+ assert.equal(bad[2],'skip');assert.equal(bad[10],'fail');assert.equal(bad[5],'skip'); // o 4xx do ramo de dentro não puxa o ramo errado
+ const deep=tracePath(m,new Map([['s1',{status:201,outcome:'ok'}],['s2',{status:409,outcome:'fail'}]])).state;
+ assert.equal(deep[2],'ok');assert.equal(deep[10],'skip');assert.equal(deep[5],'skip');assert.equal(deep[7],'fail');
+ const half=tracePath(m,new Map([['s1',{status:201,outcome:'ok'}]])).state; // s2 ainda não rodou: pára ali
+ assert.equal(half[2],'ok');assert.equal(half[3],'');assert.equal(half[7],'');
+});

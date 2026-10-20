@@ -896,3 +896,12 @@ body.api-open .seq-live-win{max-width:calc(100vw - var(--api-w) - 2rem)}
 .image-live{margin-top:.35rem;padding:.2rem .6rem;border-radius:999px;border:1px solid #4f9d7a;background:#4f9d7a22;color:#8fd1b3;font:inherit;font-size:.72rem;font-weight:600;cursor:pointer}
 .image-live:hover{background:#4f9d7a44}
 .image-item.is-live{display:flex;flex-direction:column;align-items:flex-start}
+
+.seq-live-scen{padding:.3rem .6rem;border-bottom:1px solid #ffffff14;max-height:7.5rem;overflow:auto;font-size:.74rem}
+.seq-live-scen summary{cursor:pointer;color:#ffffffa6;font-weight:600}
+.seq-live-scen-row{display:flex;align-items:center;gap:.5rem;margin-top:.25rem}
+.seq-live-scen-row span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.seq-live-scen-row select{flex:0 1 55%}
+.seq-live-zoom{padding:.05rem .45rem;line-height:1.4}
+.seq-live-head .seq-zoom-label{min-width:2.6rem;text-align:center;font-size:.72rem;color:#ffffff99}
+.seq-live-host svg{max-width:none}

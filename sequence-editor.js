@@ -2,7 +2,7 @@
    Trabalha sobre o modelo de sequence.js e só devolve o texto (Mermaid-compatível) ao aplicar. */
 import {parseSequence,stringifySequence,layoutSequence,renderSequenceSvg} from './sequence.js?v=2';
 import * as E from './sequence-edit.js?v=1';
-import {paintLiveSvg} from './sequence-live.js?v=2';
+import {paintLiveSvg} from './sequence-live.js?v=4';
 import {newStepId,normalizeBind,describeRule,evaluateOutcome,MAX_RULES} from './sequence-flow.js?v=2';
 
 function h(tag,props={},...kids){

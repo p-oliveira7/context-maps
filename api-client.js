@@ -69,6 +69,23 @@ function emitResult(path,out){
  const summary=summarizeResult(state.coll.id,path,out);
  for(const fn of [...resultListeners]){try{fn(summary);}catch{/* um observador com defeito não derruba o envio */}}
 }
+/* Cenários de mock de uma request, para escolher qual responde (o fluxo ao vivo oferece um seletor por passo). */
+async function mocksOfCollection(collection){return state.coll?.id===collection?state.mocks:normalizeMocks(await api('GET',`/collections/${collection}/mocks`));}
+export async function mockScenarios({collection,path}){
+ const entry=(await mocksOfCollection(collection)).requests[path];
+ if(!entry)return {mode:'off',active:'',scenarios:[]};
+ return {mode:entry.mode,active:entry.active||entry.scenarios[0]?.id||'',scenarios:entry.scenarios.map(s=>({id:s.id,name:s.name,kind:s.kind,status:s.status}))};
+}
+export async function setMockScenario({collection,path,id}){
+ const current=state.coll?.id===collection,mocks=await mocksOfCollection(collection),entry=mocks.requests[path];
+ if(!entry||!entry.scenarios.some(s=>s.id===id))return false;
+ entry.active=id;
+ if(current){
+  if(!state.mocksDirty)await api('PUT',`/collections/${collection}/mocks`,mocks); // há edição de mock por salvar: o Ctrl+S leva junto
+  renderTree();renderTabbar();if(state.tab==='mock'&&state.view==='request')renderTab();
+ }else await api('PUT',`/collections/${collection}/mocks`,mocks);
+ return true;
+}
 /** executa uma request da coleção (para o "Rodar fluxo" do diagrama); usa o ambiente, as variáveis de execução e os mocks do painel */
 export async function runRequest({collection,path,signal}){
  if(!panel||!state.open)await openApiPanel({collection});

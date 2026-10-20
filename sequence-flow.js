@@ -117,7 +117,14 @@ export function tracePath(model,live){
  });
  let result=null,halted=false;
  const mark=(a,b,v)=>{for(let k=a;k<b;k++)state[k]=v;};
- const codesIn=(a,b)=>{const out=[];for(let k=a;k<b;k++)if(steps[k].type==='message'){const c=statusInLabel(steps[k].text);if(c)out.push(c);}return out;};
+ const codesIn=(a,b)=>{ // só as respostas do próprio ramo; blocos aninhados têm os códigos deles
+  const out=[];
+  for(let k=a;k<b;k++){
+   if(steps[k].type==='group'&&blocks.has(k)){k=blocks.get(k).end;continue;}
+   if(steps[k].type==='message'){const c=statusInLabel(steps[k].text);if(c)out.push(c);}
+  }
+  return out;
+ };
  function pick(branches){
   if(branches.length===1)return 0;
   const codes=branches.map(b=>codesIn(b.from,b.to));

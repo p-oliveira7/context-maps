@@ -3,11 +3,11 @@ import {cancelMotion,snapshot,animateLayout,hoverEdge,updateEdges,onEdges} from 
 import * as store from './store.js?v=17';
 import {t,applyStatic} from './i18n.js?v=1';
 import {VERSION} from './version.js?v=1';
-import {initApiClient,openApiPanel,closeApiPanel,isApiOpen,setAttachTarget,summarize,summarizeTree,listRequests,runRequest,onRequestResult,API_DRAG_TYPE} from './api-client.js?v=12';
+import {initApiClient,openApiPanel,closeApiPanel,isApiOpen,setAttachTarget,summarize,summarizeTree,listRequests,runRequest,onRequestResult,mockScenarios,setMockScenario,API_DRAG_TYPE} from './api-client.js?v=13';
 import {apiDropdown,closeApiDropdown} from './api-dropdown.js?v=1';
 import {isSequenceSource,renderSequence,FONT as SEQ_FONT} from './sequence.js?v=2';
 import {openSequenceEditor} from './sequence-editor.js?v=6';
-import {openLiveFlow} from './sequence-live.js?v=2';
+import {openLiveFlow} from './sequence-live.js?v=4';
 import {parseSequence} from './sequence.js?v=2';
 applyStatic();
 const $=s=>document.querySelector(s), viewport=$('#viewport'), world=$('#world');
@@ -72,7 +72,7 @@ function hasLinkedSteps(image){
  try{return parseSequence(image.source).steps.some(s=>s.bind);}catch{return false;}
 }
 function startLiveFlow(node,image){
- openLiveFlow({source:image.source,title:nameOf(node),t,measure:measureText,api:{toggle:on=>{if(on){if(!isApiOpen()){openApiPanel();$('#api-btn').setAttribute('aria-expanded','true');}}else closeApiPanel();},run:runRequest,onResult:onRequestResult}});
+ openLiveFlow({source:image.source,title:nameOf(node),t,measure:measureText,api:{toggle:on=>{if(on){if(!isApiOpen()){openApiPanel();$('#api-btn').setAttribute('aria-expanded','true');}}else closeApiPanel();},run:runRequest,onResult:onRequestResult,scenarios:mockScenarios,setScenario:setMockScenario}});
 }
 function liveButton(node,image){
  if(!hasLinkedSteps(image))return null;
