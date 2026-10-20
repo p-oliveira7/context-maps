@@ -705,3 +705,14 @@ body.is-fullscreen.ui-bottom .zoom-controls,body.is-fullscreen .zoom-controls:ha
  .api-urlbar .api-var-field{flex:1 1 10rem}
  .api-tab{max-width:11rem}
 }
+
+/* ---------- janela de nova request ---------- */
+.api-newreq-card{width:min(560px,100%)}
+.api-newreq-modes{display:flex;gap:1.2rem;border:0;padding:0;margin:0}
+.api-newreq-mode{display:flex;align-items:center;gap:.4rem;cursor:pointer}
+.api-newreq-row{display:flex;gap:.4rem}
+.api-newreq-row .api-url{flex:1;min-width:0}
+.api-newreq-curl{display:flex;flex-direction:column;gap:.3rem}
+.api-newreq-curl[hidden],.api-newreq-row[hidden]{display:none}
+.api-newreq-curl .api-textarea{min-height:7rem}
+.api-newreq-error{margin:0;min-height:1.1em;color:#e57373;font-size:.76rem}

@@ -149,6 +149,49 @@ try{
  await pop.locator('button[aria-label^="Remove: token"]').click();
  await varsBtn.waitFor({state:'hidden'});assert.equal(await page.locator('.api-vars-pop').count(),0);
 
+ // POL-07: nova request pela janela, do zero ou importando um cURL (como no Bruno)
+ const dialog=page.locator('.api-newreq'),newBtn=page.locator('.api-tree-tools button[aria-label="New request"]');
+ await newBtn.click();await dialog.waitFor();
+ assert.equal(await dialog.getAttribute('role'),'dialog');assert.match(await dialog.textContent(),/In 🗂 Polish/);
+ assert.equal(await page.evaluate(()=>document.activeElement.id),'api-newreq-name'); // o foco vai para o nome
+ for(let i=0;i<14;i++){await page.keyboard.press('Tab');assert.equal(await page.evaluate(()=>!!document.activeElement.closest('.api-newreq')),true,'o foco fica preso na janela');}
+ await page.keyboard.press('Escape');await dialog.waitFor({state:'detached'});
+ assert.equal(await page.locator('#api-panel').isVisible(),true); // o Esc fechou só a janela
+ const folderRow=page.locator('.api-row',{hasText:'Users'}).first();await folderRow.hover();
+ await folderRow.getByRole('button',{name:/^New request: Users/}).click();
+ assert.match(await dialog.textContent(),/In 📁 Users/);
+ await dialog.locator('button.primary').click(); // sem nome e sem URL
+ assert.match(await dialog.locator('.api-newreq-error').textContent(),/Enter a name/);
+ await dialog.locator('select').selectOption('post');await dialog.locator('.api-url').fill('{{host}}/orders?x=1');
+ assert.equal(await dialog.locator('#api-newreq-name').getAttribute('placeholder'),'POST /orders'); // nome sugerido
+ await dialog.locator('button.primary').click();
+ await page.locator('.api-tab.is-active',{hasText:'POST /orders'}).waitFor();
+ const usersOf=async()=>(await call('GET','/collections/polish')).tree.find(i=>i.name==='Users').children;
+ const orders=(await usersOf()).find(i=>i.name==='POST /orders');assert.ok(orders);
+ const ordersModel=await call('GET',`/collections/polish/request?path=${orders.path}`);assert.deepEqual([ordersModel.method,ordersModel.url],['post','{{host}}/orders?x=1']);
+ assert.equal(await page.locator('.api-url').inputValue(),'{{host}}/orders?x=1');assert.equal(await dialog.count(),0);
+ await newBtn.click();await dialog.waitFor();
+ await dialog.getByLabel('Import from cURL').check();
+ assert.equal(await page.evaluate(()=>document.activeElement.id),'api-newreq-curl');assert.equal(await dialog.locator('.api-url').isHidden(),true);
+ await dialog.locator('textarea').fill('nonsense');
+ assert.match(await dialog.locator('.api-newreq-error').textContent(),/does not look like a cURL/);assert.equal(await dialog.locator('button.primary').isDisabled(),true);
+ await dialog.locator('textarea').fill(`curl -X POST '${host}/v1/items?id=9' -H 'content-type: application/json' -H 'x-k: 1' -u ana:pw --data-raw '{"a":1}'`);
+ assert.match(await dialog.locator('#api-newreq-summary').textContent(),/POST .*\/v1\/items\?id=9 · 2 headers · json body/);
+ assert.equal(await dialog.locator('#api-newreq-name').getAttribute('placeholder'),'POST /v1/items');
+ await dialog.locator('#api-newreq-name').fill('Imported item');await page.keyboard.press('Enter');
+ await page.locator('.api-tab.is-active',{hasText:'Imported item'}).waitFor();
+ const imported=(await call('GET','/collections/polish')).tree.find(i=>i.name==='Imported item');assert.ok(imported);
+ const importedModel=await call('GET',`/collections/polish/request?path=${imported.path}`);
+ assert.deepEqual([importedModel.method,importedModel.url,importedModel.bodyMode,importedModel.body.json,importedModel.authMode,importedModel.basic.username],['post',`${host}/v1/items?id=9`,'json','{"a":1}','basic','ana']);
+ assert.deepEqual(importedModel.headers.map(h=>h.name),['content-type','x-k']);
+ assert.equal(await page.locator('.api-method-select').inputValue(),'post'); // e já abre no editor
+ await page.locator('.api-row',{hasText:'Users'}).first().click({button:'right'});
+ await page.locator('.api-ctx button',{hasText:'New request'}).click();assert.match(await dialog.textContent(),/In 📁 Users/);
+ await dialog.getByRole('button',{name:'Cancel'}).click();await dialog.waitFor({state:'detached'});
+ await page.locator('.api-collection-row').click({button:'right'});
+ await page.locator('.api-ctx button',{hasText:'New request'}).click();assert.match(await dialog.textContent(),/In 🗂 Polish/);
+ await page.keyboard.press('Escape');await dialog.waitFor({state:'detached'});
+
  // POL-06: em tela estreita a lista de requests vira uma gaveta e as ações aparecem sem passar o mouse
  const phone=await browser.newContext({locale:'en-US',viewport:{width:390,height:800},isMobile:true,hasTouch:true,permissions:['clipboard-read','clipboard-write'],extraHTTPHeaders:{'x-context-maps':'1'}});
  const mob=await phone.newPage();mob.setDefaultTimeout(process.env.CI?15000:7000);
@@ -171,5 +214,5 @@ try{
  await phone.close();
 
  assert.deepEqual(errors,[]);assert.deepEqual(mobErrors,[]);
- console.log('PASS POL-01..06 cURL, copy as, unresolved variables, context menu, session variables, narrow screens');
+ console.log('PASS POL-01..07 cURL, copy as, new request dialog, unresolved variables, context menu, session variables, narrow screens');
 }finally{await browser.close();server.kill();target.close();await rm(work,{recursive:true,force:true});}
