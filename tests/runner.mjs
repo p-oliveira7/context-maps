@@ -203,6 +203,16 @@ try{
  assert.equal(await page.locator('.api-row',{hasText:'Slowpoke'}).count(),1);
  await page.locator('.api-run-actions button[aria-label="Close the report"]').click();
 
+ // RUN-12: a execução usa o que está aberto nas abas, mesmo sem salvar (o arquivo não muda)
+ await page.locator('.api-req-title strong',{hasText:'Ban'}).waitFor();
+ await page.locator('.api-url').fill('{{host}}/health?unsaved=1');
+ seen.length=0;
+ await runFolder('Users','Run this folder and its subfolders');await finished();
+ assert.deepEqual(seen.map(s=>s.url),['/login','/me','/health?unsaved=1']);
+ assert.equal((await call('GET','/collections/suite/request?path=users/admin/ban.bru')).url,'{{host}}/fail');
+ await page.locator('.api-run-actions button[aria-label="Close the report"]').click();
+ await page.keyboard.press('ControlOrMeta+s');await page.locator('.api-tab-dirty').waitFor({state:'detached'}); // salva para seguir
+
  // RUN-11: importar uma pasta do Bruno pela interface (coleção completa e pasta solta dentro da coleção aberta)
  const dir=path.join(work,'incoming');
  const bru=(name,url)=>`meta {\n  name: ${name}\n  type: http\n  seq: 1\n}\n\nget {\n  url: ${url}\n}\n\nassert {\n  res.status: eq 200\n}\n`;
@@ -239,5 +249,5 @@ try{
  await page.locator('#toast',{hasText:/No Bruno files/}).waitFor();
 
  assert.deepEqual(errors,[]);
- console.log('PASS RUN-01..11 folder runs, report and Bruno folder import');
+ console.log('PASS RUN-01..12 folder runs, report and Bruno folder import');
 }finally{await browser.close();server.kill();target.close();await rm(work,{recursive:true,force:true});}

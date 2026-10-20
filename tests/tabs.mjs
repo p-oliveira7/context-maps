@@ -25,12 +25,14 @@ const call=async(method,route,body)=>{const r=await fetch(`${base}/api${route}`,
 const browser=await launch();
 try{
  await call('POST','/collections',{name:'Tabs'});
+ await call('POST','/collections',{name:'Zeta'}); // para trocar de coleção com alterações abertas (TAB-12)
  await call('PUT','/collections/tabs/environments/local',{vars:[{name:'host',value:host,enabled:true}]});
  await call('POST','/collections/tabs/items',{type:'request',name:'Alpha',method:'get',url:'{{host}}/a'});
  await call('POST','/collections/tabs/items',{type:'request',name:'Beta',method:'post',url:'{{host}}/b'});
  const group=await call('POST','/collections/tabs/items',{type:'folder',name:'Group'});
  await call('POST','/collections/tabs/items',{type:'request',parent:group.path,name:'Gamma',method:'get',url:'{{host}}/slow'});
  const urlOf=async file=>(await call('GET',`/collections/tabs/request?path=${file}`)).url;
+ const gammaUrl=()=>urlOf('group/gamma.bru');
 
  const ctx=await browser.newContext({locale:'en-US',viewport:{width:1500,height:900},extraHTTPHeaders:{'x-context-maps':'1'}});
  const page=await ctx.newPage();page.setDefaultTimeout(process.env.CI?15000:7000);
@@ -63,11 +65,14 @@ try{
  await go('Alpha');
  await page.locator('.api-status strong',{hasText:'200'}).waitFor();assert.equal(await page.locator('#api-tab-headers').getAttribute('aria-selected'),'true');
 
- // TAB-03: o que foi digitado sobrevive à troca e é salvo (a troca grava na hora)
+ // TAB-03: o que foi digitado sobrevive à troca de aba, mas só vai para o arquivo com Ctrl+S
  await page.locator('.api-url').fill('{{host}}/a2');
  await go('Beta');
- assert.equal(await urlOf('alpha.bru'),'{{host}}/a2');
+ assert.equal(await urlOf('alpha.bru'),'{{host}}/a'); // trocar de aba não grava
  await go('Alpha');assert.equal(await page.locator('.api-url').inputValue(),'{{host}}/a2');
+ await page.keyboard.press('ControlOrMeta+s');
+ await page.locator('.api-tab-dirty').waitFor({state:'detached'});
+ assert.equal(await urlOf('alpha.bru'),'{{host}}/a2');
 
  // TAB-04: trocar de aba durante um envio não mistura as respostas
  await open('Gamma');
@@ -202,6 +207,68 @@ try{
  assert.equal(await col().isHidden(),true); // continua recolhida
  await treeBtn.click();assert.equal(await col().isVisible(),true);assert.equal(await treeBtn.getAttribute('aria-expanded'),'true');
 
+ // TAB-12: nada é salvo sozinho; Ctrl+S ou o botão Salvar gravam, e fechar com alterações pergunta antes
+ const dirtyDot=name=>page.locator('.api-tab',{hasText:name}).locator('.api-tab-dirty');
+ const ask=page.locator('.api-unsaved-card');
+ await open('Gamma');await page.locator('.api-url').fill('{{host}}/slow?edited=1');
+ await dirtyDot('Gamma').waitFor();assert.equal((await page.locator('.api-save').textContent()).trim(),'Unsaved changes');
+ assert.equal(await page.locator('.api-save-btn').isEnabled(),true);
+ await page.waitForTimeout(1500); // o salvamento automático antigo teria gravado em 0,6 s
+ assert.equal(await gammaUrl(),'{{host}}/slow');
+ await go('Alpha');assert.equal(await dirtyDot('Alpha').count(),0);assert.equal(await page.locator('.api-save-btn').isDisabled(),true);
+ await go('Gamma');assert.equal(await page.locator('.api-url').inputValue(),'{{host}}/slow?edited=1');assert.equal(await dirtyDot('Gamma').count(),1); // trocar de aba não perde nem grava
+ assert.equal(await gammaUrl(),'{{host}}/slow');
+
+ // fechar com alterações pergunta: Esc e Cancelar mantêm a aba
+ await page.locator('.api-tab',{hasText:'Gamma'}).locator('.api-tab-close').click();
+ await ask.waitFor();assert.equal(await ask.evaluate(e=>e.parentElement.getAttribute('role')),'alertdialog');assert.match(await ask.textContent(),/“Gamma” has changes that were not saved/);
+ assert.equal(await page.evaluate(()=>document.activeElement.textContent),'Save'); // o foco começa em Salvar
+ await page.keyboard.press('Escape');await ask.waitFor({state:'detached'});
+ assert.equal(await tabs().count(),2);assert.equal(await dirtyDot('Gamma').count(),1);
+ await page.locator('.api-tab',{hasText:'Gamma'}).locator('.api-tab-close').click();
+ await ask.getByRole('button',{name:'Cancel'}).click();await ask.waitFor({state:'detached'});assert.equal(await tabs().count(),2);
+ await page.locator('.api-tab',{hasText:'Gamma'}).locator('.api-tab-close').click();
+ await ask.getByRole('button',{name:"Don't save"}).click();
+ await page.locator('.api-tab',{hasText:'Gamma'}).waitFor({state:'detached'});assert.equal(await gammaUrl(),'{{host}}/slow'); // descartado
+
+ // o botão Salvar e o Ctrl+S gravam, e o ponto some
+ await open('Gamma');await page.locator('.api-url').fill('{{host}}/slow?v=2');
+ const put=()=>page.waitForResponse(r=>r.request().method()==='PUT'&&r.url().includes('gamma.bru'));
+ let wait=put();await page.locator('.api-save-btn').click();assert.equal((await wait).status(),200);
+ assert.equal(await gammaUrl(),'{{host}}/slow?v=2');assert.equal(await dirtyDot('Gamma').count(),0);
+ await page.waitForFunction(()=>/^\s*Saved/i.test(document.querySelector('.api-save').textContent));assert.equal(await page.locator('.api-save-btn').isDisabled(),true);
+ await page.locator('.api-url').fill('{{host}}/slow?v=3');wait=put();
+ await page.locator('.api-tab',{hasText:'Gamma'}).locator('.api-tab-main').focus();await page.keyboard.press('Control+s'); // o Ctrl+S vale com o foco em qualquer lugar do painel
+ assert.equal((await wait).status(),200);assert.equal(await gammaUrl(),'{{host}}/slow?v=3');
+ // fechar e escolher Salvar grava e fecha
+ await page.locator('.api-url').fill('{{host}}/slow?v=4');wait=put();
+ await page.locator('.api-tab',{hasText:'Gamma'}).locator('.api-tab-main').focus();await page.keyboard.press('Delete');
+ await ask.waitFor();await ask.getByRole('button',{name:'Save',exact:true}).click();assert.equal((await wait).status(),200);
+ await page.locator('.api-tab',{hasText:'Gamma'}).waitFor({state:'detached'});assert.equal(await gammaUrl(),'{{host}}/slow?v=4');
+
+ // trocar de coleção com várias abas alteradas pergunta uma vez só
+ await open('Gamma');await page.locator('.api-url').fill('{{host}}/slow?g=1');await go('Alpha');await page.locator('.api-url').fill('{{host}}/a?x=1');
+ const collSel=page.locator('#api-panel select[aria-label="Collection"]');
+ await collSel.selectOption('zeta');
+ await ask.waitFor();assert.match(await ask.textContent(),/2 requests have changes that were not saved/);assert.equal(await ask.getByRole('button',{name:'Save all'}).count(),1);
+ await ask.getByRole('button',{name:'Cancel'}).click();await ask.waitFor({state:'detached'});
+ assert.equal(await collSel.inputValue(),'tabs'); // continua na coleção de antes
+ assert.equal(await tabs().count(),2);
+ await page.locator('.api-row',{hasText:'Alpha'}).first().hover();
+ page.once('dialog',d=>d.accept('Alpha renamed')); // renomear uma request com alterações também pergunta
+ await page.locator('.api-row',{hasText:'Alpha'}).first().locator('button[aria-label^="Rename"]').click();
+ await ask.waitFor();await ask.getByRole('button',{name:'Cancel'}).click();await ask.waitFor({state:'detached'});
+ assert.equal((await call('GET','/collections/tabs')).tree.some(i=>i.name==='Alpha'),true); // nada foi renomeado
+ // recarregar a página com alterações abertas avisa
+ const unload=page.waitForEvent('dialog');
+ await page.evaluate(()=>{setTimeout(()=>location.reload(),0);});
+ const bu=await unload;assert.equal(bu.type(),'beforeunload');await bu.dismiss();
+ await collSel.selectOption('zeta');await ask.getByRole('button',{name:'Save all'}).click(); // salvar tudo e trocar
+ await ask.waitFor({state:'detached'});await page.locator('.api-tab').first().waitFor({state:'detached'}); // salvou tudo e trocou (a coleção nova não tem abas)
+ assert.equal(await gammaUrl(),'{{host}}/slow?g=1');assert.equal(await urlOf('alpha.bru'),'{{host}}/a?x=1');
+ await collSel.selectOption('tabs');
+ await page.waitForFunction(()=>document.querySelector('#api-panel select[aria-label="Collection"]').value==='tabs');
+
  assert.deepEqual(errors,[]);
- console.log('PASS TAB-01..11 request tabs, split layout, quick open and list width');
+ console.log('PASS TAB-01..12 request tabs, split layout, quick open, list width and manual save');
 }finally{await browser.close();server.kill();target.close();await rm(work,{recursive:true,force:true});}

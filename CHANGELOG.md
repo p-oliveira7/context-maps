@@ -7,6 +7,9 @@ How to cut a release: [`docs/releasing.md`](docs/releasing.md).
 
 ## [Unreleased]
 
+### Changed
+- **API client: requests are no longer saved automatically.** What you change stays in the tab (marked with a ● and *Unsaved changes*) and is written to the `.bru` file only with **Ctrl+S** or the **Save** button. Closing a tab with unsaved changes, switching collection, renaming a request that has changes, or reloading the page now asks first (*Save* / *Don't save* / *Cancel*; *Save all* when several are open). Sending a request and running a folder use what is open in the tabs, saved or not.
+
 ### Added
 - **Resizable collections and folders list** in the API client: drag the divider between the list and the editor (or focus it and use ← → / Shift+← → / Home / End; double-click or Enter restores the default), and collapse the list with the ☰ button to give the editor the whole panel. The width and the collapsed state are remembered; the list never gets narrower than 140 px and always leaves room for the editor.
 - **New request window**: creating a request (the + in the tree, a folder's +, or the right-click menu) opens a small window, like in Bruno: *From scratch* (name, method, URL) or *Import from cURL* (paste the command and its method, URL, headers, body and auth come along). It says where the request will be created, suggests a name such as `POST /orders` from the method and URL, validates before creating, and the new request opens in a tab.

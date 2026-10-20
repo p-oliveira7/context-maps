@@ -1,4 +1,4 @@
-// Cliente de API no painel dividido: coleções, ambientes e segredos, envio pelo servidor local, edição com autosave.
+// Cliente de API no painel dividido: coleções, ambientes e segredos, envio pelo servidor local, edição salva com Ctrl+S.
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
 import {createServer} from 'node:http';
@@ -43,6 +43,8 @@ try{
  const ctx=await browser.newContext({locale:'pt-BR',viewport:{width:1400,height:800},extraHTTPHeaders:{'x-context-maps':'1'}});
  const page=await ctx.newPage();page.setDefaultTimeout(process.env.CI?15000:6000);
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ // trocar de coleção ou renomear com alterações abertas pergunta antes: aqui escolhemos "Não salvar"
+ const discardUnsaved=async()=>{const d=page.locator('.api-unsaved-card');try{await d.waitFor({timeout:1000});await d.getByRole('button',{name:'Não salvar'}).click();await d.waitFor({state:'detached'});}catch{}};
  await page.goto(base);await page.locator('.node').first().waitFor();
 
  // API-01: o botão divide a tela (mapa à esquerda, painel à direita) e fecha com Esc
@@ -69,11 +71,12 @@ try{
  await page.locator('.api-resp-tabs button[role=tab]',{hasText:'Cabeçalhos'}).click();
  assert.match(await page.locator('.api-resp-body').textContent(),/x-echo: 1/);
 
- // API-03: editar a URL sincroniza os parâmetros e salva sozinho no arquivo .bru
+ // API-03: editar a URL sincroniza os parâmetros e salva no arquivo .bru com Ctrl+S
  await page.locator('.api-url').fill('{{host}}/users?page=1&limit=5');
  await page.locator('#api-tab-params').click();
  assert.equal(await page.locator('.api-kv-row input[type=text]').nth(2).inputValue(),'limit');
  const file=path.join(collections,'demo','listar.bru');
+ await page.keyboard.press('ControlOrMeta+s'); // as requests só são gravadas com Ctrl+S
  for(let i=0;i<40&&!(await readFile(file,'utf8')).includes('limit=5');i++)await new Promise(r=>setTimeout(r,100));
  const saved=await readFile(file,'utf8');
  assert.ok(saved.includes('url: {{host}}/users?page=1&limit=5')&&saved.includes('limit: 5'),saved);
@@ -134,6 +137,7 @@ try{
  page.once('dialog',d=>d.accept('Primeira'));
  await page.locator('.api-row',{hasText:'Listar'}).hover();
  await page.locator('.api-row',{hasText:'Listar'}).locator('button[aria-label^="Renomear"]').click();
+ await discardUnsaved(); // há alterações não salvas na aba dela
  await page.locator('.api-row-name',{hasText:'Primeira'}).waitFor();
  const order=async()=>(await call('GET','/collections/demo')).tree.map(i=>i.name);
  assert.deepEqual(await order(),['Primeira','Outra','Criar item']);
@@ -168,6 +172,7 @@ try{
   await page.locator('#edit-switch').click();
   await page.locator('#api-btn').click();await page.locator('#api-panel').waitFor({state:'visible'});
   await page.locator('#api-panel select[aria-label="Coleção"]').selectOption('grupo-api');
+  await discardUnsaved();
   await page.locator('.api-row[data-path="pedidos"]').waitFor();
   // arrastar a pasta do painel para o card
   await page.locator('.api-row[data-path="pedidos"]').dragTo(page.locator('[data-id="c1"]'));
@@ -238,6 +243,7 @@ try{
   assert.equal((await fetch(`${base}/api/collections/scripts/request?path=${made.path}`,{method:'PUT',headers:H,body:JSON.stringify(model)})).status,200);
   await page.locator('#api-btn').click();await page.locator('#api-panel').waitFor({state:'visible'});
   await page.locator('#api-panel select[aria-label="Coleção"]').selectOption('scripts');
+  await discardUnsaved();
   await page.locator('.api-row-name',{hasText:'Com scripts'}).click();
   await page.locator('.api-req-title strong',{hasText:'Com scripts'}).waitFor();
   const before=seen.length;
@@ -272,6 +278,7 @@ try{
   await page.locator('#api-tab-scripts').click();
   await page.locator('#api-tabpanel textarea').first().fill("req.setHeader('X-Edited','yes');");
   const scriptFile=path.join(collections,'scripts','com-scripts.bru');
+  await page.keyboard.press('ControlOrMeta+s');
   for(let i=0;i<40&&!(await readFile(scriptFile,'utf8')).includes('X-Edited');i++)await new Promise(r=>setTimeout(r,100));
   const bru=await readFile(scriptFile,'utf8');
   assert.ok(bru.includes("script:pre-request {\n  req.setHeader('X-Edited','yes');\n}")&&bru.includes('assert {\n  res.status: eq 200')&&bru.includes('vars:post-response {'),bru);
@@ -294,6 +301,7 @@ try{
   assert.equal((await fetch(`${base}/api/collections/vars/request?path=${made.path}`,{method:'PUT',headers:H,body:JSON.stringify(model)})).status,200);
   await page.locator('#api-btn').click();await page.locator('#api-panel').waitFor({state:'visible'});
   await page.locator('#api-panel select[aria-label="Coleção"]').selectOption('vars');
+  await discardUnsaved();
   await page.locator('.api-row-name',{hasText:'Com variáveis'}).click();
   await page.locator('.api-req-title strong',{hasText:'Com variáveis'}).waitFor();
   const urlVars=page.locator('.api-urlbar .api-var');
@@ -323,6 +331,7 @@ try{
   await pop.locator('select').selectOption('request');await pop.locator('input').fill('xyz');await pop.getByRole('button',{name:'Salvar'}).click();
   await pop.waitFor({state:'detached'});
   assert.equal((await kinds()).missing,'is-defined');
+  await page.keyboard.press('ControlOrMeta+s');
   for(let i=0;i<40&&!(await readFile(path.join(collections,'vars','com-variaveis.bru'),'utf8')).includes('missing: xyz');i++)await new Promise(r=>setTimeout(r,100));
   assert.match(await readFile(path.join(collections,'vars','com-variaveis.bru'),'utf8'),/vars:pre-request \{\n  reqVar: rv\n  missing: xyz\n\}/);
   const mark=seen.length;
@@ -393,6 +402,7 @@ try{
   // anexar uma request avulsa pelo ⤓ da linha (a roda de ações do card k2 define o alvo)
   await page.locator('#api-btn').click();await page.locator('#api-panel').waitFor({state:'visible'});
   await page.locator('#api-panel select[aria-label="Coleção"]').selectOption('foco');
+  await discardUnsaved();
   await page.locator('[data-id="k2"]').hover();await page.locator('[data-id="k2"] .edit-fab').click();
   await page.locator('#radial-menu [aria-label^="Anexar ao card"]').click();
   await page.locator('.api-row',{hasText:'Beta um'}).hover();
