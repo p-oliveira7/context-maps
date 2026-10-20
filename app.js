@@ -6,6 +6,7 @@ import {VERSION} from './version.js?v=1';
 import {initApiClient,openApiPanel,closeApiPanel,isApiOpen,setAttachTarget,summarize,summarizeTree,API_DRAG_TYPE} from './api-client.js?v=11';
 import {apiDropdown,closeApiDropdown} from './api-dropdown.js?v=1';
 import {isSequenceSource,renderSequence,FONT as SEQ_FONT} from './sequence.js?v=1';
+import {openSequenceEditor} from './sequence-editor.js?v=1';
 applyStatic();
 const $=s=>document.querySelector(s), viewport=$('#viewport'), world=$('#world');
 $('#doc-version').textContent=`Context Maps v${VERSION}`;
@@ -638,19 +639,21 @@ function openDiagramEditor(node,index=null){
  let svg=null,timer=0,seq=0;
  const current=index===null?null:node.images?.[index];
  ta.value=current?.kind==='diagram'&&current.source?current.source:t('defaultDiagram');
- const tpl=$('#diagram-template'),engineLabel=$('#diagram-engine');
+ const tpl=$('#diagram-template'),engineLabel=$('#diagram-engine'),visualBtn=$('#diagram-visual');
+ visualBtn.hidden=true;
+ visualBtn.onclick=()=>openSequenceEditor({source:ta.value,t,measure:measureText,onApply:text=>{ta.value=text;apply.disabled=true;clearTimeout(timer);update();ta.focus();}});
  tpl.hidden=!!current;
  if(!current){ // diagrama novo: começar de um modelo
   tpl.replaceChildren(...[['flow','tplFlow'],['seq','tplSequence']].map(([v,k])=>{const o=document.createElement('option');o.value=v;o.textContent=t(k);return o;}));
   tpl.value='flow';
   tpl.onchange=()=>{ta.value=t(tpl.value==='seq'?'defaultSequence':'defaultDiagram');apply.disabled=true;clearTimeout(timer);update();};
  }
- const close=()=>{modal.hidden=true;document.removeEventListener('keydown',onKey);clearTimeout(timer);ta.oninput=null;tpl.onchange=null;opener?.focus?.({preventScroll:true});};
+ const close=()=>{modal.hidden=true;document.removeEventListener('keydown',onKey);clearTimeout(timer);ta.oninput=null;tpl.onchange=null;visualBtn.onclick=null;opener?.focus?.({preventScroll:true});};
  const onKey=e=>{if(e.key==='Escape'){e.preventDefault();close();}};
  const update=async()=>{
   const mine=++seq;
-  try{const out=await renderDiagram(ta.value);if(mine!==seq)return;svg=out;showPreview(out);engineLabel.textContent=t(diagramEngine==='sequence'?'engineSequence':'engineMermaid');error.textContent='';apply.disabled=false;}
-  catch(e){if(mine!==seq)return;svg=null;engineLabel.textContent='';apply.disabled=true;error.textContent=String(e.message||e).split('\n').slice(0,3).join(' ');}
+  try{const out=await renderDiagram(ta.value);if(mine!==seq)return;svg=out;showPreview(out);engineLabel.textContent=t(diagramEngine==='sequence'?'engineSequence':'engineMermaid');visualBtn.hidden=diagramEngine!=='sequence';error.textContent='';apply.disabled=false;}
+  catch(e){if(mine!==seq)return;svg=null;engineLabel.textContent='';visualBtn.hidden=true;apply.disabled=true;error.textContent=String(e.message||e).split('\n').slice(0,3).join(' ');}
  };
  ta.oninput=()=>{apply.disabled=true;clearTimeout(timer);timer=setTimeout(update,350);};
  $('#diagram-cancel').onclick=close;
