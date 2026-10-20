@@ -7,6 +7,7 @@ import {createVarFields} from './var-field.js?v=1';
 import {collectRequests,runSequence,reportJson,reportText} from './runner.js?v=1';
 import {createRunReport} from './run-report.js?v=1';
 import {createBodyView} from './response-view.js?v=1';
+import {parseCurl,toCurl,toFetch} from './curl.js?v=1';
 export {resolveVars,buildRequest};
 
 const $=(s,root=document)=>root.querySelector(s);
@@ -71,7 +72,7 @@ function scopeOptions(){
  return list;
 }
 async function saveVar(name,value,{scope,secret}){
- if(scope==='runtime'){state.runtime.set(name,value);}
+ if(scope==='runtime'){state.runtime.set(name,value);syncVarsUi();}
  else if(scope==='request'&&state.request){
   const list=(state.request.varsPre||=[]),found=list.find(e=>e.name===name);
   if(found){found.value=value;found.enabled=true;}else list.push({name,value,enabled:true});
@@ -127,7 +128,7 @@ async function openRequest(path){
  const seq=++openSeq; // cliques em sequência: vale o último
  await flushSave();
  if(seq!==openSeq)return;
- state.view='request';stashActive();
+ state.view='request';stashActive();hideTree();
  if(!path){clearActive();renderMain();renderTree();return;}
  let entry=tabEntry(path);
  if(!entry){
@@ -226,7 +227,7 @@ async function scriptStep(model,kind,code,input,extra){
    as variáveis de sessão (state.runtime) passam de uma request para a seguinte. */
 async function execute(model,signal){
  const started=performance.now(),extra={logs:[],tests:[],asserts:[],errors:[]},took=()=>Math.round(performance.now()-started);
- let sent;
+ let sent,unresolved=[];
  try{
   // 1) pré-requisição: o script vê o request com as {{variáveis}} ainda por resolver e pode mudar variáveis, URL, cabeçalhos e corpo
   const raw=buildRaw(model,state.coll?.defaults?.headers);
@@ -235,9 +236,10 @@ async function execute(model,signal){
   // 2) resolver variáveis e enviar pelo servidor
   const vars=allVars(model),req=resolveRaw(raw,vars);
   sent={method:req.method,url:req.url,headers:req.headers.map(h=>[h.name,h.value]),body:req.body};
+  unresolved=findUnresolved(req);
   const res=await fetch('api/send',{method:'POST',headers:{'x-context-maps':'1','x-lang':lang,'content-type':'application/json'},body:JSON.stringify({...req,timeoutMs:req.timeout}),signal});
   const data=await res.json();
-  if(!res.ok)return {error:'request',detail:data.error||String(res.status),timeMs:took(),extra,sent};
+  if(!res.ok)return {error:'request',detail:data.error||String(res.status),timeMs:took(),extra,sent,unresolved};
   const response={...data};
   const scope=makeScope(response,req),interpolate=text=>resolveVars(text,allVars(model));
   // 3) variáveis pós-resposta, script pós-resposta, asserts e testes
@@ -245,9 +247,9 @@ async function execute(model,signal){
   await scriptStep(model,'post-response',model.scriptPost,{req:toScriptReq({method:req.method,url:req.url,headers:req.headers,body:req.body}),res:{...scope.res}},extra);
   extra.asserts=runAssertions(model.assertions,scope,interpolate);
   await scriptStep(model,'tests',model.tests,{req:toScriptReq({method:req.method,url:req.url,headers:req.headers,body:req.body}),res:{...scope.res}},extra);
-  return {...response,extra,sent};
+  return {...response,extra,sent,unresolved};
  }catch(error){
-  return error?.name==='AbortError'?{error:'cancelled',timeMs:took(),extra,sent}:{error:'network',detail:String(error?.message||error),timeMs:took(),extra,sent};
+  return error?.name==='AbortError'?{error:'cancelled',timeMs:took(),extra,sent,unresolved}:{error:'network',detail:String(error?.message||error),timeMs:took(),extra,sent,unresolved};
  }
 }
 async function send(){
@@ -256,7 +258,7 @@ async function send(){
  entry.sending=true;entry.abort=new AbortController();entry.response=null;
  state.sending=true;state.abort=entry.abort;state.response=null;renderResponse();
  const result=await execute(entry.request,entry.abort.signal); // a aba pode mudar enquanto espera: a resposta fica na aba de origem
- entry.sending=false;entry.abort=null;entry.response=result;
+ entry.sending=false;entry.abort=null;entry.response=result;syncVarsUi();
  if(state.reqPath===entry.path){state.sending=false;state.abort=null;state.response=result;renderResponse();if(state.tab==='vars')renderTab();}
 }
 
@@ -297,6 +299,7 @@ function treeRows(items,depth,q){
     h('button',{type:'button',class:'api-icon-btn',title:t('apiRename'),'aria-label':`${t('apiRename')}: ${it.name}`,onClick:()=>renameItem(it)},'✎'),
     h('button',{type:'button',class:'api-icon-btn danger',title:t('apiDelete'),'aria-label':`${t('apiDelete')}: ${it.name}`,onClick:()=>deleteItem(it)},'✕')));
   row.addEventListener('dragstart',e=>{dragged=it;dragData({path:it.path,name:it.name,type:it.type})(e);});
+  row.addEventListener('contextmenu',e=>openCtx(e,itemMenu(it)));
   row.addEventListener('dragend',()=>{dragged=null;els.tree.querySelectorAll('.drop-before,.drop-after').forEach(x=>x.classList.remove('drop-before','drop-after'));});
   row.addEventListener('dragover',e=>{
    if(!dragged||dragged===it||parentOf(dragged.path)!==parentOf(it.path))return;
@@ -323,6 +326,7 @@ function renderTree(){
   h('button',{type:'button',class:'api-icon-btn api-run-btn',title:t('apiRunCollection'),'aria-label':`${t('apiRunCollection')}: ${state.coll.name}`,onClick:()=>startRun({path:'',recursive:true})},'▶▶'),
   hooks.attach?h('button',{type:'button',class:'api-icon-btn api-attach',title:t('apiAttach'),'aria-label':`${t('apiAttach')}: ${state.coll.name}`,onClick:()=>attachTo({path:'',name:state.coll.name,type:'collection'})},'⤓'):null);
  head.addEventListener('dragstart',dragData({path:'',name:state.coll.name,type:'collection'}));
+ head.addEventListener('contextmenu',e=>openCtx(e,collectionMenu()));
  els.tree.replaceChildren(head,...treeRows(state.coll.tree,0,q));
  if(!state.coll.tree.length)els.tree.append(h('li',{class:'api-empty-small',role:'presentation'},t('apiEmptyCollection')));
 }
@@ -361,9 +365,10 @@ function renderMain(){
   return;
  }
  const urlInput=h('input',{type:'text',class:'api-url',value:m.url||'',placeholder:'https://…  {{host}}/path','aria-label':'URL',spellcheck:'false',onInput:e=>{m.url=e.target.value;syncParamsFromUrl(m);markDirty();if(state.tab==='params')renderTab();}});
- urlInput.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();send();}});
+ urlInput.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();const curl=CURL_RE.test(urlInput.value)&&parseCurl(urlInput.value);if(curl)applyCurl(curl);else send();}});
+ urlInput.addEventListener('paste',e=>{const text=e.clipboardData?.getData('text')||'',curl=CURL_RE.test(text)&&parseCurl(text);if(curl){e.preventDefault();applyCurl(curl);}});
  const methodSel=h('select',{class:'api-method-select api-m-'+m.method,'aria-label':t('apiMethod'),onChange:e=>{m.method=e.target.value;e.target.className=`api-method-select api-m-${m.method}`;markDirty();renderTabbar();}},...METHODS.map(x=>h('option',{value:x,selected:x===m.method},x.toUpperCase())));
- const nameInput=h('div',{class:'api-req-title'},h('strong',{},m.name),els.save);
+ const nameInput=h('div',{class:'api-req-title'},h('strong',{},m.name),h('span',{class:'api-req-tools'},els.save,copyAsMenu()));
  els.sendBtn=h('button',{type:'button',class:'api-send',onClick:()=>state.sending?state.abort?.abort():send()},state.sending?t('apiCancel'):t('apiSend'));
  els.scriptsToggle=h('label',{class:'api-scripts-toggle',title:t('apiScriptsOnTitle')},h('input',{type:'checkbox',checked:state.scripts,onChange:e=>{state.scripts=e.target.checked;store.set('cm-api-scripts',state.scripts?'1':'0');}}),h('span',{},t('apiScriptsOn')));
  els.urlInput=urlInput;
@@ -453,7 +458,7 @@ function renderTab(){
   box.replaceChildren(h('p',{class:'api-hint'},t('apiVarsNote')),kvTable(m.varsPre,{onChange:changed}),
    h('h4',{},t('apiVarsPost')),h('p',{class:'api-hint'},t('apiVarsPostNote')),kvTable(m.varsPost,{onChange:changed}),
    h('h4',{},t('apiRuntimeVars')),h('pre',{class:'api-pre'},runtime||t('apiNoRuntimeVars')),
-   state.runtime.size?h('button',{type:'button',class:'api-btn',onClick:()=>{state.runtime=new Map();renderTab();}},t('apiClearVars')):null,
+   state.runtime.size?h('button',{type:'button',class:'api-btn',onClick:()=>{state.runtime=new Map();syncVarsUi();renderTab();}},t('apiClearVars')):null,
    h('h4',{},t('apiResolved')),resolvedPreview());
  }else if(state.tab==='assert'){
   m.assertions||=[];
@@ -487,7 +492,7 @@ function renderResponse(){
  const summary=extraSummary(extra);
  if(r.error){
   const text=r.error==='timeout'?t('apiTimeout',r.detail):r.error==='cancelled'?t('apiCancelled'):`${t('apiFailed')}: ${r.detail||r.error}`;
-  box.replaceChildren(h('div',{class:'api-status is-error',role:'alert'},text,h('span',{},`${r.timeMs} ms`)),...(extra.errors.length?[consoleView(extra)]:[]));return;
+  box.replaceChildren(...[unresolvedBanner(r.unresolved)].filter(Boolean),h('div',{class:'api-status is-error',role:'alert'},text,h('span',{},`${r.timeMs} ms`)),...(extra.errors.length?[consoleView(extra)]:[]));return;
  }
  const kind=r.status>=500?'is-error':r.status>=400?'is-warn':r.status>=300?'is-redirect':'is-ok';
  const tabs=[['body',t('apiRespBody')],['headers',t('apiRespHeaders')]];
@@ -497,6 +502,7 @@ function renderResponse(){
  const view=state.respTab==='body'?(bodyUi||=createBodyView({h,t,fmtSize})).mount(r):null;
  const body=state.respTab==='tests'?testsView(extra):state.respTab==='console'?consoleView(extra):view?view.el:h('pre',{class:'api-pre api-resp-body',tabindex:'0'},r.headers.map(([k,v])=>`${k}: ${v}`).join('\n'));
  box.replaceChildren(
+  ...[unresolvedBanner(r.unresolved)].filter(Boolean),
   h('div',{class:`api-status ${kind}`},h('strong',{},`${r.status} ${r.statusText||''}`),h('span',{},`${r.timeMs} ms`),h('span',{},fmtSize(r.size)),r.truncated?h('span',{},t('apiTruncated')):null,
    summary.total?h('span',{class:summary.failed?'api-tests-bad':'api-tests-ok'},`${summary.failed?'✗':'✓'} ${t('apiTestsSummary',summary.passed,summary.total)}`):null),
   h('div',{class:'api-resp-tabs',role:'tablist'},
@@ -622,7 +628,7 @@ function mountReport(){
  reportUi||=createRunReport({h,t,fmtSize});
  state.report=reportUi.mount(els.content,state.run,reportActions);
 }
-function showReport(){if(!state.run)return;state.view='run';renderMain();renderTree();}
+function showReport(){if(!state.run)return;state.view='run';hideTree();renderMain();renderTree();}
 function drawReport(){ // vários resultados seguidos viram um redesenho só
  if(drawQueued)return;
  drawQueued=requestAnimationFrame(()=>{drawQueued=0;if(state.view==='run'&&state.run)state.report?.update();});
@@ -641,7 +647,7 @@ async function runItems(run,subset){
  for(const item of subset){item.status='pending';delete item.out;}
  renderTabbar();
  if(state.view==='run'){state.report?.update();state.report?.focusFirst();}
- run.status=await runSequence(subset,{signal:run.abort.signal,stopOnFail:run.options.stopOnFail,delayMs:run.options.delayMs,onChange:drawReport,execute:item=>runOne(item,run)});
+ run.status=await runSequence(subset,{signal:run.abort.signal,stopOnFail:run.options.stopOnFail,delayMs:run.options.delayMs,onChange:()=>{drawReport();syncVarsUi();},execute:item=>runOne(item,run)});
  run.finishedAt=new Date().toISOString();
  renderTabbar();
  if(state.view==='run'&&state.run===run)state.report?.update();
@@ -655,7 +661,7 @@ async function startRun({path='',recursive=true}={}){
  const items=collectRequests(base?base.children:state.coll.tree,{recursive,base:path}).map(r=>({...r,status:'pending'}));
  if(!items.length){toast(t('apiRunEmpty'));return;}
  const run={collection:state.coll.id,path,recursive,title:base?.name||state.coll.name,env:state.env,items,status:'running',options:runPrefs(),startedAt:new Date().toISOString(),finishedAt:null,abort:null,view:{filter:'all',q:'',open:new Set()}};
- state.run=run;state.view='run';renderMain();renderTree();
+ state.run=run;state.view='run';hideTree();renderMain();renderTree();
  await runItems(run,items);
 }
 const reportActions={
@@ -691,13 +697,130 @@ function renderHeader(){
  const menu=h('div',{class:'api-menu',role:'menu',hidden:true},
   ...[[t('apiNewCollection'),createCollection],[t('apiRunCollection'),()=>startRun({path:'',recursive:true})],[t('apiImport'),()=>els.importInput.click()],[t('apiImportFolder'),()=>els.folderInput.click()],[t('apiExport'),()=>{if(state.coll)location.href=`api/collections/${state.coll.id}/export`;}],[t('apiDeleteCollection'),deleteCollection,true]].map(([label,fn,danger])=>h('button',{type:'button',role:'menuitem',class:danger?'danger':'',onClick:()=>{menu.hidden=true;fn();}},label)));
  els.menu=menu;
- els.head.replaceChildren(h('strong',{class:'api-title'},t('apiTitle')),collSel,envSel,
+ els.head.replaceChildren(treeToggle(),h('strong',{class:'api-title'},t('apiTitle')),collSel,envSel,
   h('button',{type:'button',class:'api-icon-btn',title:t('apiEditEnv'),'aria-label':t('apiEditEnv'),disabled:state.coll?null:true,onClick:openEnvEditor},'⚙'),
   h('span',{class:'api-spacer'}),
+  varsButton(),
   h('div',{class:'api-menu-wrap'},h('button',{type:'button',class:'api-icon-btn','aria-haspopup':'menu',title:t('apiMore'),'aria-label':t('apiMore'),onClick:()=>{menu.hidden=!menu.hidden;}},'⋯'),menu),
   h('button',{type:'button',class:'api-icon-btn',title:t('apiClose'),'aria-label':t('apiClose'),onClick:closeApiPanel},'×'));
 }
 function renderAll(withMain=true){renderHeader();renderTree();if(withMain)renderMain();}
+
+/* ---------- cURL, copiar como, variáveis sem valor, menu de contexto e variáveis de sessão ---------- */
+const CURL_RE=/^\s*curl(\.exe)?\s/i;
+function applyCurl(model){ // um comando curl colado na URL vira a request inteira
+ const m=state.request;if(!m)return;
+ m.method=METHODS.includes(model.method)?model.method:'get';
+ m.url=model.url;m.headers=model.headers;
+ m.bodyMode=model.bodyMode;m.body=model.body||{};m.formUrlEncoded=model.formUrlEncoded||[];
+ m.authMode=model.authMode;if(model.basic)m.basic=model.basic;
+ syncParamsFromUrl(m);markDirty();renderMain();renderTabbar();
+ els.urlInput?.focus({preventScroll:true});
+ toast(t(model.notes?.includes('multipart')?'apiCurlMultipart':'apiCurlImported'));
+}
+function findUnresolved(req){ // {{nome}} que continuam sem valor depois de resolver (os $dinâmicos sempre têm)
+ const names=new Set(),scan=s=>{for(const m of String(s??'').matchAll(/\{\{\s*([\w$.-]+)\s*\}\}/g))if(!m[1].startsWith('$'))names.add(m[1]);};
+ scan(req.url);for(const x of req.headers||[]){scan(x.name);scan(x.value);}scan(req.body);
+ return [...names];
+}
+function unresolvedBanner(names){
+ if(!names?.length)return null;
+ const envs=state.coll?.environments||[];
+ return h('div',{class:'api-unresolved',role:'alert'},
+  h('strong',{},t('apiUnresolvedTitle')),h('p',{},t('apiUnresolvedBody',names.map(n=>`{{${n}}}`).join(', '))),
+  h('div',{class:'api-unresolved-actions'},
+   !state.env&&envs.length?h('select',{class:'api-select','aria-label':t('apiEnvironment'),onChange:async e=>{
+    state.env=e.target.value||null;store.set(`cm-api-env:${state.coll.id}`,state.env||'');await loadEnv();renderHeader();renderResponse();
+   }},h('option',{value:''},t('apiUnresolvedPick')),...envs.map(n=>h('option',{value:n},n))):null,
+   h('button',{type:'button',class:'api-btn',onClick:openEnvEditor},t('apiEditEnv'))));
+}
+const COPY_AS={curl:{label:'apiCopyCurl',make:toCurl},fetch:{label:'apiCopyFetch',make:toFetch}};
+async function copyAs(kind,model){ // com as variáveis do ambiente já resolvidas
+ const text=COPY_AS[kind].make(buildRequest(model,allVars(model),state.coll?.defaults?.headers));
+ try{await navigator.clipboard.writeText(text);toast(t('apiCopiedAs',t(COPY_AS[kind].label)));}catch{toast(t('apiCopyFailed'));}
+}
+async function copyRowAs(kind,item){
+ try{await copyAs(kind,await api('GET',`/collections/${state.coll.id}/request?path=${encodeURIComponent(item.path)}`));}catch(e){toast(e.message);}
+}
+function copyAsMenu(){
+ const menu=h('div',{class:'api-menu',role:'menu',hidden:true},...Object.keys(COPY_AS).map(kind=>h('button',{type:'button',role:'menuitem',onClick:()=>{menu.hidden=true;copyAs(kind,state.request);}},t(COPY_AS[kind].label))));
+ return h('div',{class:'api-menu-wrap api-copyas'},h('button',{type:'button',class:'api-btn','aria-haspopup':'menu',onClick:()=>{menu.hidden=!menu.hidden;}},t('apiCopyAsButton')),menu);
+}
+async function duplicateItem(item){
+ try{
+  await flushSave();
+  const id=state.coll.id,model=await api('GET',`/collections/${id}/request?path=${encodeURIComponent(item.path)}`);
+  const name=`${item.name} ${t('apiCopySuffix')}`;
+  const made=await api('POST',`/collections/${id}/items`,{type:'request',parent:parentOf(item.path),name,method:model.method,url:model.url});
+  const {path:_path,...rest}=model;
+  await api('PUT',`/collections/${id}/request?path=${encodeURIComponent(made.path)}`,{...rest,name});
+  await reloadTree();await openRequest(made.path);
+ }catch(e){toast(e.message);}
+}
+
+/* menu de contexto (botão direito, tecla de menu ou toque longo) */
+let ctxMenu=null;
+function closeCtx(restore=true){
+ if(!ctxMenu)return;
+ const {el,back}=ctxMenu;ctxMenu=null;el.remove();document.removeEventListener('pointerdown',ctxOutside,true);
+ if(restore&&back?.isConnected)back.focus({preventScroll:true});
+}
+function ctxOutside(e){if(ctxMenu&&!ctxMenu.el.contains(e.target))closeCtx(false);}
+function openCtx(e,items){
+ e.preventDefault();e.stopPropagation();closeCtx(false);
+ const back=document.activeElement;
+ const el=h('div',{class:'api-ctx',role:'menu','aria-label':t('apiMore')},...items.filter(Boolean).map(([label,fn,danger])=>h('button',{type:'button',role:'menuitem',class:danger?'danger':'',onClick:()=>{closeCtx();fn();}},label)));
+ panel.append(el);
+ const box=panel.getBoundingClientRect();
+ el.style.left=`${Math.max(4,Math.min(e.clientX-box.left,box.width-el.offsetWidth-4))}px`;
+ el.style.top=`${Math.max(4,Math.min(e.clientY-box.top,box.height-el.offsetHeight-4))}px`;
+ ctxMenu={el,back};document.addEventListener('pointerdown',ctxOutside,true);
+ el.addEventListener('keydown',ev=>{
+  const btns=[...el.querySelectorAll('button')],i=btns.indexOf(document.activeElement);
+  if(ev.key==='ArrowDown'){ev.preventDefault();btns[(i+1)%btns.length].focus();}
+  else if(ev.key==='ArrowUp'){ev.preventDefault();btns[(i-1+btns.length)%btns.length].focus();}
+  else if(ev.key==='Escape'||ev.key==='Tab'){ev.preventDefault();ev.stopPropagation();closeCtx();}
+ });
+ el.querySelector('button')?.focus();
+}
+function itemMenu(it){
+ const attach=hooks.attach?[t('apiAttach'),()=>attachTo({path:it.path,name:it.name,type:it.type})]:null;
+ if(it.type==='folder')return [[t('apiRunFolder'),()=>startRun({path:it.path,recursive:false})],[t('apiRunFolderAll'),()=>startRun({path:it.path,recursive:true})],[t('apiNewRequest'),()=>newItem('request',it.path)],[t('apiNewFolder'),()=>newItem('folder',it.path)],attach,[t('apiRename'),()=>renameItem(it)],[t('apiDelete'),()=>deleteItem(it),true]];
+ return [[t('apiCtxOpen'),()=>openRequest(it.path)],[t('apiDuplicate'),()=>duplicateItem(it)],[`${t('apiCopyAs')} ${t('apiCopyCurl')}`,()=>copyRowAs('curl',it)],[`${t('apiCopyAs')} ${t('apiCopyFetch')}`,()=>copyRowAs('fetch',it)],attach,[t('apiRename'),()=>renameItem(it)],[t('apiDelete'),()=>deleteItem(it),true]];
+}
+const collectionMenu=()=>[[t('apiRunCollection'),()=>startRun({path:'',recursive:true})],[t('apiNewRequest'),()=>newItem('request','')],[t('apiNewFolder'),()=>newItem('folder','')],hooks.attach?[t('apiAttach'),()=>attachTo({path:'',name:state.coll.name,type:'collection'})]:null,[t('apiExport'),()=>{location.href=`api/collections/${state.coll.id}/export`;}]];
+
+/* variáveis de sessão: o que os scripts e as "Vars post-response" guardaram, num lugar só */
+function syncVarsUi(){
+ const b=els.varsBtn;
+ if(b){const n=state.runtime.size;b.hidden=!n;b.textContent=`{x} ${n}`;b.setAttribute('aria-label',t('apiSessionVarsCount',n));b.title=t('apiSessionVarsCount',n);}
+ if(els.varsPop)drawVarsPop();
+}
+function closeVarsPop(){els.varsPop?.remove();els.varsPop=null;document.removeEventListener('pointerdown',varsOutside,true);}
+function varsOutside(e){if(els.varsPop&&!els.varsPop.contains(e.target)&&!e.target.closest('.api-vars-btn'))closeVarsPop();}
+function drawVarsPop(){
+ const pop=els.varsPop;if(!pop)return;
+ if(!state.runtime.size){closeVarsPop();return;}
+ pop.replaceChildren(h('header',{},h('strong',{},t('apiSessionVarsTitle')),h('button',{type:'button',class:'api-icon-btn','aria-label':t('close'),onClick:closeVarsPop},'×')),
+  h('p',{class:'api-hint'},t('apiSessionVarsNote')),
+  ...[...state.runtime].map(([name,value])=>h('div',{class:'api-vars-row'},h('code',{},name),
+   h('input',{type:'text',value,'aria-label':name,spellcheck:'false',onChange:e=>{state.runtime.set(name,e.target.value);refreshVars();if(state.view==='request'&&state.tab==='vars')renderTab();}}),
+   h('button',{type:'button',class:'api-icon-btn','aria-label':`${t('apiRemove')}: ${name}`,title:t('apiRemove'),onClick:()=>{state.runtime.delete(name);refreshVars();if(state.view==='request'&&state.tab==='vars')renderTab();syncVarsUi();}},'×'))),
+  h('button',{type:'button',class:'api-btn',onClick:()=>{state.runtime=new Map();refreshVars();if(state.view==='request'&&state.tab==='vars')renderTab();syncVarsUi();}},t('apiClearVars')));
+}
+function toggleVarsPop(){
+ if(els.varsPop){closeVarsPop();return;}
+ if(!state.runtime.size)return;
+ els.varsPop=h('div',{class:'api-vars-pop',role:'dialog','aria-label':t('apiSessionVarsTitle'),onKeydown:e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();closeVarsPop();els.varsBtn?.focus();}}});
+ panel.append(els.varsPop);document.addEventListener('pointerdown',varsOutside,true);drawVarsPop();
+ els.varsPop.querySelector('input')?.focus();
+}
+function hideTree(){panel?.classList.remove('show-tree');els.head?.querySelector('.api-tree-toggle')?.setAttribute('aria-expanded','false');}
+
+function varsButton(){els.varsBtn=h('button',{type:'button',class:'api-btn api-vars-btn','aria-haspopup':'dialog',onClick:toggleVarsPop});syncVarsUi();return els.varsBtn;}
+function treeToggle(){
+ return h('button',{type:'button',class:'api-icon-btn api-tree-toggle',title:t('apiTreeToggle'),'aria-label':t('apiTreeToggle'),'aria-controls':'api-tree-col','aria-expanded':String(!!panel?.classList.contains('show-tree')),onClick:e=>{const on=panel.classList.toggle('show-tree');e.currentTarget.setAttribute('aria-expanded',String(on));}},'☰');
+}
 
 /* ---------- abrir request pelo teclado (Ctrl+K no painel) ---------- */
 function openQuickOpen(){
@@ -741,13 +864,13 @@ function build(){
  els.importInput=h('input',{type:'file',accept:'.zip,application/zip',hidden:true,onChange:e=>{const f=e.target.files[0];e.target.value='';if(f)importZip(f);}});
  els.folderInput=h('input',{type:'file',webkitdirectory:true,multiple:true,hidden:true,'aria-label':t('apiImportFolder'),onChange:async e=>{const files=[...e.target.files];e.target.value='';if(files.length)importFolder(await readInputFolder(files));}});
  const filter=h('input',{type:'search',class:'api-filter',placeholder:t('apiFilter'),'aria-label':t('apiFilter'),onInput:e=>{state.filter=e.target.value;renderTree();}});
- const treeCol=h('nav',{class:'api-tree-col','aria-label':t('apiTitle')},
+ const treeCol=h('nav',{class:'api-tree-col',id:'api-tree-col','aria-label':t('apiTitle')},
   h('div',{class:'api-tree-tools'},filter,h('button',{type:'button',class:'api-icon-btn',title:t('apiNewRequest'),'aria-label':t('apiNewRequest'),onClick:()=>state.coll&&newItem('request','')},'+'),h('button',{type:'button',class:'api-icon-btn',title:t('apiNewFolder'),'aria-label':t('apiNewFolder'),onClick:()=>state.coll&&newItem('folder','')},'▤')),
   els.tree);
  const resizer=h('div',{class:'api-resizer',role:'separator','aria-orientation':'vertical','aria-label':t('apiResize'),tabindex:'0'});
  els.banner=h('div',{class:'api-attach-banner',role:'status',hidden:true},h('span',{}),h('button',{type:'button',class:'api-btn',onClick:()=>{setAttachTarget(null);hooks.attachCancel?.();}},t('apiAttachCancel')));
  panel=h('aside',{id:'api-panel',class:'api-panel',role:'complementary','aria-label':t('apiTitle'),hidden:true},resizer,els.head,els.banner,h('div',{class:'api-body'},treeCol,els.main),els.importInput,els.folderInput);
- document.body.append(panel);
+ document.body.append(panel);panel.classList.add('show-tree'); // em tela estreita a lista de requests aparece primeiro
  // largura: arrastar a borda ou usar as setas
  const setWidth=px=>{const w=Math.min(Math.max(px,420),window.innerWidth-260);document.documentElement.style.setProperty('--api-w',`${w}px`);store.set('cm-api-width',String(Math.round(w)));};
  resizer.addEventListener('pointerdown',e=>{e.preventDefault();resizer.setPointerCapture(e.pointerId);document.body.classList.add('api-resizing');});
@@ -758,7 +881,11 @@ function build(){
  const saved=Number(store.get('cm-api-width'));
  document.documentElement.style.setProperty('--api-w',saved>=420?`${Math.min(saved,window.innerWidth-260)}px`:'50vw');
  panel.addEventListener('keydown',e=>{
-  if(e.key==='Escape'&&!panel.querySelector('.api-modal')){if(!els.menu.hidden){els.menu.hidden=true;return;}closeApiPanel();}
+  if(e.key==='Escape'&&!panel.querySelector('.api-modal')){
+   if(els.varsPop){closeVarsPop();els.varsBtn?.focus();return;}
+   const openMenu=panel.querySelector('.api-menu:not([hidden])');if(openMenu){openMenu.hidden=true;return;}
+   closeApiPanel();
+  }
   if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();send();}
   else if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault();flushSave();}
   else if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();e.stopPropagation();openQuickOpen();}
@@ -772,7 +899,7 @@ function build(){
   const files=[];for(const entry of entries)if(entry.isDirectory)await readEntry(entry,'',files);
   if(files.length)importFolder(files);else if(zip)importZip(zip);else toast(t('apiImportFolderEmpty'));
  });
- document.addEventListener('pointerdown',e=>{if(els.menu&&!els.menu.hidden&&!e.target.closest('.api-menu-wrap'))els.menu.hidden=true;});
+ document.addEventListener('pointerdown',e=>{for(const menu of panel.querySelectorAll('.api-menu:not([hidden])'))if(!menu.parentElement.contains(e.target))menu.hidden=true;});
 }
 
 /* ---------- interface pública ---------- */
