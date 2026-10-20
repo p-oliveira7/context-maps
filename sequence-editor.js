@@ -54,7 +54,7 @@ export function openSequenceEditor({source,t,measure,onApply,onClose}){
      h('button',{type:'button',class:'seq-btn',onClick:()=>addStepUi('note')},`+ ${t('seqEdAddNote')}`),
      h('button',{type:'button',class:'seq-btn',onClick:()=>addStepUi('group')},`+ ${t('seqEdAddBlock')}`))),
    h('main',{class:'seq-ed-main'},
-    h('div',{class:'seq-zoom'},h('button',{type:'button',class:'seq-btn','aria-label':t('seqEdZoomOut'),onClick:()=>setZoom(zoom-.15)},'−'),zoomLabel,h('button',{type:'button',class:'seq-btn','aria-label':t('seqEdZoomIn'),onClick:()=>setZoom(zoom+.15)},'+')),
+    h('div',{class:'seq-zoom'},h('button',{type:'button',class:'seq-btn','aria-label':t('seqEdZoomOut'),onClick:()=>setZoom(zoom-.15)},'−'),zoomLabel,h('button',{type:'button',class:'seq-btn','aria-label':t('seqEdZoomIn'),onClick:()=>setZoom(zoom+.15)},'+'),h('button',{type:'button',class:'seq-btn seq-fit','aria-label':t('seqEdFit'),title:`${t('seqEdFit')} (Ctrl+0)`,onClick:()=>fitZoom()},'⤢')),
     stage,textArea,textErr),
    h('aside',{class:'seq-ed-right'},inspector)));
  const overlay=h('div',{class:'seq-ed',role:'dialog','aria-modal':'true','aria-labelledby':'seq-ed-title'},card);
@@ -108,7 +108,14 @@ export function openSequenceEditor({source,t,measure,onApply,onClose}){
   if(sel?.kind==='step'){const k=E.moveStep(model,sel.index,dir);if(k>=0){sel={kind:'step',index:k};commit(t('seqEdMoved'));}}
   else if(sel?.kind==='participant'&&E.moveParticipant(model,sel.id,dir)){commit(t('seqEdMoved'));}
  }
- function setZoom(z){zoom=Math.max(.4,Math.min(2.4,Math.round(z*100)/100));zoomLabel.textContent=`${Math.round(zoom*100)}%`;applyZoom();}
+ function setZoom(z,anchor){
+  const before=zoom,box=stage.getBoundingClientRect(),px=anchor?anchor.x-box.left:stage.clientWidth/2,py=anchor?anchor.y-box.top:stage.clientHeight/2;
+  const cx=(stage.scrollLeft+px)/before,cy=(stage.scrollTop+py)/before;
+  zoom=Math.max(.2,Math.min(2.4,Math.round(z*100)/100));zoomLabel.textContent=`${Math.round(zoom*100)}%`;applyZoom();
+  stage.scrollLeft=cx*zoom-px;stage.scrollTop=cy*zoom-py; // o ponto sob o cursor (ou o centro) fica no lugar
+ }
+ /** cabe o diagrama inteiro na largura visível (nunca amplia além de 100%) */
+ function fitZoom(){if(!layout)return;setZoom(Math.min(1,(stage.clientWidth-32)/layout.width));stage.scrollLeft=0;stage.scrollTop=0;}
  function applyZoom(){const svg=host.querySelector('svg');if(svg&&layout){svg.style.width=`${Math.round(layout.width*zoom)}px`;svg.style.height=`${Math.round(layout.height*zoom)}px`;}}
 
  /* ---------- vista em texto ---------- */
@@ -248,6 +255,7 @@ export function openSequenceEditor({source,t,measure,onApply,onClose}){
  const svgPoint=(svg,e)=>{const p=svg.createSVGPoint();p.x=e.clientX;p.y=e.clientY;return p.matrixTransform(svg.getScreenCTM().inverse());};
  host.addEventListener('click',e=>{
   if(drag)return;
+  if(panned){panned=false;return;}
   const g=e.target.closest?.('[data-step]');
   if(g&&!g.closest('.seq-hits')){const k=Number(g.dataset.step);select({kind:'step',index:k});stage.focus({preventScroll:true});return;}
   const a=e.target.closest?.('.seq-actor');
@@ -274,6 +282,24 @@ export function openSequenceEditor({source,t,measure,onApply,onClose}){
   inline.onkeydown=ev=>{if(ev.key==='Enter'){ev.preventDefault();ev.stopPropagation();finish(true);}else if(ev.key==='Escape'){ev.preventDefault();ev.stopPropagation();finish(false);}};
   inline.onblur=()=>finish(true);
  }
+ // Ctrl+roda dá zoom no cursor; arrastar o fundo (ou o botão do meio) rola o desenho
+ stage.addEventListener('wheel',e=>{if(!(e.ctrlKey||e.metaKey))return;e.preventDefault();setZoom(zoom*(e.deltaY<0?1.1:1/1.1),{x:e.clientX,y:e.clientY});},{passive:false});
+ let pan=null,panned=false;
+ stage.addEventListener('pointerdown',e=>{
+  const empty=!e.target.closest?.('[data-step],.seq-actor,.seq-hit,.seq-hits,input,textarea');
+  if(!(e.button===1||(e.button===0&&empty))||editing)return;
+  pan={x:e.clientX,y:e.clientY,left:stage.scrollLeft,top:stage.scrollTop,moved:false,id:e.pointerId};
+ });
+ stage.addEventListener('pointermove',e=>{
+  if(!pan)return;
+  const dx=e.clientX-pan.x,dy=e.clientY-pan.y;
+  if(!pan.moved&&Math.hypot(dx,dy)<5)return;
+  if(!pan.moved){pan.moved=true;stage.setPointerCapture?.(pan.id);stage.classList.add('is-panning');}
+  stage.scrollLeft=pan.left-dx;stage.scrollTop=pan.top-dy;
+ });
+ const endPan=()=>{if(!pan)return;panned=pan.moved;pan=null;stage.classList.remove('is-panning');if(panned)setTimeout(()=>{panned=false;},0);};
+ stage.addEventListener('pointerup',endPan);stage.addEventListener('pointercancel',endPan);
+
  // arrastar de uma linha de vida até outra cria uma mensagem na altura onde se soltou
  let drag=null;
  host.addEventListener('pointerdown',e=>{
@@ -337,6 +363,9 @@ export function openSequenceEditor({source,t,measure,onApply,onClose}){
    else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
    return;
   }
+  if(mod&&e.key==='0'){e.preventDefault();e.stopPropagation();fitZoom();return;}
+  if(mod&&(e.key==='='||e.key==='+')){e.preventDefault();e.stopPropagation();setZoom(zoom+.15);return;}
+  if(mod&&e.key==='-'){e.preventDefault();e.stopPropagation();setZoom(zoom-.15);return;}
   if(mod&&e.key.toLowerCase()==='z'&&!typing){e.preventDefault();e.stopPropagation();e.shiftKey?redo():undo();return;}
   if(mod&&e.key.toLowerCase()==='y'&&!typing){e.preventDefault();e.stopPropagation();redo();return;}
   if(mod&&(e.key.toLowerCase()==='s'||e.key==='Enter')){e.preventDefault();e.stopPropagation();apply();}
@@ -362,5 +391,6 @@ export function openSequenceEditor({source,t,measure,onApply,onClose}){
  document.addEventListener('keydown',onKey,true);
  document.body.append(overlay);
  redraw();stage.focus();
+ requestAnimationFrame(()=>{if(layout&&layout.width>stage.clientWidth-32)fitZoom();});
  return true;
 }
