@@ -672,3 +672,36 @@ body.is-fullscreen.ui-bottom .zoom-controls,body.is-fullscreen .zoom-controls:ha
 .api-preview{display:flex;flex-direction:column;gap:.4rem;padding:.4rem;background:#0e0e0e;border:1px solid #ffffff17;border-radius:8px}
 .api-preview img{max-width:100%;max-height:60vh;object-fit:contain;align-self:flex-start;background:repeating-conic-gradient(#ffffff10 0 25%,#ffffff05 0 50%) 0 0/16px 16px}
 .api-preview-frame{width:100%;min-height:16rem;border:0;border-radius:4px;background:#fff}
+
+/* ---------- acabamento: copiar como, variáveis sem valor, menu de contexto, variáveis de sessão, tela estreita ---------- */
+.api-req-tools{display:flex;align-items:center;gap:.5rem}
+.api-copyas .api-menu{min-width:7rem}
+.api-unresolved{display:flex;flex-direction:column;gap:.3rem;padding:.5rem .7rem;border-radius:8px;background:#e0a45826;border:1px solid #e0a45866;color:#f3d29c}
+.api-unresolved p{margin:0}.api-unresolved strong{color:#ffd9a0}
+.api-unresolved-actions{display:flex;gap:.4rem;flex-wrap:wrap}
+.api-ctx{position:absolute;z-index:20;min-width:11rem;display:flex;flex-direction:column;padding:.3rem;background:#1c1c1c;border:1px solid #ffffff26;border-radius:10px;box-shadow:0 8px 24px #000a}
+.api-ctx button{text-align:left;padding:.45rem .6rem;border-radius:6px;color:#ffffffc7;background:none;border:0;font:inherit;cursor:pointer}
+.api-ctx button:hover,.api-ctx button:focus-visible{background:#ffffff14;color:#fff}.api-ctx button.danger{color:#e57373}
+.api-vars-btn{font-family:Consolas,'Cascadia Mono',monospace}
+.api-vars-btn[hidden]{display:none}
+.api-vars-pop{position:absolute;top:3rem;right:.6rem;z-index:20;width:min(360px,calc(100% - 1.2rem));max-height:60vh;overflow:auto;display:flex;flex-direction:column;gap:.4rem;padding:.7rem;background:#1c1c1c;border:1px solid #ffffff26;border-radius:12px;box-shadow:0 8px 24px #000a}
+.api-vars-pop header{display:flex;justify-content:space-between;align-items:center}
+.api-vars-row{display:grid;grid-template-columns:minmax(4rem,30%) 1fr auto;gap:.4rem;align-items:center}
+.api-vars-row code{overflow:hidden;text-overflow:ellipsis;color:#8fd1b0}
+.api-tree-toggle{display:none}
+.api-body{position:relative}
+@media (hover:none){.api-row-actions{display:flex}}
+@media (max-width:760px){
+ .api-resizer{display:none}
+ .api-head{flex-wrap:wrap}
+ .api-tree-toggle{display:inline-flex}
+ .api-tree-col{display:none;position:absolute;inset:0;z-index:6;width:auto;max-width:none;background:#161616;border-right:0}
+ .api-panel.show-tree .api-tree-col{display:flex}
+ .api-split.is-side{flex-direction:column}
+ .api-split.is-side .api-pane-editor{padding-right:0}
+ .api-split.is-side .api-split-handle{width:auto;height:6px;margin:.3rem 0;cursor:row-resize}
+ .api-layout-btn{display:none}
+ .api-urlbar{flex-wrap:wrap}
+ .api-urlbar .api-var-field{flex:1 1 10rem}
+ .api-tab{max-width:11rem}
+}

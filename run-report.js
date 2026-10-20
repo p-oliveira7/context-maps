@@ -63,6 +63,7 @@ export function createRunReport({h,t,fmtSize}){
    if(sent)box.append(section(t('apiRunRequest'),h('pre',{class:'api-pre api-run-sent'},`${sent.method} ${sent.url}`),
     sent.body?bodyBox(t('apiRunRequestBody'),prettyText(sent.body),'api-req-body'):null,
     sent.headers?.length?bodyBox(t('apiRunRequestHeaders'),pairs(sent.headers),'api-req-headers',false):null));
+   if(out.unresolved?.length)box.append(h('p',{class:'api-run-error'},t('apiUnresolvedBody',out.unresolved.map(n=>`{{${n}}}`).join(', '))));
    if(out.error){
     const text=out.error==='cancelled'?t('apiCancelled'):out.error==='timeout'?t('apiTimeout',out.detail):`${t('apiFailed')}: ${out.detail||out.error}`;
     box.append(h('p',{class:'api-run-error',role:'alert'},text));
