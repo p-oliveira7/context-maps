@@ -64,8 +64,10 @@ try{
  await page.locator('#api-tab-body').click();assert.equal(await page.locator('.api-textarea').inputValue(),'{"a":1}');
  seen.length=0;await page.locator('.api-send').click();await page.locator('.api-status strong',{hasText:'200'}).waitFor();
  assert.deepEqual([seen[0].method,seen[0].url,seen[0].body],['POST','/echo?x=1','{"a":1}']);assert.equal(seen[0].headers.accept,'application/json');
- await page.waitForFunction(()=>/^\s*Saved/i.test(document.querySelector('.api-save')?.textContent||''));
- assert.equal((await call('GET','/collections/polish/request?path=health.bru')).method,'post'); // e foi salva no arquivo
+ assert.equal((await call('GET','/collections/polish/request?path=health.bru')).method,'get'); // nada é gravado sozinho
+ const putDone=page.waitForResponse(r=>r.request().method()==='PUT'&&r.url().includes('health.bru'));
+ await page.keyboard.press('ControlOrMeta+s');await putDone;
+ assert.equal((await call('GET','/collections/polish/request?path=health.bru')).method,'post'); // com Ctrl+S vai para o arquivo
  await page.locator('.api-url').fill(`curl -u ana:pw -X PUT ${host}/typed`);await page.keyboard.press('Enter');
  await page.waitForFunction(()=>document.querySelector('.api-method-select')?.value==='put');
  assert.equal(await page.locator('.api-url').inputValue(),`${host}/typed`);

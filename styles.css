@@ -723,3 +723,11 @@ body.is-fullscreen.ui-bottom .zoom-controls,body.is-fullscreen .zoom-controls:ha
 .api-panel.is-resizing-tree{user-select:none}
 @media (min-width:761px){.api-panel.tree-collapsed .api-tree-col,.api-panel.tree-collapsed .api-tree-resizer{display:none}}
 @media (max-width:760px){.api-tree-resizer{display:none}}
+
+/* ---------- salvar só com Ctrl+S: botão, ponto nas abas e janela de confirmação ---------- */
+.api-save-btn:disabled{opacity:.45;cursor:default}
+.api-tab-dirty{color:#e0a458;font-size:.7rem;line-height:1}
+.api-save[data-state=dirty]{color:#e0a458}
+.api-unsaved-card{width:min(440px,100%)}
+.api-unsaved-card p{margin:0;color:#ffffffc7}
+.api-unsaved-card footer{justify-content:flex-end}
