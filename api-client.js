@@ -49,7 +49,7 @@ export function syncUrlFromParams(model){
 }
 
 /* ---------- estado ---------- */
-const state={open:false,collections:[],coll:null,env:null,envVars:new Map(),envMeta:new Map(),runtime:new Map(),scripts:store.get('cm-api-scripts')!=='0',request:null,reqPath:'',saveTimer:0,saving:Promise.resolve(),response:null,sending:false,abort:null,tab:'params',respTab:'body',pretty:true,expanded:new Set(),filter:'',attach:null,run:null,view:'request',report:null};
+const state={open:false,collections:[],coll:null,env:null,envVars:new Map(),envMeta:new Map(),runtime:new Map(),scripts:store.get('cm-api-scripts')!=='0',request:null,reqPath:'',saveTimer:0,saving:Promise.resolve(),response:null,sending:false,abort:null,tab:'params',respTab:'body',pretty:true,expanded:new Set(),filter:'',attach:null,run:null,view:'request',report:null,tabs:[],layout:'',split:0,maxResp:false};
 let panel,els={},hooks={};
 
 /* ---------- variáveis {{nome}}: de onde vêm, como salvar, e os campos que as destacam ---------- */
@@ -87,7 +87,7 @@ const refreshVars=()=>vf.refresh();
 /* ---------- carregamento ---------- */
 async function loadCollections(){state.collections=await api('GET','/collections');}
 async function loadCollection(id){
- if(!id){state.coll=null;state.request=null;state.reqPath='';return;}
+ if(!id){state.coll=null;state.tabs=[];clearActive();return;}
  const detail=await api('GET',`/collections/${id}`);
  if(state.coll?.id!==id)state.runtime=new Map(); // variáveis de execução valem por coleção
  state.coll=detail;store.set('cm-api-coll',id);
@@ -103,12 +103,90 @@ async function loadEnv(){
  try{const env=await api('GET',`/collections/${state.coll.id}/environments/${encodeURIComponent(state.env)}`);for(const v of env.vars)if(v.enabled!==false&&v.name){state.envVars.set(v.name,v.value);state.envMeta.set(v.name,{secret:!!v.secret});}}catch{}
  refreshVars();
 }
+/* ---------- abas de requests ----------
+   state.request/reqPath/response/tab/respTab são os da aba ativa; cada aba guarda os seus em state.tabs. */
+const tabEntry=path=>state.tabs.find(x=>x.path===path);
+const newEntry=(path,request)=>({path,request,response:null,tab:'params',respTab:'body',sending:false,abort:null});
+function stashActive(){const e=tabEntry(state.reqPath);if(e){e.request=state.request;e.response=state.response;e.tab=state.tab;e.respTab=state.respTab;}}
+function loadEntry(e){state.request=e.request;state.reqPath=e.path;state.response=e.response;state.tab=e.tab;state.respTab=e.respTab;state.sending=!!e.sending;state.abort=e.abort||null;}
+function clearActive(){state.request=null;state.reqPath='';state.response=null;state.sending=false;state.abort=null;}
+function persistTabs(){if(state.coll)store.set(`cm-api-tabs:${state.coll.id}`,JSON.stringify({paths:state.tabs.map(x=>x.path),active:state.reqPath}));}
+async function restoreTabs(){
+ const id=state.coll?.id;if(!id||state.tabs.length)return;
+ let saved=null;try{saved=JSON.parse(store.get(`cm-api-tabs:${id}`)||'null');}catch{}
+ if(!Array.isArray(saved?.paths)||!saved.paths.length)return;
+ const loaded=await Promise.all(saved.paths.map(p=>api('GET',`/collections/${id}/request?path=${encodeURIComponent(p)}`).then(request=>newEntry(p,request),()=>null)));
+ if(state.coll?.id!==id||state.tabs.length)return;
+ state.tabs=loaded.filter(Boolean);
+ const active=state.tabs.find(x=>x.path===saved.active)||state.tabs.at(-1);
+ if(active)loadEntry(active);
+}
+let openSeq=0;
 async function openRequest(path){
+ const seq=++openSeq; // cliques em sequência: vale o último
  await flushSave();
- state.view='request';
- if(!path){state.request=null;state.reqPath='';state.response=null;renderMain();renderTree();return;}
- try{state.request=await api('GET',`/collections/${state.coll.id}/request?path=${encodeURIComponent(path)}`);}catch{state.request=null;}
- state.reqPath=path;state.response=null;state.tab='params';renderMain();renderTree();
+ if(seq!==openSeq)return;
+ state.view='request';stashActive();
+ if(!path){clearActive();renderMain();renderTree();return;}
+ let entry=tabEntry(path);
+ if(!entry){
+  let request=null;try{request=await api('GET',`/collections/${state.coll.id}/request?path=${encodeURIComponent(path)}`);}catch{}
+  if(seq!==openSeq)return;
+  if(!request){clearActive();renderMain();renderTree();return;}
+  entry=newEntry(path,request);state.tabs.push(entry);
+ }
+ loadEntry(entry);renderMain();renderTree();persistTabs();
+}
+async function closeTab(path){
+ await flushSave();stashActive();
+ const i=state.tabs.findIndex(x=>x.path===path);if(i<0)return;
+ const wasActive=state.reqPath===path;
+ state.tabs[i].abort?.abort();state.tabs.splice(i,1);
+ if(wasActive){const next=state.tabs[i]||state.tabs[i-1];if(next)loadEntry(next);else clearActive();}
+ persistTabs();renderMain();renderTree();
+}
+function dropTabs(prefix){ // o item (ou a pasta) foi apagado ou renomeado: as abas dele deixam de valer
+ const gone=state.tabs.filter(x=>x.path===prefix||x.path.startsWith(`${prefix}/`));
+ if(!gone.length)return;
+ gone.forEach(x=>x.abort?.abort());
+ const activeGone=gone.some(x=>x.path===state.reqPath);
+ state.tabs=state.tabs.filter(x=>!gone.includes(x));
+ if(activeGone){const next=state.tabs.at(-1);if(next)loadEntry(next);else clearActive();}
+ persistTabs();
+}
+function renderTabbar(){
+ const bar=els.tabbar;if(!bar)return;
+ const running=state.run?.status==='running';
+ const tabs=state.tabs.map(e=>{
+  const active=state.view==='request'&&e.path===state.reqPath,name=e.request?.name||e.path;
+  return h('div',{class:`api-tab${active?' is-active':''}`,role:'presentation',dataset:{path:e.path}},
+   h('button',{type:'button',role:'tab',class:'api-tab-main','aria-selected':String(active),tabindex:active?'0':'-1',title:e.path,'aria-keyshortcuts':'Delete',onClick:()=>openRequest(e.path),onAuxclick:ev=>{if(ev.button===1){ev.preventDefault();closeTab(e.path);}}},
+    methodBadge(e.request?.method||'get'),h('span',{class:'api-tab-name'},name)),
+   h('button',{type:'button',class:'api-tab-close',tabindex:'-1',title:t('apiTabClose',name),'aria-label':t('apiTabClose',name),onClick:()=>closeTab(e.path)},'×'));
+ });
+ if(state.run){
+  const active=state.view==='run',name=t('apiRunTabTitle',state.run.title);
+  tabs.push(h('div',{class:`api-tab api-tab-report${active?' is-active':''}${running?' is-running':''}`,role:'presentation'},
+   h('button',{type:'button',role:'tab',class:'api-tab-main','aria-selected':String(active),tabindex:active?'0':'-1',title:name,onClick:showReport},
+    h('span',{class:'api-tab-icon','aria-hidden':'true'},running?'↻':'▶'),h('span',{class:'api-tab-name'},name)),
+   h('button',{type:'button',class:'api-tab-close',tabindex:'-1',title:t('apiTabClose',name),'aria-label':t('apiTabClose',name),onClick:()=>reportActions.close()},'×')));
+ }
+ const hadFocus=bar.contains(document.activeElement);
+ bar.hidden=!tabs.length;bar.replaceChildren(...tabs);
+ const current=bar.querySelector('.is-active .api-tab-main');
+ if(hadFocus)current?.focus({preventScroll:true});
+ current?.scrollIntoView({block:'nearest',inline:'nearest'});
+}
+function onTabbarKey(e){
+ const mains=[...els.tabbar.querySelectorAll('.api-tab-main')],i=mains.indexOf(document.activeElement);if(i<0)return;
+ const go=n=>{e.preventDefault();mains[n]?.click();}; // o foco acompanha a aba ativa (renderTabbar)
+ if(e.key==='ArrowRight')go((i+1)%mains.length);
+ else if(e.key==='ArrowLeft')go((i-1+mains.length)%mains.length);
+ else if(e.key==='Home')go(0);else if(e.key==='End')go(mains.length-1);
+ else if(e.key==='Delete'||e.key==='Backspace'){
+  e.preventDefault();const tab=mains[i].closest('.api-tab');
+  if(tab.classList.contains('api-tab-report'))reportActions.close();else closeTab(tab.dataset.path);
+ }
 }
 
 /* ---------- salvar ---------- */
@@ -172,10 +250,13 @@ async function execute(model,signal){
  }
 }
 async function send(){
- if(!state.request||state.sending)return;
- state.sending=true;state.response=null;state.abort=new AbortController();renderResponse();
- state.response=await execute(state.request,state.abort.signal);
- state.sending=false;state.abort=null;renderResponse();if(state.tab==='vars')renderTab();
+ const entry=tabEntry(state.reqPath);
+ if(!state.request||!entry||entry.sending)return;
+ entry.sending=true;entry.abort=new AbortController();entry.response=null;
+ state.sending=true;state.abort=entry.abort;state.response=null;renderResponse();
+ const result=await execute(entry.request,entry.abort.signal); // a aba pode mudar enquanto espera: a resposta fica na aba de origem
+ entry.sending=false;entry.abort=null;entry.response=result;
+ if(state.reqPath===entry.path){state.sending=false;state.abort=null;state.response=result;renderResponse();if(state.tab==='vars')renderTab();}
 }
 
 /* ---------- tabelas chave/valor ---------- */
@@ -254,13 +335,13 @@ async function newItem(type,parent=''){
 }
 async function renameItem(item){
  const name=prompt(t('apiPromptRename'),item.name);if(!name||!name.trim()||name.trim()===item.name)return;
- try{await flushSave();await api('PATCH',`/collections/${state.coll.id}/items`,{path:item.path,name:name.trim()});const keep=state.reqPath;await reloadTree();if(keep===item.path)await openRequest(keep);}catch(e){toast(e.message);}
+ try{await flushSave();await api('PATCH',`/collections/${state.coll.id}/items`,{path:item.path,name:name.trim()});dropTabs(item.path);await reloadTree();renderMain();}catch(e){toast(e.message);}
 }
 async function deleteItem(item){
  if(!confirm(t('apiConfirmDelete',item.name)))return;
  try{
   await api('DELETE',`/collections/${state.coll.id}/items?path=${encodeURIComponent(item.path)}`);
-  if(state.reqPath===item.path||state.reqPath.startsWith(`${item.path}/`)){state.request=null;state.reqPath='';state.response=null;}
+  dropTabs(item.path);
   await reloadTree();renderMain();
  }catch(e){toast(e.message);}
 }
@@ -269,7 +350,8 @@ function toast(message){hooks.toast?.(message);}
 /* ---------- editor de request ---------- */
 const TABS=['params','headers','body','auth','vars','assert','scripts','docs'];
 function renderMain(){
- const main=els.main;if(!main)return;
+ const main=els.content;if(!main)return;
+ renderTabbar();main.classList.remove('is-request');
  if(state.view==='run'&&state.run){mountReport();return;}
  const m=state.request;
  if(!m){
@@ -279,7 +361,7 @@ function renderMain(){
  }
  const urlInput=h('input',{type:'text',class:'api-url',value:m.url||'',placeholder:'https://…  {{host}}/path','aria-label':'URL',spellcheck:'false',onInput:e=>{m.url=e.target.value;syncParamsFromUrl(m);markDirty();if(state.tab==='params')renderTab();}});
  urlInput.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();send();}});
- const methodSel=h('select',{class:'api-method-select api-m-'+m.method,'aria-label':t('apiMethod'),onChange:e=>{m.method=e.target.value;e.target.className=`api-method-select api-m-${m.method}`;markDirty();}},...METHODS.map(x=>h('option',{value:x,selected:x===m.method},x.toUpperCase())));
+ const methodSel=h('select',{class:'api-method-select api-m-'+m.method,'aria-label':t('apiMethod'),onChange:e=>{m.method=e.target.value;e.target.className=`api-method-select api-m-${m.method}`;markDirty();renderTabbar();}},...METHODS.map(x=>h('option',{value:x,selected:x===m.method},x.toUpperCase())));
  const nameInput=h('div',{class:'api-req-title'},h('strong',{},m.name),els.save);
  els.sendBtn=h('button',{type:'button',class:'api-send',onClick:()=>state.sending?state.abort?.abort():send()},state.sending?t('apiCancel'):t('apiSend'));
  els.scriptsToggle=h('label',{class:'api-scripts-toggle',title:t('apiScriptsOnTitle')},h('input',{type:'checkbox',checked:state.scripts,onChange:e=>{state.scripts=e.target.checked;store.set('cm-api-scripts',state.scripts?'1':'0');}}),h('span',{},t('apiScriptsOn')));
@@ -287,8 +369,52 @@ function renderMain(){
  els.tabs=h('div',{class:'api-tabs',role:'tablist'},...TABS.map(id=>h('button',{type:'button',role:'tab',id:`api-tab-${id}`,'aria-selected':String(state.tab===id),'aria-controls':'api-tabpanel',class:state.tab===id?'is-active':'',onClick:()=>{state.tab=id;els.tabs.querySelectorAll('[role=tab]').forEach(b=>{const on=b.id===`api-tab-${id}`;b.setAttribute('aria-selected',String(on));b.classList.toggle('is-active',on);});renderTab();}},t(`apiTab_${id}`))));
  els.tabpanel=h('div',{class:'api-tabpanel',id:'api-tabpanel',role:'tabpanel'});
  els.response=h('div',{class:'api-response','aria-live':'polite'});
- main.replaceChildren(nameInput,h('div',{class:'api-urlbar'},methodSel,vf.varField(urlInput),els.sendBtn),els.scriptsToggle,els.tabs,els.tabpanel,els.response);
+ const editor=h('div',{class:'api-pane api-pane-editor'},els.tabs,els.tabpanel);
+ const respPane=h('div',{class:'api-pane api-pane-response'},h('div',{class:'api-pane-tools'},layoutButton(),maxButton()),els.response);
+ els.split=h('div',{class:'api-split'});
+ els.split.append(editor,splitHandle(),respPane);
+ applyLayout();
+ main.classList.add('is-request');
+ main.replaceChildren(nameInput,h('div',{class:'api-urlbar'},methodSel,vf.varField(urlInput),els.sendBtn),els.scriptsToggle,els.split);
  renderTab();renderResponse();
+}
+/* editor e resposta: empilhados ou lado a lado, com divisor arrastável (e por teclado) e a resposta em destaque */
+const layoutNow=()=>state.layout||(state.layout=store.get('cm-api-layout')||((panel?.offsetWidth||0)>=900?'side':'stack'));
+function applyLayout(){
+ const split=els.split;if(!split)return;
+ const layout=layoutNow();
+ state.split||=Math.min(80,Math.max(20,Number(store.get('cm-api-split'))||45));
+ split.className=`api-split is-${layout}${state.maxResp?' is-max':''}`;split.style.setProperty('--split',`${state.split}%`);
+ const handle=split.querySelector('.api-split-handle');
+ if(handle){handle.setAttribute('aria-orientation',layout==='side'?'vertical':'horizontal');handle.setAttribute('aria-valuenow',String(Math.round(state.split)));}
+}
+function layoutButton(){
+ const side=layoutNow()==='side';
+ return h('button',{type:'button',class:'api-icon-btn api-layout-btn',title:t(side?'apiLayoutStack':'apiLayoutSide'),'aria-label':t(side?'apiLayoutStack':'apiLayoutSide'),onClick:e=>{
+  const btn=e.currentTarget;
+  state.layout=layoutNow()==='side'?'stack':'side';store.set('cm-api-layout',state.layout);applyLayout();
+  const now=state.layout==='side',label=t(now?'apiLayoutStack':'apiLayoutSide');btn.title=label;btn.setAttribute('aria-label',label);btn.textContent=now?'⬒':'◫';
+ }},side?'⬒':'◫');
+}
+function maxButton(){
+ return h('button',{type:'button',class:'api-icon-btn api-max-btn','aria-pressed':String(state.maxResp),title:t('apiMaximize'),'aria-label':t('apiMaximize'),onClick:e=>{state.maxResp=!state.maxResp;e.currentTarget.setAttribute('aria-pressed',String(state.maxResp));applyLayout();}},'⤢');
+}
+function splitHandle(){
+ const handle=h('div',{class:'api-split-handle',role:'separator',tabindex:'0','aria-label':t('apiSplitResize'),'aria-valuemin':'20','aria-valuemax':'80'});
+ const setPct=p=>{state.split=Math.min(80,Math.max(20,p));store.set('cm-api-split',String(Math.round(state.split)));applyLayout();};
+ handle.addEventListener('pointerdown',e=>{e.preventDefault();handle.setPointerCapture(e.pointerId);els.split.classList.add('is-dragging');});
+ handle.addEventListener('pointermove',e=>{
+  if(!handle.hasPointerCapture(e.pointerId))return;
+  const r=els.split.getBoundingClientRect();setPct(layoutNow()==='side'?(e.clientX-r.left)/r.width*100:(e.clientY-r.top)/r.height*100);
+ });
+ const end=e=>{if(handle.hasPointerCapture?.(e.pointerId))handle.releasePointerCapture(e.pointerId);els.split?.classList.remove('is-dragging');};
+ handle.addEventListener('pointerup',end);handle.addEventListener('pointercancel',end);
+ handle.addEventListener('keydown',e=>{
+  const side=layoutNow()==='side',less=side?'ArrowLeft':'ArrowUp',more=side?'ArrowRight':'ArrowDown';
+  if(e.key===less||e.key===more){e.preventDefault();setPct(state.split+(e.key===more?5:-5));}
+  else if(e.key==='Home'){e.preventDefault();setPct(20);}else if(e.key==='End'){e.preventDefault();setPct(80);}
+ });
+ return handle;
 }
 function textArea(value,onInput,placeholder,{readonly=false,rows=8}={}){
  const ta=h('textarea',{class:'api-textarea',spellcheck:'false',placeholder,rows,readonly:readonly||null,'aria-label':placeholder||''});
@@ -443,9 +569,9 @@ async function createCollection(){
  try{const made=await api('POST','/collections',{name:name.trim()});await loadCollections();await selectCollection(made.id);}catch(e){toast(e.message);}
 }
 async function selectCollection(id){
- await flushSave();state.request=null;state.reqPath='';state.response=null;
+ await flushSave();if(state.coll?.id!==id){state.tabs.forEach(x=>x.abort?.abort());state.tabs=[];}clearActive();
  if(state.run&&state.run.collection!==id){state.run.abort?.abort();state.run=null;state.view='request';state.report=null;}
- await loadCollection(id);renderAll();
+ await loadCollection(id);await restoreTabs();renderAll();
 }
 async function importZip(file){
  try{const made=await api('POST','/collections/import',file);await loadCollections();await selectCollection(made.id);toast(t('apiImported',made.name));}catch(e){toast(e.message&&!/^\d+$/.test(e.message)?e.message:t('importError'));}
@@ -498,9 +624,9 @@ const runPrefs=()=>{try{return {stopOnFail:false,delayMs:0,...JSON.parse(store.g
 let reportUi=null,drawQueued=0;
 function mountReport(){
  reportUi||=createRunReport({h,t,fmtSize});
- state.report=reportUi.mount(els.main,state.run,reportActions);
+ state.report=reportUi.mount(els.content,state.run,reportActions);
 }
-function showReport(){if(!state.run)return;state.view='run';renderMain();renderHeader();}
+function showReport(){if(!state.run)return;state.view='run';renderMain();renderTree();}
 function drawReport(){ // vários resultados seguidos viram um redesenho só
  if(drawQueued)return;
  drawQueued=requestAnimationFrame(()=>{drawQueued=0;if(state.view==='run'&&state.run)state.report?.update();});
@@ -517,11 +643,12 @@ async function runOne(item,run){
 async function runItems(run,subset){
  run.abort=new AbortController();run.status='running';run.finishedAt=null;
  for(const item of subset){item.status='pending';delete item.out;}
+ renderTabbar();
  if(state.view==='run'){state.report?.update();state.report?.focusFirst();}
  run.status=await runSequence(subset,{signal:run.abort.signal,stopOnFail:run.options.stopOnFail,delayMs:run.options.delayMs,onChange:drawReport,execute:item=>runOne(item,run)});
  run.finishedAt=new Date().toISOString();
+ renderTabbar();
  if(state.view==='run'&&state.run===run)state.report?.update();
- else renderHeader();
 }
 /* path: pasta a executar ('' = a coleção); recursive: inclui as subpastas, na ordem da árvore */
 async function startRun({path='',recursive=true}={}){
@@ -532,7 +659,7 @@ async function startRun({path='',recursive=true}={}){
  const items=collectRequests(base?base.children:state.coll.tree,{recursive,base:path}).map(r=>({...r,status:'pending'}));
  if(!items.length){toast(t('apiRunEmpty'));return;}
  const run={collection:state.coll.id,path,recursive,title:base?.name||state.coll.name,env:state.env,items,status:'running',options:runPrefs(),startedAt:new Date().toISOString(),finishedAt:null,abort:null,view:{filter:'all',q:'',open:new Set()}};
- state.run=run;state.view='run';renderMain();renderHeader();
+ state.run=run;state.view='run';renderMain();renderTree();
  await runItems(run,items);
 }
 const reportActions={
@@ -541,7 +668,9 @@ const reportActions={
  againFailed:()=>{const r=state.run;if(r)runItems(r,r.items.filter(i=>i.status==='failed'||i.status==='error'));},
  rerunOne:path=>{const r=state.run;if(r)runItems(r,r.items.filter(i=>i.path===path));},
  openRequest:path=>openRequest(path),
- close:()=>{state.view='request';renderMain();renderHeader();},
+ close:()=>{ // fechar a aba do relatório descarta a execução (e a interrompe, se ainda estiver rodando)
+  state.run?.abort?.abort();state.run=null;state.report=null;state.view='request';renderMain();renderTree();
+ },
  options:()=>store.set('cm-api-run',JSON.stringify(state.run.options)),
  exportJson:()=>{
   const run=state.run,blob=new Blob([JSON.stringify(reportJson(run),null,2)],{type:'application/json'});
@@ -568,19 +697,51 @@ function renderHeader(){
  els.menu=menu;
  els.head.replaceChildren(h('strong',{class:'api-title'},t('apiTitle')),collSel,envSel,
   h('button',{type:'button',class:'api-icon-btn',title:t('apiEditEnv'),'aria-label':t('apiEditEnv'),disabled:state.coll?null:true,onClick:openEnvEditor},'⚙'),
-  state.run?h('button',{type:'button',class:`api-btn api-run-open${state.view==='run'?' is-active':''}`,onClick:showReport},t('apiRunReport')):null,
   h('span',{class:'api-spacer'}),
   h('div',{class:'api-menu-wrap'},h('button',{type:'button',class:'api-icon-btn','aria-haspopup':'menu',title:t('apiMore'),'aria-label':t('apiMore'),onClick:()=>{menu.hidden=!menu.hidden;}},'⋯'),menu),
   h('button',{type:'button',class:'api-icon-btn',title:t('apiClose'),'aria-label':t('apiClose'),onClick:closeApiPanel},'×'));
 }
 function renderAll(withMain=true){renderHeader();renderTree();if(withMain)renderMain();}
 
+/* ---------- abrir request pelo teclado (Ctrl+K no painel) ---------- */
+function openQuickOpen(){
+ if(!state.coll||panel.querySelector('.api-modal'))return;
+ const all=[],walk=(items,trail)=>{for(const it of items){if(it.type==='request')all.push({...it,trail});else walk(it.children,[...trail,it.name]);}};
+ walk(state.coll.tree,[]);
+ const back=document.activeElement,overlay=h('div',{class:'api-modal api-quick',role:'dialog','aria-modal':'true','aria-label':t('apiQuickOpen')});
+ const input=h('input',{type:'text',class:'api-filter',placeholder:t('apiQuickOpen'),'aria-label':t('apiQuickOpen'),role:'combobox','aria-expanded':'true','aria-controls':'api-quick-list','aria-autocomplete':'list',autocomplete:'off',spellcheck:'false'});
+ const list=h('ul',{id:'api-quick-list',role:'listbox',class:'api-quick-list'});
+ let shown=[],sel=0;
+ const close=()=>{overlay.remove();if(back?.isConnected)back.focus({preventScroll:true});};
+ const pick=r=>{if(!r)return;overlay.remove();openRequest(r.path).then(()=>els.urlInput?.focus({preventScroll:true}));};
+ const draw=()=>{
+  const words=input.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  shown=all.filter(r=>words.every(w=>`${r.name} ${r.method} ${r.url||''} ${r.trail.join('/')}`.toLowerCase().includes(w))).slice(0,50);
+  sel=Math.min(sel,Math.max(0,shown.length-1));
+  list.replaceChildren(...shown.map((r,i)=>h('li',{role:'option',id:`api-quick-${i}`,class:i===sel?'is-sel':'','aria-selected':String(i===sel),onPointerdown:e=>{e.preventDefault();pick(r);}},methodBadge(r.method),h('span',{class:'api-quick-name'},r.name),h('small',{},r.trail.join(' / ')))));
+  if(!shown.length)list.append(h('li',{class:'api-empty-small',role:'presentation'},t('apiQuickNone')));
+  input.setAttribute('aria-activedescendant',shown.length?`api-quick-${sel}`:'');
+  list.querySelector('.is-sel')?.scrollIntoView({block:'nearest'});
+ };
+ input.addEventListener('input',()=>{sel=0;draw();});
+ input.addEventListener('keydown',e=>{
+  if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();if(shown.length){sel=(sel+(e.key==='ArrowDown'?1:-1)+shown.length)%shown.length;draw();}}
+  else if(e.key==='Enter'){e.preventDefault();pick(shown[sel]);}
+  else if(e.key==='Escape'){e.preventDefault();e.stopPropagation();close();}
+ });
+ overlay.addEventListener('pointerdown',e=>{if(e.target===overlay)close();});
+ overlay.append(h('div',{class:'api-modal-card api-quick-card'},input,list));
+ panel.append(overlay);draw();input.focus();
+}
+
 /* ---------- painel ---------- */
 function build(){
  els.save=h('span',{class:'api-save',role:'status','aria-live':'polite'});
  els.head=h('header',{class:'api-head'});
  els.tree=h('ul',{class:'api-tree',role:'tree','aria-label':t('apiTitle')});
- els.main=h('section',{class:'api-main'});
+ els.tabbar=h('div',{class:'api-tabbar',role:'tablist','aria-label':t('apiOpenRequests'),hidden:true,onKeydown:onTabbarKey});
+ els.content=h('div',{class:'api-content'});
+ els.main=h('section',{class:'api-main'},els.tabbar,els.content);
  els.importInput=h('input',{type:'file',accept:'.zip,application/zip',hidden:true,onChange:e=>{const f=e.target.files[0];e.target.value='';if(f)importZip(f);}});
  els.folderInput=h('input',{type:'file',webkitdirectory:true,multiple:true,hidden:true,'aria-label':t('apiImportFolder'),onChange:async e=>{const files=[...e.target.files];e.target.value='';if(files.length)importFolder(await readInputFolder(files));}});
  const filter=h('input',{type:'search',class:'api-filter',placeholder:t('apiFilter'),'aria-label':t('apiFilter'),onInput:e=>{state.filter=e.target.value;renderTree();}});
@@ -603,6 +764,8 @@ function build(){
  panel.addEventListener('keydown',e=>{
   if(e.key==='Escape'&&!panel.querySelector('.api-modal')){if(!els.menu.hidden){els.menu.hidden=true;return;}closeApiPanel();}
   if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();send();}
+  else if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault();flushSave();}
+  else if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();e.stopPropagation();openQuickOpen();}
  });
  const hasFiles=e=>[...(e.dataTransfer?.types||[])].includes('Files');
  panel.addEventListener('dragover',e=>{if(!hasFiles(e))return;e.preventDefault();e.dataTransfer.dropEffect='copy';panel.classList.add('is-file-over');});
@@ -638,7 +801,7 @@ export async function openApiPanel({collection,path,focus=false}={}){
  try{
   await loadCollections();
   const wanted=collection&&state.collections.some(c=>c.id===collection)?collection:state.collections.some(c=>c.id===store.get('cm-api-coll'))?store.get('cm-api-coll'):state.collections[0]?.id;
-  if(wanted)await loadCollection(wanted);else{state.coll=null;state.request=null;state.reqPath='';}
+  if(wanted){if(state.coll?.id!==wanted){state.tabs=[];clearActive();}await loadCollection(wanted);await restoreTabs();}else{state.coll=null;state.tabs=[];clearActive();}
   let item=null;
   if(focus&&path&&state.coll){
    item=findItem(state.coll.tree,path);

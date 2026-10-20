@@ -8,6 +8,11 @@ How to cut a release: [`docs/releasing.md`](docs/releasing.md).
 ## [Unreleased]
 
 ### Added
+- **Request tabs in the API client**: every request you open gets a tab (method badge and name), so you can switch between requests without losing anything: each tab keeps its own response, its inner tab (Params, Headers, Body…) and what you typed, and a send that is still running finishes in the tab it started from. Close tabs with the ×, a middle click or Delete; Left/Right/Home/End move between tabs. The open tabs come back when you reopen the panel. The run report is a tab too.
+- **Editor and response, your way**: show the response below the editor or beside it, drag the divider (or use the arrow keys on it) to resize, and focus on the response with one click. The layout and the divider position are remembered.
+- **Quick open**: Ctrl+K inside the API panel opens a request by typing part of its name, URL, method or folder; Ctrl+S saves right away.
+
+### Added
 - **Run a folder (and its subfolders) with an interactive report**: every folder and the collection get **▶** (run this folder) and **▶▶** (run it with all subfolders) buttons. Requests run one after another in tree order and session variables (a token saved by a login request, for example) flow into the next ones. The report shows a progress bar with one segment per request, passed/failed/error counts, assertions and tests, total time, filters, search and, for each request, the sent URL, checks, body, headers and script console. You can stop the run, stop at the first failure, add a delay between requests, run only the failed ones or a single request again, open a request from the report, copy a summary and export a JSON report (no bodies or headers).
 - **Import Bruno folders**: *Import Bruno folder…* (or dropping a folder on the API panel) reads a folder in the Bruno format. With a `bruno.json` it becomes a new collection, environments included; a plain folder of `.bru` files goes into the open collection (or becomes a new one). Dot-folders, `node_modules` and non-Bruno files are skipped. New endpoint `POST /api/collections/import-folder`.
 
