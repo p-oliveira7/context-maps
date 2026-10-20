@@ -115,7 +115,9 @@ try{
  await page.waitForFunction(async()=>/^curl .*users\?page=1/.test(await navigator.clipboard.readText()));
  assert.equal(await page.locator('.api-ctx').count(),0);
  const mainBtn=page.locator('.api-row',{hasText:'Create'}).first().locator('.api-row-main');
- await mainBtn.focus();await page.keyboard.press('Shift+F10'); // tecla de menu
+ await mainBtn.focus();
+ // a tecla de menu do teclado dispara o evento contextmenu no elemento focado (no macOS o Shift+F10 não existe): simulamos o evento
+ await mainBtn.evaluate(el=>{const r=el.getBoundingClientRect();el.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:r.x+8,clientY:r.y+8}));});
  await page.locator('.api-ctx').waitFor();
  assert.equal(await page.evaluate(()=>document.activeElement.textContent),'Open');
  await page.keyboard.press('ArrowDown');assert.equal(await page.evaluate(()=>document.activeElement.textContent),'Duplicate');
