@@ -106,7 +106,7 @@ try{
  assert.equal(await sv().getAttribute('aria-hidden'),'true'); // o desenho é decorativo: a lista e o inspetor são o conteúdo acessível
  // selecionar pela lista: inspetor + contorno no desenho
  await page.locator('.seq-steps .seq-step-row').first().locator('button').click();
- assert.equal(await page.locator('.seq-inspector h3').textContent(),'Message');
+ assert.equal(await page.locator('.seq-inspector h3').first().textContent(),'Message');
  assert.equal(await page.locator('.seq-inspector input[aria-label="Label"]').inputValue(),'POST /orders');
  assert.equal(await page.locator('.seq-svg-host .seq-sel').count(),1);
  assert.equal(await page.locator('.seq-steps .seq-step-row.is-sel').count(),1);
@@ -220,6 +220,39 @@ try{
  await openEditor();
  assert.equal(await modal.getAttribute('aria-modal'),'true');
  await page.keyboard.press('Escape');await modal.waitFor({state:'hidden'});
+ // SEQ-10: ligar um passo a uma request da coleção do card e definir regras de resultado, tudo pelo editor visual
+ await call('POST','/collections',{name:'Flow'});
+ await call('POST','/collections/flow/items',{type:'request',name:'Charge',method:'post',url:'http://127.0.0.1:1/charge'});
+ const linked=await call('POST','/presentations',{title:'Ligado'});
+ await call('PUT',`/presentations/${linked.id}`,{title:'Ligado',roots:[{id:'r',title:'Sistema',children:[{id:'c1',title:'Pagamentos',apis:[{collection:'flow',path:'',name:'Flow'}],children:[]}]}]});
+ await page.goto(`${base}/?p=${linked.id}`);await page.locator('.node').first().waitFor();await page.locator('#expand').click();await page.locator('#edit-switch').click();
+ await openEditor();
+ await page.locator('#diagram-template').selectOption('seq');
+ await page.locator('#diagram-visual').click();
+ const ed10=page.locator('.seq-ed');await ed10.waitFor();
+ await page.locator('.seq-steps .seq-step-row .seq-row-main').first().click();
+ const reqSelect=ed10.getByLabel('Request',{exact:true});
+ await reqSelect.waitFor();
+ await page.waitForFunction(()=>[...document.querySelectorAll('.seq-inspector select[aria-label=Request] option')].some(o=>/POST Charge/.test(o.textContent)));
+ await reqSelect.selectOption({label:'POST Charge · Flow'});
+ assert.equal(await page.locator('.seq-steps .seq-step-row').first().locator('.seq-api-badge').textContent(),'API');
+ await ed10.getByRole('button',{name:'+ Add rule'}).click();
+ assert.equal(await page.locator('.seq-rule').count(),1);
+ await page.locator('.seq-rule select[aria-label="Rule type"]').selectOption('body');
+ await page.locator('.seq-rule input[aria-label="Body path"]').fill('res.body.paid');
+ await page.locator('.seq-rule input[aria-label="Body path"]').press('Enter');
+ await ed10.getByRole('tab',{name:'Text'}).click();
+ const withBind=await page.locator('.seq-source').inputValue();
+ assert.match(withBind,/%% @step s1 \{"collection":"flow","request":"charge\.bru","rules":\[\{"when":"body","op":"eq","path":"res\.body\.paid","value":"","result":"fail"\}\]\}/);
+ await ed10.getByRole('button',{name:'Apply',exact:true}).click();await ed10.waitFor({state:'hidden'});
+ assert.match(await page.locator('#diagram-source').inputValue(),/%% @step s1 /); // o comentário vai no texto do diagrama
+ await page.locator('#diagram-apply').click();await modal.waitFor({state:'hidden'});
+ const linkedFile=path.join(work,'presentations',`${linked.id}.json`),linkedNode=async()=>JSON.parse(await readFile(linkedFile,'utf8')).roots[0].children[0];
+ for(let i=0;i<60&&!(await linkedNode()).images?.length;i++)await new Promise(r=>setTimeout(r,100));
+ const linkedEntry=(await linkedNode()).images[0];
+ assert.match(linkedEntry.source,/@step s1 /);
+ assert.match(await (await fetch(`${base}/${linkedEntry.src}`)).text(),/data-bound="1"/); // o SVG salvo marca o passo ligado
+
  const pt=await browser.newContext({locale:'pt-BR',viewport:{width:1400,height:900},extraHTTPHeaders:{'x-context-maps':'1'}});
  const p2=await pt.newPage();p2.setDefaultTimeout(process.env.CI?20000:8000);
  await p2.goto(`${base}/?p=${made.id}`);await p2.locator('.node').first().waitFor();await p2.locator('#expand').click();await p2.locator('#edit-switch').click();
@@ -232,5 +265,5 @@ try{
  await p2.locator('#diagram-error').filter({hasText:'Linha 2: Uma mensagem precisa de dois-pontos'}).waitFor();
 
  assert.deepEqual(errors,[]);
- console.log('PASS SEQ-01..09 native sequence diagrams and visual editor');
+ console.log('PASS SEQ-01..10 native sequence diagrams and visual editor');
 }finally{await browser.close();server.kill();await rm(work,{recursive:true,force:true});}

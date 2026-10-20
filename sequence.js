@@ -8,6 +8,8 @@ const MSG=new RegExp(`^(${ID})\\s*(${ARROWS})\\s*([+-]?)\\s*(${ID})\\s*:\\s*(.*)
 const HEAD={'->>':['solid','arrow'],'-->>':['dashed','arrow'],'->':['solid','open'],'-->':['dashed','open'],'-x':['solid','cross'],'--x':['dashed','cross'],'-)':['solid','async'],'--)':['dashed','async']};
 const GROUPS=new Set(['loop','alt','opt','par','critical','break']);
 const UNSUPPORTED=/^(box|create|destroy|link|links|properties|details|rect|end\s+box)\b|^%%\{/i;
+import {parseStepComment,stepComment,newStepId} from './sequence-flow.js?v=1';
+
 const fail=(code,line,detail='')=>Object.assign(new Error(`${code}:${line}`),{code,line,detail});
 
 export const isSequenceSource=text=>/^\s*(?:%%[^\n]*\n\s*)*sequenceDiagram\b/.test(String(text||''));
@@ -16,7 +18,7 @@ export const isSequenceSource=text=>/^\s*(?:%%[^\n]*\n\s*)*sequenceDiagram\b/.te
 export function parseSequence(text){
  const lines=String(text||'').replace(/\r\n/g,'\n').split('\n');
  const model={title:'',autonumber:false,participants:[],steps:[]};
- const byId=new Map(),stack=[];let seen=false;
+ const byId=new Map(),stack=[];let seen=false,pending=null;
  const ensure=(id,name,kind='participant')=>{
   if(!byId.has(id)){const p={id,name:name??id,kind};byId.set(id,p);model.participants.push(p);}
   else if(name!==undefined){const p=byId.get(id);p.name=name;if(kind==='actor')p.kind='actor';}
@@ -24,7 +26,8 @@ export function parseSequence(text){
  };
  lines.forEach((raw,i)=>{
   const n=i+1,line=raw.trim();
-  if(!line||line.startsWith('%%')&&!line.startsWith('%%{'))return;
+  if(line.startsWith('%%')&&!line.startsWith('%%{')){const sc=parseStepComment(line);if(sc)pending=sc;return;}
+  if(!line)return;
   if(!seen){if(/^sequenceDiagram\b/.test(line)){seen=true;return;}throw fail('notSequence',n);}
   if(UNSUPPORTED.test(line))throw fail('unsupported',n,line.split(/\s/)[0]);
   let m;
@@ -46,7 +49,9 @@ export function parseSequence(text){
   if((m=MSG.exec(line))){
    const [,from,arrow,flag,to,label]=m;ensure(from);ensure(to);
    const [style,head]=HEAD[arrow];
-   model.steps.push({type:'message',from,to,text:label.trim(),style,head,activate:flag==='+'?'+':flag==='-'?'-':'',line:n});return;
+   const step={type:'message',from,to,text:label.trim(),style,head,activate:flag==='+'?'+':flag==='-'?'-':'',line:n};
+   if(pending){step.id=pending.id;if(pending.bind)step.bind=pending.bind;pending=null;}
+   model.steps.push(step);return;
   }
   if(/^[\w.$@-]+\s*[-.]*[>)x-]+/.test(line)&&!line.includes(':'))throw fail('missingColon',n);
   throw fail('syntax',n,line.slice(0,40));
@@ -68,7 +73,7 @@ export function stringifySequence(model){
  for(const s of model.steps){
   if(s.type==='end'){depth--;kinds.pop();}
   const pad='  '.repeat(depth+1);
-  if(s.type==='message')out.push(`${pad}${s.from}${arrow[s.style][s.head]}${s.activate}${s.to}: ${s.text}`);
+  if(s.type==='message'){if(s.bind&&!s.id)s.id=newStepId(model);if(s.bind)out.push(`${pad}${stepComment(s)}`);out.push(`${pad}${s.from}${arrow[s.style][s.head]}${s.activate}${s.to}: ${s.text}`);}
   else if(s.type==='note')out.push(`${pad}Note ${s.position==='over'?'over':`${s.position} of`} ${s.actors.join(',')}: ${s.text}`);
   else if(s.type==='activate'||s.type==='deactivate')out.push(`${pad}${s.type} ${s.actor}`);
   else if(s.type==='group'){out.push(`${pad}${s.kind}${s.label?` ${s.label}`:''}`);depth++;kinds.push(s.kind);}
@@ -139,12 +144,12 @@ export function layoutSequence(model,{measure=defaultMeasure}={}){
    touch(a);touch(b);
    if(a===b){
     const ay=y+labelH/2+8,w=widest(label,measure);
-    items.push({kind:'message',step:k,self:true,x1:x[a],x2:x[a]+34,y:ay,y2:ay+22,from:a,to:b,lines:ls,tx:x[a]+42,ty:ay-(ls.length-1)*LINE_H/2+4,style:s.style,head:s.head,num:model.autonumber?n2:0});
+    items.push({kind:'message',step:k,sid:s.id||'',bound:!!s.bind,self:true,x1:x[a],x2:x[a]+34,y:ay,y2:ay+22,from:a,to:b,lines:ls,tx:x[a]+42,ty:ay-(ls.length-1)*LINE_H/2+4,style:s.style,head:s.head,num:model.autonumber?n2:0});
     maxRight=Math.max(maxRight,x[a]+42+w);y+=Math.max(labelH+8,30)+26;
     if(s.activate==='+')active[b].push(ay+22);if(s.activate==='-'&&active[a].length)bars.push({i:a,y1:active[a].pop(),y2:ay,depth:active[a].length});
    }else{
     const ay=y+labelH+10;
-    items.push({kind:'message',step:k,x1:x[a],x2:x[b],y:ay,from:a,to:b,lines:ls,tx:(x[a]+x[b])/2,ty:y+LINE_H-4,style:s.style,head:s.head,num:model.autonumber?n2:0});
+    items.push({kind:'message',step:k,sid:s.id||'',bound:!!s.bind,x1:x[a],x2:x[b],y:ay,from:a,to:b,lines:ls,tx:(x[a]+x[b])/2,ty:y+LINE_H-4,style:s.style,head:s.head,num:model.autonumber?n2:0});
     y=ay+16;
     if(s.activate==='+')active[b].push(ay);if(s.activate==='-'&&active[a].length)bars.push({i:a,y1:active[a].pop(),y2:ay,depth:active[a].length});
    }
@@ -208,7 +213,7 @@ export function renderSequenceSvg(layout,{summary=''}={}){
  for(const it of layout.items){
   if(it.kind==='message'){
    const dashed=it.style==='dashed'?' seq-dashed':'',marker=it.head==='open'?'':` marker-end="url(#seq-${it.head==='arrow'?'arrow':it.head})"`;
-   out.push(`<g class="seq-step seq-msg" data-step="${it.step}" data-from="${esc(layout.participants[it.from].id)}" data-to="${esc(layout.participants[it.to].id)}">`);
+   out.push(`<g class="seq-step seq-msg" data-step="${it.step}"${it.sid?` data-id="${esc(it.sid)}"`:''}${it.bound?' data-bound="1"':''} data-from="${esc(layout.participants[it.from].id)}" data-to="${esc(layout.participants[it.to].id)}">`);
    if(it.self)out.push(`<path class="seq-line${dashed}" d="M${it.x1} ${it.y}h${it.x2-it.x1}v${it.y2-it.y}h-${it.x2-it.x1-3}"${marker}/>`);
    else{const dir=it.x2>it.x1?1:-1;out.push(`<line class="seq-line${dashed}" x1="${it.x1+dir*(layout.bars.some(b=>b.i===it.from&&b.y1<=it.y&&b.y2>=it.y)?5:0)}" x2="${it.x2-dir*(layout.bars.some(b=>b.i===it.to&&b.y1<=it.y&&b.y2>=it.y)?5:1)}" y1="${it.y}" y2="${it.y}"${marker}/>`);}
    it.lines.forEach((l,i)=>out.push(`<text class="seq-text seq-label" x="${it.tx}" y="${it.ty+i*16}" text-anchor="${it.self?'start':'middle'}">${esc(l)}</text>`));

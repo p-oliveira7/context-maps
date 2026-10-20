@@ -1207,3 +1207,13 @@ export async function summarize({collection,path=''}){
  if(base.type==='request')requests.push({name:base.name,method:base.method,path:base.path});
  return {name:path?base.name:detail.name,collectionName:detail.name,type:path?base.type:'collection',count:requests.length,requests:requests.slice(0,4)};
 }
+
+/* Todas as requests de uma coleção/pasta (para ligar passos de diagrama de sequência a elas). */
+export async function listRequests({collection,path=''}){
+ const detail=await api('GET',`/collections/${collection}`);
+ const base=path?findItem(detail.tree,path):{children:detail.tree,type:'collection'};
+ if(!base)return [];
+ const out=[];const walk=items=>{for(const it of items){if(it.type==='request')out.push({collection,collectionName:detail.name,name:it.name,method:it.method,path:it.path});else walk(it.children||[]);}};
+ if(base.type==='request')out.push({collection,collectionName:detail.name,name:base.name,method:base.method,path:base.path});else walk(base.children||[]);
+ return out;
+}

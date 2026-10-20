@@ -2,6 +2,7 @@
    Trabalha sobre o modelo de sequence.js e só devolve o texto (Mermaid-compatível) ao aplicar. */
 import {parseSequence,stringifySequence,layoutSequence,renderSequenceSvg} from './sequence.js?v=1';
 import * as E from './sequence-edit.js?v=1';
+import {newStepId,normalizeBind,describeRule,MAX_RULES} from './sequence-flow.js?v=1';
 
 function h(tag,props={},...kids){
  const el=document.createElement(tag);
@@ -16,10 +17,11 @@ function h(tag,props={},...kids){
 const SVG_NS='http://www.w3.org/2000/svg';
 const svgEl=(tag,attrs)=>{const el=document.createElementNS(SVG_NS,tag);for(const [k,v] of Object.entries(attrs))el.setAttribute(k,String(v));return el;};
 
-export function openSequenceEditor({source,t,measure,onApply,onClose}){
+export function openSequenceEditor({source,t,measure,onApply,onClose,loadRequests}){
  let model;
  try{model=parseSequence(source);}catch{return false;}
  const initial=JSON.stringify(model),hist=E.createHistory(model);
+ let reqList=null; // requests das coleções do card, para ligar um passo (carrega uma vez)
  let sel=null,view='visual',zoom=1,layout=null,editing=false,textError='';
  const back=document.activeElement;
 
@@ -173,7 +175,7 @@ export function openSequenceEditor({source,t,measure,onApply,onClose}){
   stepList.replaceChildren(...model.steps.map((s,k)=>{
    const on=sel?.kind==='step'&&sel.index===k,depth=E.depthOf(model,k);
    return h('li',{class:`seq-row seq-step-row is-${s.type}${on?' is-sel':''}`,style:`--depth:${depth}`},
-    h('button',{type:'button',class:'seq-row-main','aria-pressed':String(on),onClick:()=>select({kind:'step',index:k})},h('span',{class:'seq-num','aria-hidden':'true'},String(k+1)),h('span',{class:'seq-row-text'},E.describeStep(model,k))));
+    h('button',{type:'button',class:'seq-row-main','aria-pressed':String(on),onClick:()=>select({kind:'step',index:k})},h('span',{class:'seq-num','aria-hidden':'true'},String(k+1)),h('span',{class:'seq-row-text'},E.describeStep(model,k)),s.bind?h('span',{class:'seq-api-badge',title:s.bind.request},'API'):null));
   }));
   if(!model.steps.length)stepList.append(h('li',{class:'seq-empty'},t('seqEdNoSteps')));
  }
@@ -191,6 +193,48 @@ export function openSequenceEditor({source,t,measure,onApply,onClose}){
   el.addEventListener('keydown',e=>{if(e.key==='Enter'&&!multiline){e.preventDefault();onCommit(el.value);}});
   return el;
  };
+ /* ---------- ligação com o API client + regras de resultado ---------- */
+ const reqKey=(collection,request)=>`${collection}|${request}`;
+ function setBind(k,bind){
+  const patch={bind:bind||undefined};
+  if(bind&&!model.steps[k].id)patch.id=newStepId(model);
+  E.updateStep(model,k,patch);if(!bind)delete model.steps[k].bind;
+  commit(t(bind?'seqFlowBound':'seqFlowUnbound'));
+ }
+ function bindingSection(s,k){
+  if(!loadRequests)return [];
+  if(reqList===null){reqList=[];loadRequests().then(list=>{reqList=Array.isArray(list)?list:[];if(sel?.kind==='step'&&sel.index===k)renderInspector();}).catch(()=>{});}
+  const cur=s.bind,opts=[['',t('seqFlowNone')],...reqList.map(r=>[reqKey(r.collection,r.path),`${(r.method||'').toUpperCase()} ${r.name}${r.collectionName?` · ${r.collectionName}`:''}`])];
+  if(cur&&!reqList.some(r=>r.collection===cur.collection&&r.path===cur.request))opts.push([reqKey(cur.collection,cur.request),`${cur.request} (${t('seqFlowMissingReq')})`]);
+  const out=[h('h3',{},t('seqFlowApi')),
+   field(t('seqFlowRequest'),select$(cur?reqKey(cur.collection,cur.request):'',opts,v=>{
+    if(!v)return setBind(k,null);
+    const i=v.indexOf('|');setBind(k,normalizeBind({collection:v.slice(0,i),request:v.slice(i+1),rules:cur?.rules}));
+   },t('seqFlowRequest')))];
+  if(!reqList.length&&!cur)out.push(h('p',{class:'seq-hint'},t('seqFlowNoRequests')));
+  if(!cur)return out;
+  out.push(h('p',{class:'seq-hint'},t('seqFlowDefault')));
+  const save=rules=>{const b=model.steps[k].bind;E.updateStep(model,k,{bind:{...b,rules}});commit();};
+  const list=h('ol',{class:'seq-rules','aria-label':t('seqFlowRules')});
+  cur.rules.forEach((r,i)=>{
+   const upd=patch=>save(cur.rules.map((x,j)=>j===i?{...x,...patch}:x));
+   const row=h('li',{class:'seq-rule'},
+    select$(r.when,[['status',t('seqFlowWhen_status')],['body',t('seqFlowWhen_body')],['asserts',t('seqFlowWhen_asserts')]],v=>save(cur.rules.map((x,j)=>j!==i?x:v==='status'?{when:v,op:'eq',value:'200',result:x.result}:v==='body'?{when:v,op:'eq',path:'res.body.',value:'',result:x.result}:{when:v,op:'pass',result:x.result})),t('seqFlowRuleWhen')));
+   if(r.when==='status'){
+    row.append(select$(r.op,[['eq','='],['not','≠'],['range',t('seqFlowClass')]],v=>upd({op:v,value:v==='range'?'2xx':'200'}),t('seqFlowRuleOp')),
+     r.op==='range'?select$(r.value,['1xx','2xx','3xx','4xx','5xx'].map(x=>[x,x]),v=>upd({value:v}),t('seqFlowRuleValue')):input$(r.value,v=>upd({value:v}),{label:t('seqFlowRuleValue')}));
+   }else if(r.when==='body'){
+    row.append(input$(r.path,v=>upd({path:v}),{label:t('seqFlowRulePath')}),
+     select$(r.op,[['eq','='],['neq','≠'],['exists',t('seqFlowExists')],['missing',t('seqFlowMissing')]],v=>upd({op:v}),t('seqFlowRuleOp')),
+     r.op==='eq'||r.op==='neq'?input$(r.value||'',v=>upd({value:v}),{label:t('seqFlowRuleValue')}):null);
+   }else row.append(select$(r.op,[['pass',t('seqFlowAssertsPass')],['fail',t('seqFlowAssertsFail')]],v=>upd({op:v}),t('seqFlowRuleOp')));
+   row.append(select$(r.result,[['ok',t('seqFlowOk')],['fail',t('seqFlowFail')]],v=>upd({result:v}),t('seqFlowRuleResult')),
+    h('button',{type:'button',class:'seq-mini','aria-label':`${t('seqEdDelete')}: ${describeRule(r,t)}`,onClick:()=>save(cur.rules.filter((_,j)=>j!==i))},'×'));
+   list.append(row);
+  });
+  out.push(list,actionRow(h('button',{type:'button',class:'seq-btn',disabled:cur.rules.length>=MAX_RULES||null,onClick:()=>save([...cur.rules,{when:'status',op:'eq',value:'402',result:'fail'}])},`+ ${t('seqFlowAddRule')}`)));
+  return out;
+ }
  const actionRow=(...btns)=>h('div',{class:'seq-actions'},...btns);
  function renderInspector(){
   const parts=model.participants.map(p=>[p.id,p.name]);
@@ -219,6 +263,7 @@ export function openSequenceEditor({source,t,measure,onApply,onClose}){
      field(t('seqEdLine'),select$(s.style,[['solid',t('seqEdLineSolid')],['dashed',t('seqEdLineDashed')]],v=>{E.updateStep(model,sel.index,{style:v});commit();},t('seqEdLine'))),
      field(t('seqEdHead'),select$(s.head,[['arrow',t('seqEdHeadArrow')],['open',t('seqEdHeadOpen')],['cross',t('seqEdHeadCross')],['async',t('seqEdHeadAsync')]],v=>{E.updateStep(model,sel.index,{head:v});commit();},t('seqEdHead'))),
      field(t('seqEdActivation'),select$(s.activate||'',[['',t('seqEdActNone')],['+',t('seqEdActOn')],['-',t('seqEdActOff')]],v=>{E.updateStep(model,sel.index,{activate:v});commit();},t('seqEdActivation'))),
+     ...bindingSection(s,sel.index),
      actionRow(...mv,del));
    }else if(s.type==='note'){
     box.push(h('h3',{},t('seqEdNote')),
