@@ -3,10 +3,10 @@ import {cancelMotion,snapshot,animateLayout,hoverEdge,updateEdges,onEdges} from 
 import * as store from './store.js?v=17';
 import {t,applyStatic} from './i18n.js?v=1';
 import {VERSION} from './version.js?v=1';
-import {initApiClient,openApiPanel,closeApiPanel,isApiOpen,setAttachTarget,summarize,summarizeTree,listRequests,API_DRAG_TYPE} from './api-client.js?v=12';
+import {initApiClient,openApiPanel,closeApiPanel,isApiOpen,setAttachTarget,summarize,summarizeTree,listRequests,runRequest,onRequestResult,API_DRAG_TYPE} from './api-client.js?v=12';
 import {apiDropdown,closeApiDropdown} from './api-dropdown.js?v=1';
 import {isSequenceSource,renderSequence,FONT as SEQ_FONT} from './sequence.js?v=1';
-import {openSequenceEditor} from './sequence-editor.js?v=2';
+import {openSequenceEditor} from './sequence-editor.js?v=4';
 applyStatic();
 const $=s=>document.querySelector(s), viewport=$('#viewport'), world=$('#world');
 $('#doc-version').textContent=`Context Maps v${VERSION}`;
@@ -641,7 +641,7 @@ function openDiagramEditor(node,index=null){
  ta.value=current?.kind==='diagram'&&current.source?current.source:t('defaultDiagram');
  const tpl=$('#diagram-template'),engineLabel=$('#diagram-engine'),visualBtn=$('#diagram-visual');
  visualBtn.hidden=true;
- visualBtn.onclick=()=>openSequenceEditor({source:ta.value,t,measure:measureText,loadRequests:async()=>(await Promise.all((node.apis||[]).map(a=>listRequests({collection:a.collection,path:a.path||''}).catch(()=>[])))).flat(),onApply:text=>{ta.value=text;apply.disabled=true;clearTimeout(timer);update();ta.focus();}});
+ visualBtn.onclick=()=>openSequenceEditor({source:ta.value,t,measure:measureText,api:{toggle:on=>{if(on){if(!isApiOpen()){openApiPanel();$('#api-btn').setAttribute('aria-expanded','true');}}else closeApiPanel();},run:runRequest,onResult:onRequestResult},loadRequests:async()=>(await Promise.all((node.apis||[]).map(a=>listRequests({collection:a.collection,path:a.path||''}).catch(()=>[])))).flat(),onApply:text=>{ta.value=text;apply.disabled=true;clearTimeout(timer);update();ta.focus();}});
  tpl.hidden=!!current;
  if(!current){ // diagrama novo: começar de um modelo
   tpl.replaceChildren(...[['flow','tplFlow'],['seq','tplSequence']].map(([v,k])=>{const o=document.createElement('option');o.value=v;o.textContent=t(k);return o;}));

@@ -55,6 +55,33 @@ export function syncUrlFromParams(model){
 const state={open:false,collections:[],coll:null,env:null,envVars:new Map(),envMeta:new Map(),runtime:new Map(),scripts:store.get('cm-api-scripts')!=='0',request:null,reqPath:'',saveTimer:0,saving:Promise.resolve(),response:null,sending:false,abort:null,tab:'params',respTab:'body',pretty:true,expanded:new Set(),filter:'',attach:null,run:null,view:'request',report:null,tabs:[],layout:'',split:0,maxResp:false,mocks:emptyMocks(),mockMode:false,mocksDirty:false,mockSel:{}};
 let panel,els={},hooks={};
 
+/* ---------- resultados para quem observa (diagrama de sequência ao vivo) ---------- */
+const resultListeners=new Set();
+/** chama fn({collection,path,status,error,body,assertionsPassed,timeMs,mock}) a cada request enviada ou executada; devolve a função que cancela */
+export function onRequestResult(fn){resultListeners.add(fn);return()=>resultListeners.delete(fn);}
+function summarizeResult(collection,path,out){
+ let body;try{body=out.bodyText?JSON.parse(out.bodyText):undefined;}catch{body=undefined;}
+ const checks=[...(out.extra?.asserts||[]),...(out.extra?.tests||[])];
+ return {collection,path,status:out.status||0,error:out.error?(out.detail||out.error):'',body,assertionsPassed:checks.length?checks.every(c=>c.passed!==false&&c.ok!==false):null,timeMs:out.timeMs||0,mock:out.mock?.name||''};
+}
+function emitResult(path,out){
+ if(!state.coll||!path||!resultListeners.size||out?.error==='cancelled')return;
+ const summary=summarizeResult(state.coll.id,path,out);
+ for(const fn of [...resultListeners]){try{fn(summary);}catch{/* um observador com defeito não derruba o envio */}}
+}
+/** executa uma request da coleção (para o "Rodar fluxo" do diagrama); usa o ambiente, as variáveis de execução e os mocks do painel */
+export async function runRequest({collection,path,signal}){
+ if(!panel||!state.open)await openApiPanel({collection});
+ if(state.coll?.id!==collection){await loadCollection(collection);}
+ let model;
+ try{model=tabEntry(path)?.request||await api('GET',`/collections/${collection}/request?path=${encodeURIComponent(path)}`);}
+ catch(e){return {collection,path,status:0,error:e.message,body:undefined,assertionsPassed:null,timeMs:0,mock:''};}
+ const out=await execute(model,signal,path);
+ emitResult(path,out);
+ return summarizeResult(collection,path,out);
+}
+
+
 /* ---------- variáveis {{nome}}: de onde vêm, como salvar, e os campos que as destacam ---------- */
 function varInfo(name){ // precedência igual à do envio: sessão > request > ambiente > coleção
  if(name.startsWith('$'))return {scope:'dynamic',value:resolveVars(`{{${name}}}`,new Map())};
@@ -325,7 +352,7 @@ async function send(){
  if(!state.request||!entry||entry.sending)return;
  entry.sending=true;entry.abort=new AbortController();entry.response=null;
  state.sending=true;state.abort=entry.abort;state.response=null;renderResponse();
- const result=await execute(entry.request,entry.abort.signal,entry.path); // a aba pode mudar enquanto espera: a resposta fica na aba de origem
+ const result=await execute(entry.request,entry.abort.signal,entry.path);emitResult(entry.path,result); // a aba pode mudar enquanto espera: a resposta fica na aba de origem
  entry.sending=false;entry.abort=null;entry.response=result;syncVarsUi();
  if(state.reqPath===entry.path){state.sending=false;state.abort=null;state.response=result;renderResponse();if(state.tab==='vars')renderTab();}
 }
@@ -711,7 +738,7 @@ async function runOne(item,run){
  let model;
  try{model=tabEntry(item.path)?.request||await api('GET',`/collections/${run.collection}/request?path=${encodeURIComponent(item.path)}`);}
  catch(e){return {error:'request',detail:e.message,timeMs:0,extra:{logs:[],tests:[],asserts:[],errors:[]}};}
- const out=await execute(model,run.abort.signal,item.path);
+ const out=await execute(model,run.abort.signal,item.path);emitResult(item.path,out);
  if(out.bodyText&&out.bodyText.length>BODY_KEEP)out.bodyText=out.bodyText.slice(0,BODY_KEEP);
  if(out.sent?.body&&out.sent.body.length>BODY_KEEP)out.sent={...out.sent,body:out.sent.body.slice(0,BODY_KEEP)};
  return out;

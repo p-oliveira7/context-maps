@@ -1,6 +1,7 @@
 // Diagramas de sequência próprios no editor de diagramas: modelo inicial, desenho nativo, erros com a linha, queda para o Mermaid e persistência.
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
+import {createServer} from 'node:http';
 import {mkdtemp,readFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
@@ -13,6 +14,10 @@ const server=spawn(process.execPath,['server.mjs'],{cwd:root,env:{...process.env
 await new Promise((ok,fail)=>{server.stdout.once('data',ok);server.once('exit',c=>fail(new Error(`server exit ${c}`)));});
 const H={'x-context-maps':'1','content-type':'application/json'};
 const call=async(method,route,body)=>{const r=await fetch(`${base}/api${route}`,{method,headers:H,body:body===undefined?undefined:JSON.stringify(body)});assert.ok(r.ok,`${method} ${route} -> ${r.status}`);return r.json();};
+// API alvo do fluxo ao vivo: /charge responde 201
+const apiTarget=createServer((req,res)=>{res.writeHead(req.url==='/charge'?201:404,{'content-type':'application/json'});res.end(JSON.stringify({paid:true}));});
+await new Promise(r=>apiTarget.listen(0,'127.0.0.1',r));
+const apiHost=`http://127.0.0.1:${apiTarget.address().port}`;
 const browser=await launch();
 try{
  const made=await call('POST','/presentations',{title:'Sequências'});
@@ -253,6 +258,53 @@ try{
  assert.match(linkedEntry.source,/@step s1 /);
  assert.match(await (await fetch(`${base}/${linkedEntry.src}`)).text(),/data-bound="1"/); // o SVG salvo marca o passo ligado
 
+ // SEQ-11: API client ao lado do editor; rodar o fluxo (e passo a passo) pinta as setas; enviar pelo API client também pinta; as regras mudam a cor
+ const chargeModel=await call('GET','/collections/flow/request?path=charge.bru');
+ await call('PUT','/collections/flow/request?path=charge.bru',{...chargeModel,url:`${apiHost}/charge`});
+ await page.goto(`${base}/?p=${linked.id}`);await page.locator('.node').first().waitFor();await page.locator('#expand').click();await page.locator('#edit-switch').click();
+ await openEditor();
+ await page.locator('#diagram-template').selectOption('seq');
+ await page.locator('#diagram-visual').click();
+ const ed11=page.locator('.seq-ed');await ed11.waitFor();
+ await page.locator('.seq-steps .seq-step-row .seq-row-main').first().click();
+ await page.waitForFunction(()=>[...document.querySelectorAll('.seq-inspector select[aria-label=Request] option')].some(o=>/POST Charge/.test(o.textContent)));
+ await ed11.getByLabel('Request',{exact:true}).selectOption({label:'POST Charge · Flow'});
+ assert.equal(await ed11.getByRole('button',{name:'Run flow'}).isEnabled(),true);
+ assert.match(await page.locator('.seq-flow-info').textContent(),/0\/1 linked steps run/);
+ await ed11.getByRole('button',{name:'API beside'}).click();
+ await page.locator('#api-panel').waitFor({state:'visible'});
+ const geo=await page.evaluate(()=>({ed:document.querySelector('.seq-ed').getBoundingClientRect().right,panel:document.querySelector('#api-panel').getBoundingClientRect().left}));
+ assert.ok(geo.ed<=geo.panel+1,`o editor deixa o API client à direita livre (${JSON.stringify(geo)})`);
+ assert.equal(await ed11.getByRole('button',{name:'API beside'}).getAttribute('aria-pressed'),'true');
+ // o clique no API client chega nele (não é coberto pelo editor) e o teclado dele não fecha o editor
+ await page.locator('#api-panel .api-row-name',{hasText:'Charge'}).click();await page.locator('.api-tab.is-active',{hasText:'Charge'}).waitFor();
+ await page.locator('#api-panel .api-filter, #api-panel input[type=search], #api-panel input').first().focus();await page.keyboard.press('Escape');
+ assert.equal(await ed11.isVisible(),true);
+ // Rodar fluxo: a seta fica verde com 201
+ await ed11.getByRole('button',{name:'Run flow'}).click();
+ await page.locator('.seq-msg.is-live-ok').waitFor();
+ assert.match(await page.locator('.seq-live-tag text').first().textContent(),/^201 · \d+ ms$/);
+ assert.equal(await page.locator('.seq-steps .seq-live-chip.is-ok').first().textContent(),'201');
+ await page.waitForFunction(()=>/1\/1 linked steps run/.test(document.querySelector('.seq-flow-info').textContent));
+ // Reiniciar limpa; uma regra "status = 201 → vermelho" muda a cor; Passo roda só o próximo
+ await ed11.getByRole('button',{name:'Reset',exact:true}).click();
+ assert.equal(await page.locator('.seq-msg.is-live-ok, .seq-live-tag').count(),0);
+ await ed11.getByRole('button',{name:'+ Add rule'}).click();
+ await page.locator('.seq-rule input[aria-label="Value"]').fill('201');await page.locator('.seq-rule input[aria-label="Value"]').press('Enter');
+ await ed11.getByRole('button',{name:/Step$/}).click();
+ await page.locator('.seq-msg.is-live-fail').waitFor();
+ assert.equal(await page.locator('.seq-live-last.is-fail').count(),1);
+ // enviar pelo próprio API client também pinta (sem usar o botão do editor)
+ await ed11.getByRole('button',{name:'Reset',exact:true}).click();
+ await page.locator('.seq-rule select[aria-label="Result"]').selectOption('ok');
+ await page.locator('#api-panel .api-send').click();
+ await page.locator('.seq-msg.is-live-ok').waitFor();
+ assert.equal(await page.locator('.seq-steps .seq-live-chip.is-ok').count(),1);
+ // fechar o API client devolve a largura inteira ao editor
+ await page.evaluate(()=>document.querySelector('#api-btn').click());await page.locator('#api-panel').waitFor({state:'hidden'});
+ assert.ok((await page.evaluate(()=>document.querySelector('.seq-ed').getBoundingClientRect().right))>=1390);
+ page.once('dialog',d=>d.accept());await ed11.getByRole('button',{name:'Cancel',exact:true}).click();await ed11.waitFor({state:'hidden'});
+
  const pt=await browser.newContext({locale:'pt-BR',viewport:{width:1400,height:900},extraHTTPHeaders:{'x-context-maps':'1'}});
  const p2=await pt.newPage();p2.setDefaultTimeout(process.env.CI?20000:8000);
  await p2.goto(`${base}/?p=${made.id}`);await p2.locator('.node').first().waitFor();await p2.locator('#expand').click();await p2.locator('#edit-switch').click();
@@ -265,5 +317,5 @@ try{
  await p2.locator('#diagram-error').filter({hasText:'Linha 2: Uma mensagem precisa de dois-pontos'}).waitFor();
 
  assert.deepEqual(errors,[]);
- console.log('PASS SEQ-01..10 native sequence diagrams and visual editor');
-}finally{await browser.close();server.kill();await rm(work,{recursive:true,force:true});}
+ console.log('PASS SEQ-01..11 native sequence diagrams and visual editor');
+}finally{await browser.close();server.kill();apiTarget.close();await rm(work,{recursive:true,force:true});}

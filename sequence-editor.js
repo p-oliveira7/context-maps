@@ -2,7 +2,7 @@
    Trabalha sobre o modelo de sequence.js e só devolve o texto (Mermaid-compatível) ao aplicar. */
 import {parseSequence,stringifySequence,layoutSequence,renderSequenceSvg} from './sequence.js?v=1';
 import * as E from './sequence-edit.js?v=1';
-import {newStepId,normalizeBind,describeRule,MAX_RULES} from './sequence-flow.js?v=1';
+import {newStepId,normalizeBind,describeRule,evaluateOutcome,MAX_RULES} from './sequence-flow.js?v=1';
 
 function h(tag,props={},...kids){
  const el=document.createElement(tag);
@@ -17,7 +17,7 @@ function h(tag,props={},...kids){
 const SVG_NS='http://www.w3.org/2000/svg';
 const svgEl=(tag,attrs)=>{const el=document.createElementNS(SVG_NS,tag);for(const [k,v] of Object.entries(attrs))el.setAttribute(k,String(v));return el;};
 
-export function openSequenceEditor({source,t,measure,onApply,onClose,loadRequests}){
+export function openSequenceEditor({source,t,measure,onApply,onClose,loadRequests,api}){
  let model;
  try{model=parseSequence(source);}catch{return false;}
  const initial=JSON.stringify(model),hist=E.createHistory(model);
@@ -32,6 +32,15 @@ export function openSequenceEditor({source,t,measure,onApply,onClose,loadRequest
  const visualTab=h('button',{type:'button',role:'tab',class:'seq-seg is-on','aria-selected':'true',onClick:()=>setView('visual')},t('seqEdVisual'));
  const textTab=h('button',{type:'button',role:'tab',class:'seq-seg','aria-selected':'false',onClick:()=>setView('text')},t('seqEdText'));
  const applyBtn=h('button',{type:'button',class:'seq-btn seq-primary',onClick:()=>apply()},t('seqEdApply'));
+ // fluxo ao vivo (só existe com o API client disponível)
+ const apiBtn=h('button',{type:'button',class:'seq-btn seq-api-toggle','aria-pressed':'false',title:t('seqLiveApiTitle'),onClick:()=>{api.toggle(!document.body.classList.contains('api-open'));syncFlow();}},t('seqLiveApi'));
+ const playBtn=h('button',{type:'button',class:'seq-btn seq-play',onClick:()=>{api.toggle(true);runFrom(Infinity);}},`▶ ${t('seqLivePlay')}`);
+ const stopBtn=h('button',{type:'button',class:'seq-btn seq-danger',hidden:true,onClick:()=>runCtl?.abort()},`■ ${t('seqLiveStop')}`);
+ const stepBtn=h('button',{type:'button',class:'seq-btn',onClick:()=>{api.toggle(true);runFrom(1);}},`⏭ ${t('seqLiveStep')}`);
+ const resetBtn=h('button',{type:'button',class:'seq-btn',onClick:()=>resetFlow()},t('seqLiveResetBtn'));
+ const stopOnFail=h('input',{type:'checkbox',checked:true,'aria-label':t('seqLiveStopOnFail')});
+ const flowInfo=h('span',{class:'seq-flow-info',role:'status'});
+ const flowBar=api?h('div',{class:'seq-flow',role:'group','aria-label':t('seqLiveGroup')},apiBtn,playBtn,stopBtn,stepBtn,resetBtn,h('label',{class:'seq-flow-chk'},stopOnFail,h('span',{},t('seqLiveStopOnFail'))),flowInfo):null;
  const zoomLabel=h('span',{class:'seq-zoom-label'},'100%');
  const partList=h('ul',{class:'seq-list',role:'list','aria-label':t('seqEdParticipants')});
  const stepList=h('ol',{class:'seq-list seq-steps',role:'list','aria-label':t('seqEdSteps')});
@@ -44,7 +53,7 @@ export function openSequenceEditor({source,t,measure,onApply,onClose,loadRequest
  const card=h('div',{class:'seq-ed-card'},
   h('header',{class:'seq-ed-top'},h('h2',{id:'seq-ed-title'},t('seqEdTitle')),
    h('div',{class:'seq-seg-group',role:'tablist','aria-label':t('seqEdView')},visualTab,textTab),
-   undoBtn,redoBtn,h('span',{class:'seq-spacer'}),status,
+   undoBtn,redoBtn,flowBar,h('span',{class:'seq-spacer'}),status,
    h('button',{type:'button',class:'seq-btn',onClick:()=>cancel()},t('seqEdCancel')),applyBtn),
   h('div',{class:'seq-ed-body'},
    h('aside',{class:'seq-ed-left'},
@@ -132,7 +141,7 @@ export function openSequenceEditor({source,t,measure,onApply,onClose,loadRequest
  });
 
  /* ---------- desenho ---------- */
- function redraw(){
+ function redraw(){ // (o fluxo ao vivo é repintado no fim)
   layout=layoutSequence(model,{measure});
   host.innerHTML=renderSequenceSvg(layout,{summary:''});
   const svg=host.querySelector('svg');svg.removeAttribute('role');svg.setAttribute('aria-hidden','true');
@@ -147,7 +156,7 @@ export function openSequenceEditor({source,t,measure,onApply,onClose,loadRequest
    g.prepend(svgEl('rect',{class:'seq-msghit',x,y:top,width:w,height:it.lines.length*16+14+(it.self?24:0),fill:'transparent'}));
   }
   drawSelection(svg);applyZoom();
-  renderLists();renderInspector();
+  renderLists();renderInspector();if(api)paintLive();
   undoBtn.disabled=!hist.canUndo;redoBtn.disabled=!hist.canRedo;
  }
  function drawSelection(svg){
@@ -175,7 +184,7 @@ export function openSequenceEditor({source,t,measure,onApply,onClose,loadRequest
   stepList.replaceChildren(...model.steps.map((s,k)=>{
    const on=sel?.kind==='step'&&sel.index===k,depth=E.depthOf(model,k);
    return h('li',{class:`seq-row seq-step-row is-${s.type}${on?' is-sel':''}`,style:`--depth:${depth}`},
-    h('button',{type:'button',class:'seq-row-main','aria-pressed':String(on),onClick:()=>select({kind:'step',index:k})},h('span',{class:'seq-num','aria-hidden':'true'},String(k+1)),h('span',{class:'seq-row-text'},E.describeStep(model,k)),s.bind?h('span',{class:'seq-api-badge',title:s.bind.request},'API'):null));
+    h('button',{type:'button',class:'seq-row-main','aria-pressed':String(on),onClick:()=>select({kind:'step',index:k})},h('span',{class:'seq-num','aria-hidden':'true'},String(k+1)),h('span',{class:'seq-row-text'},E.describeStep(model,k)),s.bind?h('span',{class:'seq-api-badge',title:s.bind.request},'API'):null,live.get(s.id)?h('span',{class:`seq-live-chip is-${live.get(s.id).outcome}`,title:liveText(live.get(s.id))},live.get(s.id).error?'ERR':String(live.get(s.id).status)):null));
   }));
   if(!model.steps.length)stepList.append(h('li',{class:'seq-empty'},t('seqEdNoSteps')));
  }
@@ -213,6 +222,8 @@ export function openSequenceEditor({source,t,measure,onApply,onClose,loadRequest
    },t('seqFlowRequest')))];
   if(!reqList.length&&!cur)out.push(h('p',{class:'seq-hint'},t('seqFlowNoRequests')));
   if(!cur)return out;
+  const lv=live.get(s.id);
+  if(lv)out.push(h('p',{class:`seq-live-last is-${lv.outcome}`,role:'status'},`${t(lv.outcome==='ok'?'seqFlowOk':'seqFlowFail')}: ${liveText(lv)}`));
   out.push(h('p',{class:'seq-hint'},t('seqFlowDefault')));
   const save=rules=>{const b=model.steps[k].bind;E.updateStep(model,k,{bind:{...b,rules}});commit();};
   const list=h('ol',{class:'seq-rules','aria-label':t('seqFlowRules')});
@@ -234,6 +245,65 @@ export function openSequenceEditor({source,t,measure,onApply,onClose,loadRequest
   });
   out.push(list,actionRow(h('button',{type:'button',class:'seq-btn',disabled:cur.rules.length>=MAX_RULES||null,onClick:()=>save([...cur.rules,{when:'status',op:'eq',value:'402',result:'fail'}])},`+ ${t('seqFlowAddRule')}`)));
   return out;
+ }
+
+ /* ---------- fluxo ao vivo: a resposta do API client pinta o passo ligado ---------- */
+ const live=new Map(),pulse=new Set(); // id do passo -> {outcome,status,error,timeMs,mock}
+ let runCtl=null,cursor=0,unsubscribe=null,observer=null;
+ const boundIdx=()=>model.steps.map((s,i)=>s.bind&&s.id?i:-1).filter(i=>i>=0);
+ const liveText=v=>v.error?`${t('seqLiveError')}: ${v.error}`:`${v.status} · ${v.timeMs} ms${v.mock?` · MOCK ${v.mock}`:''}`;
+ function paintLive(){
+  const svg=host.querySelector('svg');
+  if(svg){
+   svg.querySelectorAll('.seq-live-tag').forEach(n=>n.remove());
+   svg.querySelectorAll('.seq-msg').forEach(g=>g.classList.remove('is-live-ok','is-live-fail','is-live-pulse','is-live-run'));
+   for(const it of layout?.items||[]){
+    if(it.kind!=='message'||!it.sid)continue;
+    const g=svg.querySelector(`.seq-msg[data-step="${it.step}"]`),v=live.get(it.sid);if(!g)continue;
+    if(runCtl?.current===it.sid)g.classList.add('is-live-run');
+    if(!v)continue;
+    g.classList.add(v.outcome==='ok'?'is-live-ok':'is-live-fail');if(pulse.has(it.sid))g.classList.add('is-live-pulse');
+    const label=liveText(v),w=Math.round(label.length*6.1+12),cx=it.self?it.x2+8+w/2:(it.x1+it.x2)/2,cy=it.self?it.y+11:it.y;
+    const pill=svgEl('g',{class:`seq-live-tag is-${v.outcome}`});
+    pill.append(svgEl('rect',{x:cx-w/2,y:cy-8,width:w,height:16,rx:8}),svgEl('text',{x:cx,y:cy+3.5,'text-anchor':'middle'}));
+    pill.lastChild.textContent=label;g.append(pill);
+   }
+  }
+  renderLists();syncFlow();
+ }
+ function onResult(r){
+  let hit=false;
+  model.steps.forEach(s=>{
+   if(!s.bind||!s.id||s.bind.collection!==r.collection||s.bind.request!==r.path)return;
+   hit=true;live.set(s.id,{outcome:evaluateOutcome(s.bind,r),status:r.status,error:r.error,timeMs:r.timeMs,mock:r.mock});pulse.add(s.id);
+   setTimeout(()=>{pulse.delete(s.id);if(overlay.isConnected)paintLive();},900);
+  });
+  if(hit){paintLive();if(sel?.kind==='step')renderInspector();}
+ }
+ const sleep=(ms,signal)=>new Promise(res=>{const id=setTimeout(res,ms);signal?.addEventListener('abort',()=>{clearTimeout(id);res();},{once:true});});
+ async function runFrom(count){ // count: quantos passos ligados rodar (1 = passo a passo, Infinity = tudo)
+  if(runCtl)return;
+  const todo=boundIdx();if(cursor>=todo.length)cursor=0;
+  runCtl=new AbortController();syncFlow();
+  try{
+   for(let n=0;n<count&&cursor<todo.length&&!runCtl.signal.aborted;n++,cursor++){
+    const s=model.steps[todo[cursor]];runCtl.current=s.id;paintLive();
+    const r=await api.run({collection:s.bind.collection,path:s.bind.request,signal:runCtl.signal});
+    if(runCtl.signal.aborted)break;
+    if(!r.status&&!r.error)break;
+    if(stopOnFail.checked&&live.get(s.id)?.outcome==='fail'){cursor++;say(t('seqLiveStopped',describeShort(s)));break;}
+    if(count>1)await sleep(550,runCtl.signal);
+   }
+  }finally{runCtl=null;paintLive();}
+ }
+ const describeShort=s=>s.text||s.bind.request;
+ function resetFlow(){runCtl?.abort();live.clear();pulse.clear();cursor=0;paintLive();say(t('seqLiveReset'));}
+ function syncFlow(){
+  const n=boundIdx().length,running=!!runCtl;
+  playBtn.hidden=running;stopBtn.hidden=!running;
+  playBtn.disabled=!n;stepBtn.disabled=!n||running;resetBtn.disabled=running||!(live.size||cursor);
+  flowInfo.textContent=n?t('seqLiveCount',Math.min(cursor,n),n):t('seqLiveNoBound');
+  apiBtn.setAttribute('aria-pressed',String(document.body.classList.contains('api-open')));
  }
  const actionRow=(...btns)=>h('div',{class:'seq-actions'},...btns);
  function renderInspector(){
@@ -367,6 +437,7 @@ export function openSequenceEditor({source,t,measure,onApply,onClose,loadRequest
  const tag=el=>el?.tagName;
  const onKey=e=>{
   if(!overlay.isConnected)return;
+  if(e.target?.closest?.('#api-panel'))return; // lado a lado: o teclado no API client é dele
   const mod=e.ctrlKey||e.metaKey,typing=['INPUT','TEXTAREA'].includes(tag(document.activeElement));
   if(e.key==='Escape'){
    if(editing)return; // o campo do rótulo cuida do próprio Esc
@@ -390,6 +461,7 @@ export function openSequenceEditor({source,t,measure,onApply,onClose,loadRequest
  /* ---------- fechar ---------- */
  const dirty=()=>view==='text'?textArea.value!==stringifySequence(JSON.parse(initial)):JSON.stringify(model)!==initial;
  function close(){
+  runCtl?.abort();unsubscribe?.();observer?.disconnect();
   document.removeEventListener('keydown',onKey,true);overlay.remove();
   if(back?.isConnected)back.focus({preventScroll:true});onClose?.();
  }
@@ -405,6 +477,7 @@ export function openSequenceEditor({source,t,measure,onApply,onClose,loadRequest
  }
 
  document.addEventListener('keydown',onKey,true);
+ if(api){unsubscribe=api.onResult(onResult);observer=new MutationObserver(()=>syncFlow());observer.observe(document.body,{attributes:true,attributeFilter:['class']});}
  document.body.append(overlay);
  redraw();stage.focus();
  return true;
