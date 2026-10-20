@@ -69,7 +69,7 @@ export function reportJson(run){
  return {title:run.title,environment:run.env||null,recursive:run.recursive,status:run.status,startedAt:run.startedAt,finishedAt:run.finishedAt||null,
   summary:summarize(run.items),
   requests:run.items.map(i=>({path:i.path,name:i.name,method:i.method,group:i.group,status:i.status,
-   http:i.out?.status??null,timeMs:i.out?.timeMs??null,url:i.out?.sent?.url??null,error:i.out?.error?(i.out.detail||i.out.error):null,
+   http:i.out?.status??null,mock:i.out?.mock?i.out.mock.name:null,timeMs:i.out?.timeMs??null,url:i.out?.sent?.url??null,error:i.out?.error?(i.out.detail||i.out.error):null,
    checks:checksOf(i.out).map(c=>({name:c.name||`${c.expression} ${c.assertion}`,passed:!!c.passed,...(c.error?{error:c.error}:{})}))}))};
 }
 /** Texto curto para colar em issues e chats. */
