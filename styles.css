@@ -138,6 +138,9 @@ body.is-editing #viewport [contenteditable]:focus{box-shadow:0 0 0 2px #4f9d7a}
 #diagram-preview{overflow:auto;display:flex;padding:1rem;background:#161616}
 #diagram-preview img{margin:auto;max-width:100%;height:auto} /* margin:auto centraliza sem cortar diagramas grandes */
 .modal-card footer{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.6rem 1rem;border-top:1px solid #ffffff14}
+#diagram-template{margin-left:auto;margin-right:.6rem;padding:.25rem .5rem;border-radius:8px;background:#1d1d1d;color:#e6e6e6;border:1px solid #ffffff1f;font:inherit;font-size:.78rem}
+#diagram-template[hidden]{display:none}
+#diagram-engine{margin-left:auto;margin-right:.8rem;font-size:.7rem;color:#ffffff80;white-space:nowrap}
 #diagram-error{font-size:.75rem;color:#e57373;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #diagram-apply{padding:.4rem 1rem;border-radius:10px;background:#4f9d7a;color:#fff;font-size:.8rem;font-weight:600}
 #diagram-apply:disabled{opacity:.4;cursor:default}

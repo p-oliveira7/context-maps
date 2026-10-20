@@ -5,6 +5,7 @@ import {t,applyStatic} from './i18n.js?v=1';
 import {VERSION} from './version.js?v=1';
 import {initApiClient,openApiPanel,closeApiPanel,isApiOpen,setAttachTarget,summarize,summarizeTree,API_DRAG_TYPE} from './api-client.js?v=11';
 import {apiDropdown,closeApiDropdown} from './api-dropdown.js?v=1';
+import {isSequenceSource,renderSequence,FONT as SEQ_FONT} from './sequence.js?v=1';
 applyStatic();
 const $=s=>document.querySelector(s), viewport=$('#viewport'), world=$('#world');
 $('#doc-version').textContent=`Context Maps v${VERSION}`;
@@ -611,8 +612,16 @@ function loadMermaid(){
  });
  return mermaidReady;
 }
+let diagramEngine='mermaid';
+const measureCtx=document.createElement('canvas').getContext('2d');
+const measureText=(text,bold)=>{measureCtx.font=`${bold?'600 ':''}13px ${SEQ_FONT}`;return measureCtx.measureText(text).width;};
 async function renderDiagram(source){
  if(!source.trim())throw new Error(t('writeDiagram'));
+ diagramEngine='mermaid';
+ if(isSequenceSource(source)){ // diagramas de sequência: desenho próprio; sintaxe que ele não conhece cai no Mermaid
+  try{const out=renderSequence(source,{measure:measureText}).svg;diagramEngine='sequence';return out;}
+  catch(e){if(e.code!=='unsupported')throw new Error(t('sequenceError',e.line,t(`seqErr_${e.code}`,e.detail)));}
+ }
  const mermaid=await loadMermaid(),id=`mm-${++renderSeq}`;
  try{
   await mermaid.parse(source);
@@ -629,12 +638,19 @@ function openDiagramEditor(node,index=null){
  let svg=null,timer=0,seq=0;
  const current=index===null?null:node.images?.[index];
  ta.value=current?.kind==='diagram'&&current.source?current.source:t('defaultDiagram');
- const close=()=>{modal.hidden=true;document.removeEventListener('keydown',onKey);clearTimeout(timer);ta.oninput=null;opener?.focus?.({preventScroll:true});};
+ const tpl=$('#diagram-template'),engineLabel=$('#diagram-engine');
+ tpl.hidden=!!current;
+ if(!current){ // diagrama novo: começar de um modelo
+  tpl.replaceChildren(...[['flow','tplFlow'],['seq','tplSequence']].map(([v,k])=>{const o=document.createElement('option');o.value=v;o.textContent=t(k);return o;}));
+  tpl.value='flow';
+  tpl.onchange=()=>{ta.value=t(tpl.value==='seq'?'defaultSequence':'defaultDiagram');apply.disabled=true;clearTimeout(timer);update();};
+ }
+ const close=()=>{modal.hidden=true;document.removeEventListener('keydown',onKey);clearTimeout(timer);ta.oninput=null;tpl.onchange=null;opener?.focus?.({preventScroll:true});};
  const onKey=e=>{if(e.key==='Escape'){e.preventDefault();close();}};
  const update=async()=>{
   const mine=++seq;
-  try{const out=await renderDiagram(ta.value);if(mine!==seq)return;svg=out;showPreview(out);error.textContent='';apply.disabled=false;}
-  catch(e){if(mine!==seq)return;svg=null;apply.disabled=true;error.textContent=String(e.message||e).split('\n').slice(0,3).join(' ');}
+  try{const out=await renderDiagram(ta.value);if(mine!==seq)return;svg=out;showPreview(out);engineLabel.textContent=t(diagramEngine==='sequence'?'engineSequence':'engineMermaid');error.textContent='';apply.disabled=false;}
+  catch(e){if(mine!==seq)return;svg=null;engineLabel.textContent='';apply.disabled=true;error.textContent=String(e.message||e).split('\n').slice(0,3).join(' ');}
  };
  ta.oninput=()=>{apply.disabled=true;clearTimeout(timer);timer=setTimeout(update,350);};
  $('#diagram-cancel').onclick=close;
@@ -642,7 +658,7 @@ function openDiagramEditor(node,index=null){
   if(!svg)return;apply.disabled=true;
   try{
    const src=await store.upload(doc.id,new File([svg],'diagrama.svg',{type:'image/svg+xml'}));
-   const entry={src,alt:t('diagramAlt',nameOf(node)),kind:'diagram',source:ta.value};
+   const entry={src,alt:t('diagramAlt',nameOf(node)),kind:'diagram',source:ta.value,...(diagramEngine==='sequence'?{engine:'sequence'}:{})};
    if(current)node.images[index]=entry;else(node.images||=[]).push(entry);
    close();commit();render();
   }catch{error.textContent=t('diagramSaveError');apply.disabled=false;}

@@ -7,7 +7,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 const NL=String.fromCharCode(10),CR=String.fromCharCode(13);
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
-const wanted=process.argv.slice(2),all=['edit','skill','collections','sandbox','api','tabs','response','polish','runner','browser','cards','motion','a11y'],suites=wanted.length?wanted:all;
+const wanted=process.argv.slice(2),all=['edit','skill','collections','sandbox','api','tabs','response','polish','runner','sequence','browser','cards','motion','a11y'],suites=wanted.length?wanted:all;
 const work=await mkdtemp(path.join(tmpdir(),'cm-e2e-')),port=4193;
 let server=null,failed=[];
 try{

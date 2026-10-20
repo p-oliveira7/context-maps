@@ -142,7 +142,7 @@ lugar: abra, expanda tudo e ligue o modo *Editar*. **As imagens e o GIF deste RE
 
 - **Imagens e diagramas** abrem em tela cheia; com várias mídias há setas ‹ › (ou ← →) e contador.
 - **Links** aparecem como selo "🔗 N link(s)" abaixo do card: um link abre direto, vários abrem uma lista.
-- **Diagramas** são [Mermaid](https://mermaid.js.org/), editados no app com pré-visualização ao vivo.
+- **Diagramas** usam a sintaxe [Mermaid](https://mermaid.js.org/), editados no app com pré-visualização ao vivo. Um **diagrama de sequência** (`sequenceDiagram`) é desenhado pelo próprio Context Maps (os rótulos dimensionam as linhas de vida, cada seta e nota é endereçável, os erros dizem a linha); o que ele não suporta cai no Mermaid. Comece um diagrama novo pelo modelo *Fluxograma* ou *Diagrama de sequência*.
 
 <p align="center">
   <img src="docs/images/07-diagram-editor.png" alt="O editor de diagramas Mermaid com pré-visualização ao vivo" width="820"><br>
@@ -404,6 +404,7 @@ node tests/edit.mjs                     # ou rode uma suíte só
 | `polish` POL-01..07 · `curl` | importar/copiar cURL, variáveis sem valor, menu de contexto, variáveis de sessão, telas estreitas |
 | `response` RESP-01..10 | corpo da resposta: árvore JSON, copiar e filtrar por caminho, busca, cores XML/HTML, preview |
 | `tabs` TAB-01..12 | abas de requests, disposição editor/resposta e divisor, abrir request rápido |
+| `sequence` SEQ-01..06 · `sequence.test` | diagramas de sequência nativos: leitura, layout, SVG, editor |
 | `runner` RUN-01..12 · `runner.test` | executar pastas, relatório interativo, importar pasta do Bruno |
 | `a11y` A11Y-01..07 | semântica de árvore, navegação por teclado, nomes acessíveis, foco nas janelas, zoom por pinça |
 
