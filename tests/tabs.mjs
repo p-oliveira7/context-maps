@@ -156,13 +156,13 @@ try{
  await page.keyboard.press('ArrowDown');await page.keyboard.press('ArrowDown');await page.keyboard.press('Enter'); // desce até o fim e volta ao primeiro
  await page.locator('.api-quick').waitFor({state:'detached'});await page.locator('.api-tab.is-active',{hasText:'Alpha'}).waitFor();
 
- // TAB-10: Ctrl+S grava o arquivo
+ // TAB-10: Ctrl+S grava o arquivo (sem ficar lendo o arquivo enquanto ele é gravado: no Windows isso atrapalha)
  await open('Alpha');
  await page.locator('.api-url').fill('{{host}}/saved-now');
+ await page.locator('.api-save',{hasText:/^Unsaved/}).waitFor();
  await page.keyboard.press('Control+s');
- const t0=Date.now();let saved=false;
- while(Date.now()-t0<3000&&!saved){saved=(await urlOf('alpha.bru'))==='{{host}}/saved-now';if(!saved)await page.waitForTimeout(40);}
- assert.ok(saved,'Ctrl+S deveria gravar o arquivo');
+ await page.locator('.api-save',{hasText:/^Saved$/}).waitFor();
+ assert.equal(await urlOf('alpha.bru'),'{{host}}/saved-now');
 
  assert.deepEqual(errors,[]);
  console.log('PASS TAB-01..10 request tabs, split layout and quick open');
