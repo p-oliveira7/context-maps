@@ -875,3 +875,17 @@ body.api-open .seq-ed,body.api-open #diagram-editor{right:var(--api-w)}
  .seq-ed-right{grid-area:right;border-top:1px solid #ffffff1a;max-height:none}
  .seq-flow{flex-basis:100%;margin-left:0;padding-left:0;border-left:0}
 }
+
+/* ---------- janela flutuante de fluxo ao vivo ---------- */
+.seq-live-win{position:fixed;left:1rem;bottom:5.2rem;z-index:650;width:min(900px,calc(100vw - 2rem));height:min(640px,72vh);min-width:300px;min-height:220px;resize:both;overflow:hidden;display:flex;flex-direction:column;background:#161616;border:1px solid #ffffff2e;border-radius:12px;box-shadow:0 18px 50px #000a;color:#e6e6e6;font-size:.8rem}
+body.api-open .seq-live-win{max-width:calc(100vw - var(--api-w) - 2rem)}
+.seq-live-head{display:flex;align-items:center;gap:.5rem;padding:.45rem .6rem;border-bottom:1px solid #ffffff1a;background:#1a1a1a;cursor:grab;touch-action:none}
+.seq-live-head:active{cursor:grabbing}
+.seq-live-win .seq-flow{margin:0;padding:.4rem .6rem;border:0;border-bottom:1px solid #ffffff14}
+.seq-live-host{flex:1;min-height:0;overflow:auto;padding:.6rem;background:#101010}
+.seq-live-host svg{max-width:none;display:block;margin:0 auto}
+.seq-live-foot{padding:.25rem .6rem;border-top:1px solid #ffffff14;min-height:1.6rem;color:#ffffff99;font-size:.72rem}
+.seq-live-close{padding:.05rem .45rem;line-height:1.4}
+.image-live{margin-top:.35rem;padding:.2rem .6rem;border-radius:999px;border:1px solid #4f9d7a;background:#4f9d7a22;color:#8fd1b3;font:inherit;font-size:.72rem;font-weight:600;cursor:pointer}
+.image-live:hover{background:#4f9d7a44}
+.image-item.is-live{display:flex;flex-direction:column;align-items:flex-start}

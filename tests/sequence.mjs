@@ -305,6 +305,36 @@ try{
  assert.ok((await page.evaluate(()=>document.querySelector('.seq-ed').getBoundingClientRect().right))>=1390);
  page.once('dialog',d=>d.accept());await ed11.getByRole('button',{name:'Cancel',exact:true}).click();await ed11.waitFor({state:'hidden'});
 
+ // SEQ-12: fora do editor, abrir o diagrama (leitura ou edição) abre a janela de fluxo ao vivo, sem bloquear a tela, ao lado do API client
+ await page.goto(`${base}/?p=${linked.id}`);await page.locator('.node').first().waitFor();await page.locator('#expand').click();
+ await page.locator('#fit').click();
+ const liveWin=page.locator('.seq-live-win');
+ assert.equal(await page.locator('.image-live').count(),1); // o selo só aparece em diagrama com request ligada
+ await page.locator('.image-button.is-diagram').click(); // abrir o diagrama (ampliar) abre a janela, não o diálogo bloqueante
+ await liveWin.waitFor();
+ assert.equal(await page.locator('dialog[open]').count(),0);
+ assert.match(await page.locator('.seq-flow-info').textContent(),/0\/1 linked steps run/);
+ await liveWin.getByRole('button',{name:'API beside'}).click();
+ await page.locator('#api-panel').waitFor({state:'visible'});
+ const geo12=await page.evaluate(()=>({win:document.querySelector('.seq-live-win').getBoundingClientRect().right,panel:document.querySelector('#api-panel').getBoundingClientRect().left}));
+ assert.ok(geo12.win<=geo12.panel+1,`a janela fica ao lado do API client (${JSON.stringify(geo12)})`);
+ await liveWin.getByRole('button',{name:'Run flow'}).click();
+ await liveWin.locator('.seq-msg.is-live-ok').waitFor();
+ assert.match(await liveWin.locator('.seq-live-tag text').first().textContent(),/^201 · \d+ ms$/);
+ // o API client segue utilizável com a janela aberta (nada está inerte) e enviar por ele pinta também
+ await liveWin.getByRole('button',{name:'Reset',exact:true}).click();
+ assert.equal(await liveWin.locator('.seq-live-tag').count(),0);
+ await page.locator('#api-panel .api-row-name',{hasText:'Charge'}).click();await page.locator('.api-tab.is-active',{hasText:'Charge'}).waitFor();
+ await page.locator('#api-panel .api-send').click();
+ await liveWin.locator('.seq-msg.is-live-ok').waitFor();
+ await liveWin.getByRole('button',{name:'Close live flow'}).click();await liveWin.waitFor({state:'hidden'});
+ await page.evaluate(()=>document.querySelector('#api-btn').click());
+ // também pelo botão "Live flow" no modo de edição
+ await page.locator('#edit-switch').click();
+ await page.locator('.image-live').click();await liveWin.waitFor();
+ await page.keyboard.press('Escape');
+ await liveWin.waitFor({state:'hidden'});
+
  const pt=await browser.newContext({locale:'pt-BR',viewport:{width:1400,height:900},extraHTTPHeaders:{'x-context-maps':'1'}});
  const p2=await pt.newPage();p2.setDefaultTimeout(process.env.CI?20000:8000);
  await p2.goto(`${base}/?p=${made.id}`);await p2.locator('.node').first().waitFor();await p2.locator('#expand').click();await p2.locator('#edit-switch').click();
@@ -317,5 +347,5 @@ try{
  await p2.locator('#diagram-error').filter({hasText:'Linha 2: Uma mensagem precisa de dois-pontos'}).waitFor();
 
  assert.deepEqual(errors,[]);
- console.log('PASS SEQ-01..11 native sequence diagrams and visual editor');
+ console.log('PASS SEQ-01..12 native sequence diagrams and visual editor');
 }finally{await browser.close();server.kill();apiTarget.close();await rm(work,{recursive:true,force:true});}

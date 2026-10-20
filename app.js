@@ -6,7 +6,9 @@ import {VERSION} from './version.js?v=1';
 import {initApiClient,openApiPanel,closeApiPanel,isApiOpen,setAttachTarget,summarize,summarizeTree,listRequests,runRequest,onRequestResult,API_DRAG_TYPE} from './api-client.js?v=12';
 import {apiDropdown,closeApiDropdown} from './api-dropdown.js?v=1';
 import {isSequenceSource,renderSequence,FONT as SEQ_FONT} from './sequence.js?v=1';
-import {openSequenceEditor} from './sequence-editor.js?v=4';
+import {openSequenceEditor} from './sequence-editor.js?v=5';
+import {openLiveFlow} from './sequence-live.js?v=1';
+import {parseSequence} from './sequence.js?v=1';
 applyStatic();
 const $=s=>document.querySelector(s), viewport=$('#viewport'), world=$('#world');
 $('#doc-version').textContent=`Context Maps v${VERSION}`;
@@ -46,6 +48,8 @@ function showGalleryImage(){
  $('#lightbox-count').textContent=`${gallery.index+1} / ${gallery.images.length}`;
 }
 function openImage(node,index=0){
+ const image=imagesOf(node)[index];
+ if(image&&hasLinkedSteps(image)){startLiveFlow(node,image);return;} // diagrama com requests ligadas: janela sem bloqueio, para ficar ao lado do API client
  gallery.images=imagesOf(node);gallery.index=index;showGalleryImage();$('dialog').showModal();
 }
 function stepGallery(delta){const n=gallery.images.length;if(n<2)return;gallery.index=(gallery.index+delta+n)%n;showGalleryImage();}
@@ -62,14 +66,33 @@ function imageBadge(node){
  button.innerHTML=`<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="3" width="12" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="6" cy="7" r="1.2" fill="currentColor"/><path d="m3 12 3.5-3.5 2.5 2.5 2-2 2 2.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>${count}`;
  button.onclick=()=>openImage(node,0);return button;
 }
+/* "▶ Fluxo": só nos diagramas de sequência que têm passos ligados a requests */
+function hasLinkedSteps(image){
+ if(image.kind!=='diagram'||image.engine!=='sequence'||!image.source||!image.source.includes('@step'))return false;
+ try{return parseSequence(image.source).steps.some(s=>s.bind);}catch{return false;}
+}
+function startLiveFlow(node,image){
+ openLiveFlow({source:image.source,title:nameOf(node),t,measure:measureText,api:{toggle:on=>{if(on){if(!isApiOpen()){openApiPanel();$('#api-btn').setAttribute('aria-expanded','true');}}else closeApiPanel();},run:runRequest,onResult:onRequestResult}});
+}
+function liveButton(node,image){
+ if(!hasLinkedSteps(image))return null;
+ const b=document.createElement('button');b.type='button';b.className='image-live';b.textContent=`▶ ${t('liveFlowButton')}`;
+ b.setAttribute('aria-label',t('liveFlowOpen',nameOf(node)));b.title=t('liveFlowTitle');
+ b.onclick=e=>{e.stopPropagation();startLiveFlow(node,image);};
+ return b;
+}
 function imageItem(node,image,index){
- const button=imageButton(node,image,index);
- if(!editing)return button;
+ const button=imageButton(node,image,index),play=liveButton(node,image);
+ if(!editing){
+  if(!play)return button;
+  const wrap=document.createElement('div');wrap.className='image-item is-live';wrap.append(button,play);return wrap;
+ }
  const item=document.createElement('div');item.className='image-item';item.append(button);
  const tools=document.createElement('div');tools.className='image-tools';
  if(image.kind==='diagram'){
   const edit=document.createElement('button');edit.type='button';edit.textContent=t('edit');edit.setAttribute('aria-label',t('editDiagram',nameOf(node),imagesOf(node).length>1?` (${index+1})`:''));
   edit.onclick=()=>openDiagramEditor(node,index);tools.append(edit);
+  if(play)tools.append(play);
  }
  const remove=document.createElement('button');remove.type='button';remove.textContent='×';remove.className='danger';remove.setAttribute('aria-label',t('removeImage',nameOf(node),imagesOf(node).length>1?` (${index+1})`:''));
  remove.onclick=()=>{node.images.splice(index,1);if(!node.images.length)delete node.images;commit();render();};
