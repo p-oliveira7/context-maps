@@ -44,6 +44,10 @@ try{
  const page=await ctx.newPage();page.setDefaultTimeout(process.env.CI?15000:6000);
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  // trocar de coleção ou renomear com alterações abertas pergunta antes: aqui escolhemos "Não salvar"
+ const ddOpen=async id=>{ // o card mostra só o símbolo da API; ao clicar, a lista de pastas e requests
+  await page.locator(`[data-id="${id}"] .api-dd`).click();
+  const pop=page.locator('.api-dd-pop');await pop.locator('.api-dd-item').first().waitFor();return pop;
+ };
  const discardUnsaved=async()=>{const d=page.locator('.api-unsaved-card');try{await d.waitFor({timeout:1000});await d.getByRole('button',{name:'Não salvar'}).click();await d.waitFor({state:'detached'});}catch{}};
  await page.goto(base);await page.locator('.node').first().waitFor();
 
@@ -176,32 +180,51 @@ try{
   await page.locator('.api-row[data-path="pedidos"]').waitFor();
   // arrastar a pasta do painel para o card
   await page.locator('.api-row[data-path="pedidos"]').dragTo(page.locator('[data-id="c1"]'));
-  await page.locator('[data-id="c1"] .api-tile').waitFor();
-  const tile=page.locator('[data-id="c1"] .api-tile');
-  await tile.locator('.api-tile-req',{hasText:'Listar pedidos'}).waitFor();
-  assert.match(await tile.textContent(),/Pedidos/);assert.match(await tile.textContent(),/2 requests/);
+  await page.locator('[data-id="c1"] .api-dd').waitFor();
+  assert.equal(await page.locator('[data-id="c1"] .api-tile').count(),0); // não é mais um bloco grande
+  assert.equal(await page.locator('[data-id="c1"] .api-dd').getAttribute('aria-expanded'),'false');
+  assert.equal(await page.locator('[data-id="c1"] .api-dd').locator('svg path').getAttribute('d'),await page.locator('#api-btn svg path').getAttribute('d')); // o mesmo símbolo do botão API do rodapé
+  let pop=await ddOpen('c1');
+  assert.equal(await page.locator('[data-id="c1"] .api-dd').getAttribute('aria-expanded'),'true');
+  assert.deepEqual(await pop.locator('.api-dd-item.is-folder .api-dd-name').allTextContents(),['Pedidos']);
+  assert.deepEqual(await pop.locator('.api-dd-item.is-request .api-dd-name').allTextContents(),['Listar pedidos','Criar pedido']);
+  assert.equal(await page.evaluate(()=>document.activeElement.closest('.api-dd-pop')!==null),true); // o foco entra na lista
+  await page.keyboard.press('ArrowDown');assert.equal(await page.evaluate(()=>document.activeElement.textContent.includes('Listar pedidos')),true);
+  await page.keyboard.press('Escape');await pop.waitFor({state:'detached'});
+  assert.equal(await page.evaluate(()=>document.activeElement.classList.contains('api-dd')),true); // o foco volta ao símbolo
   const saved=async id=>JSON.parse(await readFile(path.join(work,'presentations',`${id}.json`),'utf8'));
   for(let i=0;i<40&&!(await saved(made.id)).roots[0].children[0].apis;i++)await new Promise(r=>setTimeout(r,100));
   const ref=(await saved(made.id)).roots[0].children[0].apis[0];
   assert.deepEqual([ref.collection,ref.path,ref.name],['grupo-api','pedidos','Pedidos']);
   assert.deepEqual(ref.snapshot.requests.map(r=>r.name),['Listar pedidos','Criar pedido']); // resumo guardado para uso offline
+  assert.deepEqual(ref.snapshot.items.map(i=>[i.type,i.name]),[['request','Listar pedidos'],['request','Criar pedido']]); // e a lista do dropdown
   // pela roda de ações: a faixa avisa o alvo e o ⤓ da coleção anexa
   await page.locator('[data-id="c2"]').hover();await page.locator('[data-id="c2"] .edit-fab').click();
   await page.locator('#radial-menu [aria-label^="Anexar ao card"]').click();
   await page.locator('.api-attach-banner').waitFor({state:'visible'});assert.match(await page.locator('.api-attach-banner').textContent(),/Saúde/);
   await page.locator('.api-collection-row .api-attach').click();
-  await page.locator('[data-id="c2"] .api-tile').waitFor();assert.equal(await page.locator('.api-attach-banner').isVisible(),false);
-  assert.match(await page.locator('[data-id="c2"] .api-tile').textContent(),/3 requests/);
+  await page.locator('[data-id="c2"] .api-dd').waitFor();assert.equal(await page.locator('.api-attach-banner').isVisible(),false);
+  pop=await ddOpen('c2');assert.equal(await pop.locator('.api-dd-item.is-request').count(),3);assert.equal(await pop.locator('.api-dd-item.is-folder').count(),2); // a coleção e a pasta Pedidos
+  await page.keyboard.press('Escape');
   // sem alvo, o ⤓ só explica o caminho
   await page.locator('.api-collection-row .api-attach').click();
   await page.locator('#toast-text',{hasText:/roda do card/}).waitFor();
   // clicar no tile (modo exibição) abre o cliente de API na pasta
   await page.locator('#edit-switch').click();
   await page.locator('#api-panel button[aria-label="Fechar o cliente de API"]').click();
-  await page.locator('[data-id="c1"] .api-tile').click();
+  pop=await ddOpen('c1');
+  await pop.locator('.api-dd-item.is-folder').first().click(); // a pasta: abre o cliente nela
+  await pop.waitFor({state:'detached'});
   await page.locator('#api-panel').waitFor({state:'visible'});
   await page.locator('.api-row.is-active,.api-row[aria-expanded=true]',{hasText:'Pedidos'}).waitFor();
   await page.locator('#api-panel button[aria-label="Fechar o cliente de API"]').click();
+  pop=await ddOpen('c1');
+  await pop.locator('.api-dd-item.is-request',{hasText:'Listar pedidos'}).click(); // a request: abre o cliente já nela
+  await page.locator('.api-req-title strong',{hasText:'Listar pedidos'}).waitFor();
+  await page.locator('#api-panel button[aria-label="Fechar o cliente de API"]').click();
+  // clicar fora fecha a lista, e mexer no mapa também
+  pop=await ddOpen('c1');await page.mouse.click(5,5);await pop.waitFor({state:'detached'});
+  pop=await ddOpen('c1');await page.mouse.move(400,400);await page.mouse.wheel(0,40);await pop.waitFor({state:'detached'});
   // modo texto lista a API
   await page.locator('#mode').click();assert.match(await page.locator('.reading-api').first().textContent(),/API: Pedidos \(2 requests\)/);await page.locator('#mode').click();
   // HTML exportado: o tile aparece com o resumo, sem servidor, e não é um botão
@@ -210,18 +233,21 @@ try{
   const offline=await ctx.browser().newContext({locale:'pt-BR',viewport:{width:1400,height:800},offline:true});
   const off=await offline.newPage();const offErrors=[];off.on('pageerror',e=>offErrors.push(e.message));
   await off.goto(`file:///${exported.replaceAll(String.fromCharCode(92),'/')}`);await off.locator('.node').first().waitFor();await off.locator('#expand').click();
-  await off.locator('[data-id="c1"] .api-tile .api-tile-req',{hasText:'Listar pedidos'}).waitFor();
-  assert.equal(await off.locator('[data-id="c1"] button.api-tile').count(),0);assert.equal(await off.locator('#api-btn').isVisible(),false);
+  await off.locator('[data-id="c1"] .api-dd').click();
+  await off.locator('.api-dd-pop .api-dd-name',{hasText:'Listar pedidos'}).waitFor();
+  assert.equal(await off.locator('.api-dd-pop button.api-dd-item').count(),0);assert.equal(await off.locator('.api-dd-note.is-offline').count(),0); // só leitura: nada é clicável
+  assert.equal(await off.locator('#api-btn').isVisible(),false);
   assert.deepEqual(offErrors,[]);await offline.close();
   // remover o tile e desfazer/refazer; excluir a coleção deixa o tile avisando
   await page.locator('#edit-switch').click();
   await page.locator('[data-id="c2"] .api-item').hover();await page.locator('[data-id="c2"] .api-item .image-tools button').click();
-  await page.locator('[data-id="c2"] .api-tile').waitFor({state:'detached'});
+  await page.locator('[data-id="c2"] .api-dd').waitFor({state:'detached'});
   await page.evaluate(()=>{document.querySelector('#toast').hidden=true;document.activeElement?.blur();});
-  await page.keyboard.press('Control+z');await page.locator('[data-id="c2"] .api-tile').waitFor();
+  await page.keyboard.press('Control+z');await page.locator('[data-id="c2"] .api-dd').waitFor();
   await call('DELETE','/collections/grupo-api');
   await page.reload();await page.locator('.node').first().waitFor();await page.locator('#expand').click();
-  await page.locator('[data-id="c1"] .api-tile-foot',{hasText:/não encontrada|saved snapshot|resumo salvo/}).waitFor();
+  pop=await ddOpen('c1');await pop.locator('.api-dd-note.is-offline').waitFor(); // coleção apagada: a lista guardada continua, avisando
+  assert.equal(await pop.locator('.api-dd-item.is-request').count(),2);
   assert.equal((await fetch(`${base}/api/presentations/${made.id}`,{method:'PUT',headers:H,body:JSON.stringify({title:'x',roots:[{id:'r',title:'r',children:[],apis:[{collection:'../x'}]}]})})).status,400); // referência inválida é recusada
   await call('DELETE',`/presentations/${made.id}`);
   await page.goto(base);await page.locator('.node').first().waitFor();
@@ -407,8 +433,9 @@ try{
   await page.locator('#radial-menu [aria-label^="Anexar ao card"]').click();
   await page.locator('.api-row',{hasText:'Beta um'}).hover();
   await page.locator('.api-row',{hasText:'Beta um'}).locator('.api-attach').click();
-  const tileB=page.locator('[data-id="k2"] .api-tile');await tileB.waitFor();
-  assert.match(await tileB.textContent(),/Beta um/);assert.match(await tileB.textContent(),/1 request/);
+  await page.locator('[data-id="k2"] .api-dd').waitFor();
+  const popB=await ddOpen('k2');assert.match(await popB.textContent(),/Beta um/);assert.equal(await popB.locator('.api-dd-item.is-request').count(),1);
+  await page.keyboard.press('Escape');
   await page.locator('#api-panel button[aria-label="Fechar o cliente de API"]').click();await page.locator('#api-panel').waitFor({state:'hidden'});
   await page.locator('#edit-switch').click();await page.waitForTimeout(400);
   const saved=async()=>JSON.parse(await readFile(path.join(work,'presentations',`${pres.id}.json`),'utf8'));
@@ -419,7 +446,7 @@ try{
   const zoom=()=>page.locator('#zoom-level').textContent();
   const z0=await zoom();
   const inMap=async id=>{const b=await page.locator(`[data-id="${id}"]`).boundingBox(),w=(await page.locator('#viewport').boundingBox()).width;return b.x>=0&&b.x+b.width<=w+1;};
-  await page.locator('[data-id="k1"] .api-tile').click();
+  await ddOpen('k1');await page.locator('.api-dd-pop .api-dd-item').first().click();
   await page.locator('#api-panel').waitFor({state:'visible'});
   await page.locator('.api-row[data-path="alfa"].is-flash').waitFor();
   await page.waitForTimeout(700);
@@ -432,7 +459,7 @@ try{
   // request avulsa: abre a pasta dela (e só ela), seleciona e destaca a request
   await page.locator('#api-panel button[aria-label="Fechar o cliente de API"]').click();await page.locator('#api-panel').waitFor({state:'hidden'});
   await page.waitForTimeout(600);assert.equal(await zoom(),z0);
-  await page.locator('[data-id="k2"] .api-tile').click();
+  await ddOpen('k2');await page.locator('.api-dd-pop .api-dd-item').first().click();
   await page.locator('#api-panel').waitFor({state:'visible'});
   const row=page.locator('.api-row',{hasText:'Beta um'});
   await row.waitFor();await page.locator('.api-row[aria-selected=true]',{hasText:'Beta um'}).waitFor();
@@ -443,7 +470,7 @@ try{
   await page.locator('#api-panel button[aria-label="Fechar o cliente de API"]').click();await page.locator('#api-panel').waitFor({state:'hidden'});
 
   // coleção inteira: as pastas de primeiro nível abrem e o cabeçalho da coleção pisca
-  await page.locator('[data-id="k3"] .api-tile').click();
+  await ddOpen('k3');await page.locator('.api-dd-pop .api-dd-item').first().click();
   await page.locator('#api-panel').waitFor({state:'visible'});
   await page.locator('.api-collection-row.is-flash').waitFor();
   assert.equal(await page.locator('.api-row',{hasText:'Alfa um'}).count(),1);assert.equal(await page.locator('.api-row',{hasText:'Beta um'}).count(),1);

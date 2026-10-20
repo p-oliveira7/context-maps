@@ -3,7 +3,8 @@ import {cancelMotion,snapshot,animateLayout,hoverEdge,updateEdges,onEdges} from 
 import * as store from './store.js?v=17';
 import {t,applyStatic} from './i18n.js?v=1';
 import {VERSION} from './version.js?v=1';
-import {initApiClient,openApiPanel,closeApiPanel,isApiOpen,setAttachTarget,summarize,API_DRAG_TYPE} from './api-client.js?v=10';
+import {initApiClient,openApiPanel,closeApiPanel,isApiOpen,setAttachTarget,summarize,summarizeTree,API_DRAG_TYPE} from './api-client.js?v=11';
+import {apiDropdown,closeApiDropdown} from './api-dropdown.js?v=1';
 applyStatic();
 const $=s=>document.querySelector(s), viewport=$('#viewport'), world=$('#world');
 $('#doc-version').textContent=`Context Maps v${VERSION}`;
@@ -374,30 +375,20 @@ function apiSummary(ref){
  if(hit&&Date.now()-hit.at<4000)return hit.promise;
  const promise=summarize(ref).catch(()=>null);apiCache.set(key,{at:Date.now(),promise});return promise;
 }
-const API_ROWS=4;
 function apiTile(node,ref,index){
- const readOnly=!!document.getElementById('cm-doc'); // HTML exportado: sem servidor, só o resumo salvo
- const rows=Array.from({length:API_ROWS},()=>{const row=document.createElement('span');row.className='api-tile-row';return row;});
- const foot=document.createElement('span');foot.className='api-tile-foot';
- const head=document.createElement('span');head.className='api-tile-head';head.textContent=t('apiTileLabel',ref.name||ref.collection);
- const fill=(sum,live)=>{
-  const data=sum||ref.snapshot;
-  rows.forEach((row,i)=>{
-   row.replaceChildren();const r=data?.requests?.[i];if(!r)return;
-   const m=document.createElement('span');m.className=`api-method api-m-${r.method}`;m.textContent=String(r.method).toUpperCase().slice(0,6);
-   const n=document.createElement('span');n.className='api-tile-req';n.textContent=r.name;row.append(m,n);
-  });
-  const count=data?.count??data?.requests?.length??0;
-  foot.textContent=data?`${t('apiTileCount',count)}${count>API_ROWS?` · ${t('apiTileMore',count-API_ROWS)}`:''}${live===false?` · ${t('apiOffline')}`:''}`:t('apiMissing');
-  if(sum&&sum.name)head.textContent=t('apiTileLabel',sum.name);
+ const readOnly=!!document.getElementById('cm-doc'); // HTML exportado: sem servidor, só a lista guardada
+ const name=ref.name||ref.collection;
+ const saved=()=>{ // a lista guardada ao anexar, para quando o servidor não responde
+  const s=ref.snapshot;if(!s)return null;
+  const items=s.items||(s.requests||[]).map(r=>({type:'request',name:r.name,method:r.method,path:'',depth:0}));
+  if(ref.path&&items.length===1&&items[0].path===ref.path)return {name,type:'request',path:ref.path,method:items[0].method,items:[],total:1,offline:!readOnly}; // uma request avulsa
+  return {name,type:ref.path?'folder':'collection',path:ref.path||'',items,total:s.count??items.length,offline:!readOnly};
  };
- fill(null,false);
- if(!readOnly)apiSummary(ref).then(sum=>fill(sum,!!sum));
- const tile=document.createElement(readOnly?'div':'button');tile.className='api-tile';
- if(!readOnly){tile.type='button';tile.setAttribute('aria-label',t('apiOpenTile',ref.name||ref.collection));tile.onclick=()=>{apiFocusId=node.id;openApiPanel({collection:ref.collection,path:ref.path||'',focus:true});$('#api-btn').setAttribute('aria-expanded','true');};}
- tile.append(head,...rows,foot);
- if(!editing||readOnly)return tile;
- const item=document.createElement('div');item.className='image-item api-item';item.append(tile);
+ const dd=apiDropdown({title:name,label:t('apiDdLabel',name),t,readOnly,
+  load:()=>readOnly?Promise.resolve(saved()):summarizeTree(ref).then(r=>r||saved(),()=>saved()),
+  onPick:picked=>{apiFocusId=node.id;openApiPanel({collection:ref.collection,path:picked.path,focus:true});$('#api-btn').setAttribute('aria-expanded','true');}});
+ if(!editing||readOnly)return dd;
+ const item=document.createElement('div');item.className='image-item api-item';item.append(dd);
  const tools=document.createElement('div');tools.className='image-tools';
  const remove=document.createElement('button');remove.type='button';remove.textContent='×';remove.className='danger';remove.setAttribute('aria-label',`${t('apiDetach')}: ${nameOf(node)}`);
  remove.onclick=()=>{node.apis.splice(index,1);if(!node.apis.length)delete node.apis;commit();render();};
@@ -430,7 +421,8 @@ async function attachApi(node,ref){
  const entry={collection:ref.collection,path:ref.path||'',name:ref.name||ref.collectionName||ref.collection};
  if((node.apis||[]).some(a=>a.collection===entry.collection&&(a.path||'')===entry.path))return;
  const sum=await summarize({collection:entry.collection,path:entry.path}).catch(()=>null);
- if(sum)entry.snapshot={count:sum.count,requests:sum.requests.map(r=>({name:r.name,method:r.method}))};
+ const tree=await summarizeTree({collection:entry.collection,path:entry.path}).catch(()=>null);
+ if(sum)entry.snapshot={count:sum.count,requests:sum.requests.map(r=>({name:r.name,method:r.method})),...(tree?{items:tree.items.map(({type,name,path,method,depth})=>({type,name,path,...(method?{method}:{}),depth}))}:{})};
  (node.apis||=[]).push(entry);commit();render();revealNode(node.id);
  showToast(t('apiAttached',entry.name),true,4000);
 }
@@ -831,6 +823,7 @@ function moveNode(source,drop,startExpanded){
 }
 /* Renderização */
 function render(){
+ closeApiDropdown();
  cancelMotion();
  const container=$('#nodes');container.replaceChildren();$('#connections').replaceChildren();
  const hidden=n=>!!(moving&&moving.active&&isInside(moving.node,n.id));
@@ -845,7 +838,8 @@ function render(){
   if(!editing&&!node.children.length)el.tabIndex=0; // folhas também recebem foco do teclado
   el.addEventListener('pointerenter',()=>{hoverEdge(node.id,true);hoverCross(node.id,true);});el.addEventListener('pointerleave',()=>{hoverEdge(node.id,false);hoverCross(node.id,false);});
   const images=imagesOf(node);
-  if(images.length||(node.apis||[]).length)el.classList.add('has-image');
+  if(images.length)el.classList.add('has-image');
+  if((node.apis||[]).length)el.classList.add('has-api');
   images.forEach((image,i)=>el.append(imageItem(node,image,i)));
   (node.apis||[]).forEach((ref,i)=>el.append(apiTile(node,ref,i)));
   const text=document.createElement(isRoot?'h1':'p');el.append(text);
