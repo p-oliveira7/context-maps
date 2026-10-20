@@ -4,6 +4,8 @@ import {activeEntries,resolveVars,buildRaw,resolveRaw,buildRequest,toScriptReq,a
 import {runAssertions,evalValueExpression} from './assertions.js?v=1';
 import {runScript,sandboxSupported} from './sandbox.js?v=1';
 import {createVarFields} from './var-field.js?v=1';
+import {collectRequests,runSequence,reportJson,reportText} from './runner.js?v=1';
+import {createRunReport} from './run-report.js?v=1';
 export {resolveVars,buildRequest};
 
 const $=(s,root=document)=>root.querySelector(s);
@@ -47,7 +49,7 @@ export function syncUrlFromParams(model){
 }
 
 /* ---------- estado ---------- */
-const state={open:false,collections:[],coll:null,env:null,envVars:new Map(),envMeta:new Map(),runtime:new Map(),scripts:store.get('cm-api-scripts')!=='0',request:null,reqPath:'',saveTimer:0,saving:Promise.resolve(),response:null,sending:false,abort:null,tab:'params',respTab:'body',pretty:true,expanded:new Set(),filter:'',attach:null};
+const state={open:false,collections:[],coll:null,env:null,envVars:new Map(),envMeta:new Map(),runtime:new Map(),scripts:store.get('cm-api-scripts')!=='0',request:null,reqPath:'',saveTimer:0,saving:Promise.resolve(),response:null,sending:false,abort:null,tab:'params',respTab:'body',pretty:true,expanded:new Set(),filter:'',attach:null,run:null,view:'request',report:null};
 let panel,els={},hooks={};
 
 /* ---------- variáveis {{nome}}: de onde vêm, como salvar, e os campos que as destacam ---------- */
@@ -103,6 +105,7 @@ async function loadEnv(){
 }
 async function openRequest(path){
  await flushSave();
+ state.view='request';
  if(!path){state.request=null;state.reqPath='';state.response=null;renderMain();renderTree();return;}
  try{state.request=await api('GET',`/collections/${state.coll.id}/request?path=${encodeURIComponent(path)}`);}catch{state.request=null;}
  state.reqPath=path;state.response=null;state.tab='params';renderMain();renderTree();
@@ -126,13 +129,13 @@ function flushSave(){
 
 /* ---------- envio ---------- */
 function collectionVars(){return new Map((state.coll?.defaults?.vars||[]).filter(v=>v.enabled!==false).map(v=>[v.name,v.value]));}
-function allVars(){const vars=collectionVars();for(const [k,v] of state.envVars)vars.set(k,v);for(const e of activeEntries(state.request?.varsPre))vars.set(e.name,e.value);for(const [k,v] of state.runtime)vars.set(k,v);return vars;}
+function allVars(model=state.request){const vars=collectionVars();for(const [k,v] of state.envVars)vars.set(k,v);for(const e of activeEntries(model?.varsPre))vars.set(e.name,e.value);for(const [k,v] of state.runtime)vars.set(k,v);return vars;}
 const SCRIPT_MS=5000;
-const requestVarsObject=()=>Object.fromEntries(activeEntries(state.request?.varsPre).map(e=>[e.name,e.value]));
-async function scriptStep(kind,code,input,extra){
+const requestVarsObject=model=>Object.fromEntries(activeEntries(model?.varsPre).map(e=>[e.name,e.value]));
+async function scriptStep(model,kind,code,input,extra){
  if(!state.scripts||!String(code||'').trim())return null;
  if(!sandboxSupported()){extra.errors.push({where:kind,message:t('apiSandboxUnavailable')});return null;}
- const out=await runScript({code,timeoutMs:SCRIPT_MS,input:{vars:Object.fromEntries(state.runtime),envVars:Object.fromEntries(state.envVars),requestVars:requestVarsObject(),envName:state.env||'',name:state.request?.name||'',authMode:state.request?.authMode||'none',...input}});
+ const out=await runScript({code,timeoutMs:SCRIPT_MS,input:{vars:Object.fromEntries(state.runtime),envVars:Object.fromEntries(state.envVars),requestVars:requestVarsObject(model),envName:state.env||'',name:model?.name||'',authMode:model?.authMode||'none',...input}});
  if(!out.ok){extra.errors.push({where:kind,message:/timeout/.test(out.error)?t('apiScriptTimeout'):out.error});return null;}
  for(const log of out.logs)extra.logs.push({...log,where:kind});
  if(out.error)extra.errors.push({where:kind,message:out.error});
@@ -140,34 +143,38 @@ async function scriptStep(kind,code,input,extra){
  state.runtime=new Map(Object.entries(out.vars));state.envVars=new Map(Object.entries(out.envVars)); // só na memória: o arquivo do ambiente não muda
  return out;
 }
-async function send(){
- if(!state.request||state.sending)return;
- const model=state.request;
- state.sending=true;state.response=null;state.abort=new AbortController();renderResponse();
- const started=performance.now(),extra={logs:[],tests:[],asserts:[],errors:[]};
+/* Uma request do começo ao fim (pré-script, envio, variáveis, asserts, testes). Serve ao botão Enviar e à execução de pastas;
+   as variáveis de sessão (state.runtime) passam de uma request para a seguinte. */
+async function execute(model,signal){
+ const started=performance.now(),extra={logs:[],tests:[],asserts:[],errors:[]},took=()=>Math.round(performance.now()-started);
+ let sent;
  try{
   // 1) pré-requisição: o script vê o request com as {{variáveis}} ainda por resolver e pode mudar variáveis, URL, cabeçalhos e corpo
   const raw=buildRaw(model,state.coll?.defaults?.headers);
-  const pre=await scriptStep('pre-request',model.scriptPre,{req:toScriptReq(raw)},extra);
+  const pre=await scriptStep(model,'pre-request',model.scriptPre,{req:toScriptReq(raw)},extra);
   if(pre)applyScriptReq(raw,pre.req);
   // 2) resolver variáveis e enviar pelo servidor
-  const vars=allVars(),req=resolveRaw(raw,vars);
-  const res=await fetch('api/send',{method:'POST',headers:{'x-context-maps':'1','x-lang':lang,'content-type':'application/json'},body:JSON.stringify({...req,timeoutMs:req.timeout}),signal:state.abort.signal});
+  const vars=allVars(model),req=resolveRaw(raw,vars);
+  sent={method:req.method,url:req.url};
+  const res=await fetch('api/send',{method:'POST',headers:{'x-context-maps':'1','x-lang':lang,'content-type':'application/json'},body:JSON.stringify({...req,timeoutMs:req.timeout}),signal});
   const data=await res.json();
-  if(!res.ok)state.response={error:'request',detail:data.error||String(res.status),timeMs:Math.round(performance.now()-started),extra};
-  else{
-   const response={...data};
-   const scope=makeScope(response,req),interpolate=text=>resolveVars(text,allVars());
-   // 3) variáveis pós-resposta, script pós-resposta, asserts e testes
-   for(const e of activeEntries(model.varsPost)){const v=evalValueExpression(e.value,scope,interpolate);state.runtime.set(e.name,v===undefined?'':typeof v==='object'?JSON.stringify(v):String(v));}
-   await scriptStep('post-response',model.scriptPost,{req:toScriptReq({method:req.method,url:req.url,headers:req.headers,body:req.body}),res:{...scope.res}},extra);
-   extra.asserts=runAssertions(model.assertions,scope,interpolate);
-   await scriptStep('tests',model.tests,{req:toScriptReq({method:req.method,url:req.url,headers:req.headers,body:req.body}),res:{...scope.res}},extra);
-   state.response={...response,extra};
-  }
+  if(!res.ok)return {error:'request',detail:data.error||String(res.status),timeMs:took(),extra,sent};
+  const response={...data};
+  const scope=makeScope(response,req),interpolate=text=>resolveVars(text,allVars(model));
+  // 3) variáveis pós-resposta, script pós-resposta, asserts e testes
+  for(const e of activeEntries(model.varsPost)){const v=evalValueExpression(e.value,scope,interpolate);state.runtime.set(e.name,v===undefined?'':typeof v==='object'?JSON.stringify(v):String(v));}
+  await scriptStep(model,'post-response',model.scriptPost,{req:toScriptReq({method:req.method,url:req.url,headers:req.headers,body:req.body}),res:{...scope.res}},extra);
+  extra.asserts=runAssertions(model.assertions,scope,interpolate);
+  await scriptStep(model,'tests',model.tests,{req:toScriptReq({method:req.method,url:req.url,headers:req.headers,body:req.body}),res:{...scope.res}},extra);
+  return {...response,extra,sent};
  }catch(error){
-  state.response=error?.name==='AbortError'?{error:'cancelled',timeMs:Math.round(performance.now()-started),extra}:{error:'network',detail:String(error?.message||error),timeMs:Math.round(performance.now()-started),extra};
+  return error?.name==='AbortError'?{error:'cancelled',timeMs:took(),extra,sent}:{error:'network',detail:String(error?.message||error),timeMs:took(),extra,sent};
  }
+}
+async function send(){
+ if(!state.request||state.sending)return;
+ state.sending=true;state.response=null;state.abort=new AbortController();renderResponse();
+ state.response=await execute(state.request,state.abort.signal);
  state.sending=false;state.abort=null;renderResponse();if(state.tab==='vars')renderTab();
 }
 
@@ -200,6 +207,8 @@ function treeRows(items,depth,q){
     isFolder?h('span',{class:'api-caret','aria-hidden':'true'},open?'▾':'▸'):methodBadge(it.method),
     h('span',{class:'api-row-name'},isFolder?`📁 ${it.name}`:it.name)),
    h('span',{class:'api-row-actions'},
+    isFolder?h('button',{type:'button',class:'api-icon-btn api-run-btn',title:t('apiRunFolder'),'aria-label':`${t('apiRunFolder')}: ${it.name}`,onClick:()=>startRun({path:it.path,recursive:false})},'▶'):null,
+    isFolder?h('button',{type:'button',class:'api-icon-btn api-run-btn',title:t('apiRunFolderAll'),'aria-label':`${t('apiRunFolderAll')}: ${it.name}`,onClick:()=>startRun({path:it.path,recursive:true})},'▶▶'):null,
     isFolder?h('button',{type:'button',class:'api-icon-btn',title:t('apiNewRequest'),'aria-label':`${t('apiNewRequest')}: ${it.name}`,onClick:()=>newItem('request',it.path)},'+'):null,
     isFolder?h('button',{type:'button',class:'api-icon-btn',title:t('apiNewFolder'),'aria-label':`${t('apiNewFolder')}: ${it.name}`,onClick:()=>newItem('folder',it.path)},'▤'):null,
     hooks.attach?h('button',{type:'button',class:'api-icon-btn api-attach',title:t('apiAttach'),'aria-label':`${t('apiAttach')}: ${it.name}`,onClick:()=>attachTo({path:it.path,name:it.name,type:it.type})},'⤓'):null,
@@ -229,6 +238,7 @@ function renderTree(){
  if(!state.coll){els.tree.replaceChildren();return;}
  const head=h('li',{role:'presentation',class:'api-collection-row',draggable:'true'},
   h('span',{class:'api-collection-name'},`🗂 ${state.coll.name}`),
+  h('button',{type:'button',class:'api-icon-btn api-run-btn',title:t('apiRunCollection'),'aria-label':`${t('apiRunCollection')}: ${state.coll.name}`,onClick:()=>startRun({path:'',recursive:true})},'▶▶'),
   hooks.attach?h('button',{type:'button',class:'api-icon-btn api-attach',title:t('apiAttach'),'aria-label':`${t('apiAttach')}: ${state.coll.name}`,onClick:()=>attachTo({path:'',name:state.coll.name,type:'collection'})},'⤓'):null);
  head.addEventListener('dragstart',dragData({path:'',name:state.coll.name,type:'collection'}));
  els.tree.replaceChildren(head,...treeRows(state.coll.tree,0,q));
@@ -260,10 +270,11 @@ function toast(message){hooks.toast?.(message);}
 const TABS=['params','headers','body','auth','vars','assert','scripts','docs'];
 function renderMain(){
  const main=els.main;if(!main)return;
+ if(state.view==='run'&&state.run){mountReport();return;}
  const m=state.request;
  if(!m){
   main.replaceChildren(h('div',{class:'api-empty'},h('p',{},state.coll?t('apiPickRequest'):t('apiNoCollections')),
-   !state.coll?h('div',{class:'api-empty-actions'},h('button',{type:'button',class:'api-btn',onClick:createCollection},t('apiNewCollection')),h('button',{type:'button',class:'api-btn',onClick:()=>els.importInput.click()},t('apiImport'))):null));
+   !state.coll?h('div',{class:'api-empty-actions'},h('button',{type:'button',class:'api-btn',onClick:createCollection},t('apiNewCollection')),h('button',{type:'button',class:'api-btn',onClick:()=>els.importInput.click()},t('apiImport')),h('button',{type:'button',class:'api-btn',onClick:()=>els.folderInput.click()},t('apiImportFolder'))):null));
   return;
  }
  const urlInput=h('input',{type:'text',class:'api-url',value:m.url||'',placeholder:'https://…  {{host}}/path','aria-label':'URL',spellcheck:'false',onInput:e=>{m.url=e.target.value;syncParamsFromUrl(m);markDirty();if(state.tab==='params')renderTab();}});
@@ -433,11 +444,113 @@ async function createCollection(){
 }
 async function selectCollection(id){
  await flushSave();state.request=null;state.reqPath='';state.response=null;
+ if(state.run&&state.run.collection!==id){state.run.abort?.abort();state.run=null;state.view='request';state.report=null;}
  await loadCollection(id);renderAll();
 }
 async function importZip(file){
  try{const made=await api('POST','/collections/import',file);await loadCollections();await selectCollection(made.id);toast(t('apiImported',made.name));}catch(e){toast(e.message&&!/^\d+$/.test(e.message)?e.message:t('importError'));}
 }
+/* ---------- importar pasta (formato Bruno) ---------- */
+const IMPORT_EXT=/\.(bru|json|md)$/i,MAX_IMPORT_FILE=2*1024*1024,MAX_IMPORT_FILES=3000;
+const skipImportPath=path=>path.split('/').some(p=>p.startsWith('.')||p==='node_modules');
+async function readInputFolder(files){ // <input webkitdirectory>
+ const out=[];
+ for(const f of files){
+  const path=f.webkitRelativePath||f.name;
+  if(out.length>=MAX_IMPORT_FILES||skipImportPath(path)||!IMPORT_EXT.test(path)||f.size>MAX_IMPORT_FILE)continue;
+  out.push({path,content:await f.text()});
+ }
+ return out;
+}
+async function readEntry(entry,prefix,out){ // pasta arrastada para o painel
+ const path=prefix?`${prefix}/${entry.name}`:entry.name;
+ if(out.length>=MAX_IMPORT_FILES||skipImportPath(path))return;
+ if(entry.isFile){
+  if(!IMPORT_EXT.test(path))return;
+  const file=await new Promise((ok,no)=>entry.file(ok,no));
+  if(file.size<=MAX_IMPORT_FILE)out.push({path,content:await file.text()});
+ }else if(entry.isDirectory){
+  const reader=entry.createReader();
+  for(;;){
+   const batch=await new Promise((ok,no)=>reader.readEntries(ok,no));
+   if(!batch.length)break;
+   for(const child of batch)await readEntry(child,path,out);
+  }
+ }
+}
+/* Uma pasta com bruno.json vira uma coleção nova; sem ele, as requests entram na coleção aberta (ou numa coleção nova, se não houver). */
+async function importFolder(files){
+ if(!files.length){toast(t('apiImportFolderEmpty'));return;}
+ try{
+  await flushSave();
+  const made=await api('POST','/collections/import-folder',{files,into:state.coll?{collection:state.coll.id,parent:''}:undefined});
+  await loadCollections();
+  if(made.folder){
+   const keep=state.reqPath;await loadCollection(state.coll.id);state.reqPath=keep;state.expanded.add(made.folder);renderAll(false);
+   toast(t('apiImportedFolder',made.files,state.coll.name));
+  }else{await selectCollection(made.id);toast(t('apiImported',made.name));}
+ }catch(e){toast(e.message&&!/^\d+$/.test(e.message)?e.message:t('importError'));}
+}
+
+/* ---------- executar pasta (run e run recursivo) com relatório ---------- */
+const BODY_KEEP=20000;
+const runPrefs=()=>{try{return {stopOnFail:false,delayMs:0,...JSON.parse(store.get('cm-api-run')||'{}')};}catch{return {stopOnFail:false,delayMs:0};}};
+let reportUi=null,drawQueued=0;
+function mountReport(){
+ reportUi||=createRunReport({h,t,fmtSize});
+ state.report=reportUi.mount(els.main,state.run,reportActions);
+}
+function showReport(){if(!state.run)return;state.view='run';renderMain();renderHeader();}
+function drawReport(){ // vários resultados seguidos viram um redesenho só
+ if(drawQueued)return;
+ drawQueued=requestAnimationFrame(()=>{drawQueued=0;if(state.view==='run'&&state.run)state.report?.update();});
+}
+async function runOne(item,run){
+ let model;
+ try{model=await api('GET',`/collections/${run.collection}/request?path=${encodeURIComponent(item.path)}`);}
+ catch(e){return {error:'request',detail:e.message,timeMs:0,extra:{logs:[],tests:[],asserts:[],errors:[]}};}
+ const out=await execute(model,run.abort.signal);
+ if(out.bodyText&&out.bodyText.length>BODY_KEEP)out.bodyText=out.bodyText.slice(0,BODY_KEEP);
+ return out;
+}
+async function runItems(run,subset){
+ run.abort=new AbortController();run.status='running';run.finishedAt=null;
+ for(const item of subset){item.status='pending';delete item.out;}
+ if(state.view==='run'){state.report?.update();state.report?.focusFirst();}
+ run.status=await runSequence(subset,{signal:run.abort.signal,stopOnFail:run.options.stopOnFail,delayMs:run.options.delayMs,onChange:drawReport,execute:item=>runOne(item,run)});
+ run.finishedAt=new Date().toISOString();
+ if(state.view==='run'&&state.run===run)state.report?.update();
+ else renderHeader();
+}
+/* path: pasta a executar ('' = a coleção); recursive: inclui as subpastas, na ordem da árvore */
+async function startRun({path='',recursive=true}={}){
+ if(!state.coll)return;
+ if(state.run?.status==='running'){toast(t('apiRunBusy'));showReport();return;}
+ await flushSave();
+ const base=path?findItem(state.coll.tree,path):null;
+ const items=collectRequests(base?base.children:state.coll.tree,{recursive,base:path}).map(r=>({...r,status:'pending'}));
+ if(!items.length){toast(t('apiRunEmpty'));return;}
+ const run={collection:state.coll.id,path,recursive,title:base?.name||state.coll.name,env:state.env,items,status:'running',options:runPrefs(),startedAt:new Date().toISOString(),finishedAt:null,abort:null,view:{filter:'all',q:'',open:new Set()}};
+ state.run=run;state.view='run';renderMain();renderHeader();
+ await runItems(run,items);
+}
+const reportActions={
+ stop:()=>state.run?.abort?.abort(),
+ again:()=>{const r=state.run;if(r)startRun({path:r.path,recursive:r.recursive});},
+ againFailed:()=>{const r=state.run;if(r)runItems(r,r.items.filter(i=>i.status==='failed'||i.status==='error'));},
+ rerunOne:path=>{const r=state.run;if(r)runItems(r,r.items.filter(i=>i.path===path));},
+ openRequest:path=>openRequest(path),
+ close:()=>{state.view='request';renderMain();renderHeader();},
+ options:()=>store.set('cm-api-run',JSON.stringify(state.run.options)),
+ exportJson:()=>{
+  const run=state.run,blob=new Blob([JSON.stringify(reportJson(run),null,2)],{type:'application/json'});
+  const a=h('a',{href:URL.createObjectURL(blob),download:`${slugOf(run.title)||'run'}-report.json`});
+  document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+ },
+ copy:async()=>{try{await navigator.clipboard.writeText(reportText(state.run,t));return true;}catch{return false;}}
+};
+const slugOf=text=>String(text||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+
 async function deleteCollection(){
  if(!state.coll||!confirm(t('apiConfirmDeleteCollection',state.coll.name)))return;
  try{await api('DELETE',`/collections/${state.coll.id}`);await loadCollections();await selectCollection(state.collections[0]?.id||null);}catch(e){toast(e.message);}
@@ -450,10 +563,11 @@ function renderHeader(){
  const collSel=h('select',{class:'api-select','aria-label':t('apiCollection'),onChange:e=>selectCollection(e.target.value)},...(state.collections.length?state.collections.map(c=>h('option',{value:c.id,selected:c.id===state.coll?.id},c.name)):[h('option',{value:''},t('apiNoCollectionsShort'))]));
  const envSel=h('select',{class:'api-select','aria-label':t('apiEnvironment'),disabled:state.coll?null:true,onChange:async e=>{state.env=e.target.value||null;store.set(`cm-api-env:${state.coll.id}`,state.env||'');await loadEnv();if(state.tab==='vars')renderTab();}},h('option',{value:''},t('apiNoEnv')),...(state.coll?.environments||[]).map(n=>h('option',{value:n,selected:n===state.env},n)));
  const menu=h('div',{class:'api-menu',role:'menu',hidden:true},
-  ...[[t('apiNewCollection'),createCollection],[t('apiImport'),()=>els.importInput.click()],[t('apiExport'),()=>{if(state.coll)location.href=`api/collections/${state.coll.id}/export`;}],[t('apiDeleteCollection'),deleteCollection,true]].map(([label,fn,danger])=>h('button',{type:'button',role:'menuitem',class:danger?'danger':'',onClick:()=>{menu.hidden=true;fn();}},label)));
+  ...[[t('apiNewCollection'),createCollection],[t('apiRunCollection'),()=>startRun({path:'',recursive:true})],[t('apiImport'),()=>els.importInput.click()],[t('apiImportFolder'),()=>els.folderInput.click()],[t('apiExport'),()=>{if(state.coll)location.href=`api/collections/${state.coll.id}/export`;}],[t('apiDeleteCollection'),deleteCollection,true]].map(([label,fn,danger])=>h('button',{type:'button',role:'menuitem',class:danger?'danger':'',onClick:()=>{menu.hidden=true;fn();}},label)));
  els.menu=menu;
  els.head.replaceChildren(h('strong',{class:'api-title'},t('apiTitle')),collSel,envSel,
   h('button',{type:'button',class:'api-icon-btn',title:t('apiEditEnv'),'aria-label':t('apiEditEnv'),disabled:state.coll?null:true,onClick:openEnvEditor},'⚙'),
+  state.run?h('button',{type:'button',class:`api-btn api-run-open${state.view==='run'?' is-active':''}`,onClick:showReport},t('apiRunReport')):null,
   h('span',{class:'api-spacer'}),
   h('div',{class:'api-menu-wrap'},h('button',{type:'button',class:'api-icon-btn','aria-haspopup':'menu',title:t('apiMore'),'aria-label':t('apiMore'),onClick:()=>{menu.hidden=!menu.hidden;}},'⋯'),menu),
   h('button',{type:'button',class:'api-icon-btn',title:t('apiClose'),'aria-label':t('apiClose'),onClick:closeApiPanel},'×'));
@@ -467,13 +581,14 @@ function build(){
  els.tree=h('ul',{class:'api-tree',role:'tree','aria-label':t('apiTitle')});
  els.main=h('section',{class:'api-main'});
  els.importInput=h('input',{type:'file',accept:'.zip,application/zip',hidden:true,onChange:e=>{const f=e.target.files[0];e.target.value='';if(f)importZip(f);}});
+ els.folderInput=h('input',{type:'file',webkitdirectory:true,multiple:true,hidden:true,'aria-label':t('apiImportFolder'),onChange:async e=>{const files=[...e.target.files];e.target.value='';if(files.length)importFolder(await readInputFolder(files));}});
  const filter=h('input',{type:'search',class:'api-filter',placeholder:t('apiFilter'),'aria-label':t('apiFilter'),onInput:e=>{state.filter=e.target.value;renderTree();}});
  const treeCol=h('nav',{class:'api-tree-col','aria-label':t('apiTitle')},
   h('div',{class:'api-tree-tools'},filter,h('button',{type:'button',class:'api-icon-btn',title:t('apiNewRequest'),'aria-label':t('apiNewRequest'),onClick:()=>state.coll&&newItem('request','')},'+'),h('button',{type:'button',class:'api-icon-btn',title:t('apiNewFolder'),'aria-label':t('apiNewFolder'),onClick:()=>state.coll&&newItem('folder','')},'▤')),
   els.tree);
  const resizer=h('div',{class:'api-resizer',role:'separator','aria-orientation':'vertical','aria-label':t('apiResize'),tabindex:'0'});
  els.banner=h('div',{class:'api-attach-banner',role:'status',hidden:true},h('span',{}),h('button',{type:'button',class:'api-btn',onClick:()=>{setAttachTarget(null);hooks.attachCancel?.();}},t('apiAttachCancel')));
- panel=h('aside',{id:'api-panel',class:'api-panel',role:'complementary','aria-label':t('apiTitle'),hidden:true},resizer,els.head,els.banner,h('div',{class:'api-body'},treeCol,els.main),els.importInput);
+ panel=h('aside',{id:'api-panel',class:'api-panel',role:'complementary','aria-label':t('apiTitle'),hidden:true},resizer,els.head,els.banner,h('div',{class:'api-body'},treeCol,els.main),els.importInput,els.folderInput);
  document.body.append(panel);
  // largura: arrastar a borda ou usar as setas
  const setWidth=px=>{const w=Math.min(Math.max(px,420),window.innerWidth-260);document.documentElement.style.setProperty('--api-w',`${w}px`);store.set('cm-api-width',String(Math.round(w)));};
@@ -487,6 +602,15 @@ function build(){
  panel.addEventListener('keydown',e=>{
   if(e.key==='Escape'&&!panel.querySelector('.api-modal')){if(!els.menu.hidden){els.menu.hidden=true;return;}closeApiPanel();}
   if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();send();}
+ });
+ const hasFiles=e=>[...(e.dataTransfer?.types||[])].includes('Files');
+ panel.addEventListener('dragover',e=>{if(!hasFiles(e))return;e.preventDefault();e.dataTransfer.dropEffect='copy';panel.classList.add('is-file-over');});
+ panel.addEventListener('dragleave',e=>{if(!panel.contains(e.relatedTarget))panel.classList.remove('is-file-over');});
+ panel.addEventListener('drop',async e=>{
+  if(!hasFiles(e))return;e.preventDefault();panel.classList.remove('is-file-over');
+  const entries=[...e.dataTransfer.items].map(i=>i.webkitGetAsEntry?.()).filter(Boolean),zip=[...e.dataTransfer.files].find(f=>/.zip$/i.test(f.name));
+  const files=[];for(const entry of entries)if(entry.isDirectory)await readEntry(entry,'',files);
+  if(files.length)importFolder(files);else if(zip)importZip(zip);else toast(t('apiImportFolderEmpty'));
  });
  document.addEventListener('pointerdown',e=>{if(els.menu&&!els.menu.hidden&&!e.target.closest('.api-menu-wrap'))els.menu.hidden=true;});
 }
