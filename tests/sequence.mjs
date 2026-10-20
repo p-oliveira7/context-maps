@@ -15,7 +15,7 @@ await new Promise((ok,fail)=>{server.stdout.once('data',ok);server.once('exit',c
 const H={'x-context-maps':'1','content-type':'application/json'};
 const call=async(method,route,body)=>{const r=await fetch(`${base}/api${route}`,{method,headers:H,body:body===undefined?undefined:JSON.stringify(body)});assert.ok(r.ok,`${method} ${route} -> ${r.status}`);return r.json();};
 // API alvo do fluxo ao vivo: /charge responde 201
-const apiTarget=createServer((req,res)=>{res.writeHead(req.url==='/charge'?201:404,{'content-type':'application/json'});res.end(JSON.stringify({paid:true}));});
+const apiTarget=createServer((req,res)=>{const code=req.url==='/charge'?201:req.url==='/decline'?402:404;res.writeHead(code,{'content-type':'application/json'});res.end(JSON.stringify({paid:code===201}));});
 await new Promise(r=>apiTarget.listen(0,'127.0.0.1',r));
 const apiHost=`http://127.0.0.1:${apiTarget.address().port}`;
 const browser=await launch();
@@ -282,23 +282,23 @@ try{
  assert.equal(await ed11.isVisible(),true);
  // Rodar fluxo: a seta fica verde com 201
  await ed11.getByRole('button',{name:'Run flow'}).click();
- await page.locator('.seq-msg.is-live-ok').waitFor();
+ await page.locator('.seq-live-tag.is-ok').waitFor();
  assert.match(await page.locator('.seq-live-tag text').first().textContent(),/^201 · \d+ ms$/);
  assert.equal(await page.locator('.seq-steps .seq-live-chip.is-ok').first().textContent(),'201');
  await page.waitForFunction(()=>/1\/1 linked steps run/.test(document.querySelector('.seq-flow-info').textContent));
  // Reiniciar limpa; uma regra "status = 201 → vermelho" muda a cor; Passo roda só o próximo
  await ed11.getByRole('button',{name:'Reset',exact:true}).click();
- assert.equal(await page.locator('.seq-msg.is-live-ok, .seq-live-tag').count(),0);
+ assert.equal(await page.locator('.seq-msg.is-path-ok, .seq-live-tag').count(),0);
  await ed11.getByRole('button',{name:'+ Add rule'}).click();
  await page.locator('.seq-rule input[aria-label="Value"]').fill('201');await page.locator('.seq-rule input[aria-label="Value"]').press('Enter');
  await ed11.getByRole('button',{name:/Step$/}).click();
- await page.locator('.seq-msg.is-live-fail').waitFor();
+ await page.locator('.seq-live-tag.is-fail').waitFor();
  assert.equal(await page.locator('.seq-live-last.is-fail').count(),1);
  // enviar pelo próprio API client também pinta (sem usar o botão do editor)
  await ed11.getByRole('button',{name:'Reset',exact:true}).click();
  await page.locator('.seq-rule select[aria-label="Result"]').selectOption('ok');
  await page.locator('#api-panel .api-send').click();
- await page.locator('.seq-msg.is-live-ok').waitFor();
+ await page.locator('.seq-live-tag.is-ok').waitFor();
  assert.equal(await page.locator('.seq-steps .seq-live-chip.is-ok').count(),1);
  // fechar o API client devolve a largura inteira ao editor
  await page.evaluate(()=>document.querySelector('#api-btn').click());await page.locator('#api-panel').waitFor({state:'hidden'});
@@ -319,14 +319,14 @@ try{
  const geo12=await page.evaluate(()=>({win:document.querySelector('.seq-live-win').getBoundingClientRect().right,panel:document.querySelector('#api-panel').getBoundingClientRect().left}));
  assert.ok(geo12.win<=geo12.panel+1,`a janela fica ao lado do API client (${JSON.stringify(geo12)})`);
  await liveWin.getByRole('button',{name:'Run flow'}).click();
- await liveWin.locator('.seq-msg.is-live-ok').waitFor();
+ await liveWin.locator('.seq-live-tag.is-ok').waitFor();
  assert.match(await liveWin.locator('.seq-live-tag text').first().textContent(),/^201 · \d+ ms$/);
  // o API client segue utilizável com a janela aberta (nada está inerte) e enviar por ele pinta também
  await liveWin.getByRole('button',{name:'Reset',exact:true}).click();
  assert.equal(await liveWin.locator('.seq-live-tag').count(),0);
  await page.locator('#api-panel .api-row-name',{hasText:'Charge'}).click();await page.locator('.api-tab.is-active',{hasText:'Charge'}).waitFor();
  await page.locator('#api-panel .api-send').click();
- await liveWin.locator('.seq-msg.is-live-ok').waitFor();
+ await liveWin.locator('.seq-live-tag.is-ok').waitFor();
  await liveWin.getByRole('button',{name:'Close live flow'}).click();await liveWin.waitFor({state:'hidden'});
  await page.evaluate(()=>document.querySelector('#api-btn').click());
  // também pelo botão "Live flow" no modo de edição
@@ -334,6 +334,32 @@ try{
  await page.locator('.image-live').click();await liveWin.waitFor();
  await page.keyboard.press('Escape');
  await liveWin.waitFor({state:'hidden'});
+
+ // SEQ-13: o resultado da chamada acende o caminho (ramo do alt, linhas de vida, participantes); 201 e 402 seguem caminhos diferentes
+ await call('POST','/collections/flow/items',{type:'request',name:'Decline',method:'post',url:'x'});
+ const declineModel=await call('GET','/collections/flow/request?path=decline.bru');
+ await call('PUT','/collections/flow/request?path=decline.bru',{...declineModel,url:`${apiHost}/decline`});
+ const traceFor=async requestLabel=>{
+  await page.goto(`${base}/?p=${linked.id}`);await page.locator('.node').first().waitFor();await page.locator('#expand').click();await page.locator('#edit-switch').click();
+  await openEditor();
+  await page.locator('#diagram-template').selectOption('seq');
+  await page.locator('#diagram-visual').click();
+  const e=page.locator('.seq-ed');await e.waitFor();
+  await page.locator('.seq-steps .seq-step-row .seq-row-main').first().click();
+  await page.waitForFunction(label=>[...document.querySelectorAll('.seq-inspector select[aria-label=Request] option')].some(o=>o.textContent.includes(label)),requestLabel);
+  await e.getByLabel('Request',{exact:true}).selectOption({label:`POST ${requestLabel} · Flow`});
+  await e.getByRole('button',{name:'Run flow'}).click();
+  await page.waitForFunction(()=>document.querySelector('.seq-live-tag'));
+  const states=await page.evaluate(()=>[...document.querySelectorAll('.seq-svg-host [data-step]')].map(el=>[Number(el.dataset.step),(el.getAttribute('class')||'').match(/is-path-(ok|fail|skip)/)?.[1]||'']));
+  const lifelines=await page.locator('.seq-trace-life').count(),actors=await page.locator('.seq-actor.is-path-ok').count();
+  page.once('dialog',d=>d.accept());await e.getByRole('button',{name:'Cancel',exact:true}).click();await e.waitFor({state:'hidden'});
+  return {states:Object.fromEntries(states),lifelines,actors};
+ };
+ const okPath=await traceFor('Charge'); // 201: ramo "approved"
+ assert.equal(okPath.states[4],'ok');assert.equal(okPath.states[6],'skip');assert.equal(okPath.states[3],'ok');assert.equal(okPath.states[2],'ok');
+ assert.ok(okPath.lifelines>=3&&okPath.actors>=3,`linhas de vida e participantes acesos (${JSON.stringify(okPath)})`);
+ const failPath=await traceFor('Decline'); // 402: ramo "declined", desfecho em vermelho
+ assert.equal(failPath.states[4],'skip');assert.equal(failPath.states[6],'fail');assert.equal(failPath.states[2],'ok');
 
  const pt=await browser.newContext({locale:'pt-BR',viewport:{width:1400,height:900},extraHTTPHeaders:{'x-context-maps':'1'}});
  const p2=await pt.newPage();p2.setDefaultTimeout(process.env.CI?20000:8000);
@@ -347,5 +373,5 @@ try{
  await p2.locator('#diagram-error').filter({hasText:'Linha 2: Uma mensagem precisa de dois-pontos'}).waitFor();
 
  assert.deepEqual(errors,[]);
- console.log('PASS SEQ-01..12 native sequence diagrams and visual editor');
+ console.log('PASS SEQ-01..13 native sequence diagrams and visual editor');
 }finally{await browser.close();server.kill();apiTarget.close();await rm(work,{recursive:true,force:true});}

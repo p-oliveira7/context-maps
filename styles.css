@@ -856,10 +856,17 @@ body.api-open .seq-ed,body.api-open #diagram-editor{right:var(--api-w)}
 .seq-live-chip.is-fail{background:#e5737326;color:#ff9a9a;border:1px solid #e5737399}
 .seq-live-last{margin:0;padding:.35rem .5rem;border-radius:8px;font-size:.74rem}
 .seq-live-last.is-ok{background:#4cc38a1f;color:#8fe7b8}.seq-live-last.is-fail{background:#e573731f;color:#ffb0b0}
-.seq-msg.is-live-ok line,.seq-msg.is-live-ok path{stroke:#4cc38a!important;stroke-width:2.4}
-.seq-msg.is-live-fail line,.seq-msg.is-live-fail path{stroke:#e57373!important;stroke-width:2.4}
-.seq-msg.is-live-ok polygon{fill:#4cc38a!important;stroke:#4cc38a!important}
-.seq-msg.is-live-fail polygon{fill:#e57373!important;stroke:#e57373!important}
+[data-step].is-path-ok line,[data-step].is-path-ok path{stroke:#4cc38a!important;stroke-width:2.4}
+[data-step].is-path-fail line,[data-step].is-path-fail path{stroke:#e57373!important;stroke-width:2.4}
+[data-step].is-path-ok polygon{fill:#4cc38a!important;stroke:#4cc38a!important}
+[data-step].is-path-fail polygon{fill:#e57373!important;stroke:#e57373!important}
+.seq-group.is-path-ok>rect,.seq-note.is-path-ok rect{stroke:#4cc38a!important}
+.seq-group.is-path-fail>rect,.seq-note.is-path-fail rect{stroke:#e57373!important}
+[data-step].is-path-ok text.seq-label,.seq-msg.is-path-ok text{fill:#c7f1dc}
+.seq-msg.is-path-fail text{fill:#ffc2c2}
+[data-step].is-path-skip{opacity:.28;transition:opacity .3s}
+.seq-trace-life{stroke:#4cc38a;stroke-width:2;stroke-dasharray:5 4;opacity:.85;pointer-events:none}
+.seq-actor.is-path-ok rect{stroke:#4cc38a!important;stroke-width:2.2;filter:drop-shadow(0 0 5px #4cc38a66)}
 .seq-msg.is-live-run line,.seq-msg.is-live-run path{stroke:#e0a458!important;stroke-width:2.4;stroke-dasharray:6 4;animation:seq-dash .6s linear infinite}
 .seq-live-tag rect{fill:#111;stroke-width:1.2}.seq-live-tag text{font-size:10.5px;font-weight:700}
 .seq-live-tag.is-ok rect{stroke:#4cc38a}.seq-live-tag.is-ok text{fill:#6fe0a8}.seq-live-tag.is-fail rect{stroke:#e57373}.seq-live-tag.is-fail text{fill:#ff9a9a}

@@ -1,7 +1,7 @@
 /* Janela flutuante de fluxo ao vivo: mostra um diagrama de sequência com passos ligados a requests e pinta as setas
    conforme as respostas do API client (rodar tudo, passo a passo, ou enviando pelo próprio painel). Funciona fora do editor. */
-import {parseSequence,layoutSequence,renderSequenceSvg} from './sequence.js?v=1';
-import {evaluateOutcome} from './sequence-flow.js?v=1';
+import {parseSequence,layoutSequence,renderSequenceSvg} from './sequence.js?v=2';
+import {evaluateOutcome,tracePath} from './sequence-flow.js?v=2';
 
 const SVG_NS='http://www.w3.org/2000/svg';
 const svgEl=(tag,attrs)=>{const el=document.createElementNS(SVG_NS,tag);for(const [k,v] of Object.entries(attrs))el.setAttribute(k,String(v));return el;};
@@ -18,16 +18,35 @@ function h(tag,props={},...kids){
 
 export const liveText=(v,t)=>v.error?`${t('seqLiveError')}: ${v.error}`:`${v.status} · ${v.timeMs} ms${v.mock?` · MOCK ${v.mock}`:''}`;
 
-/** pinta as setas já desenhadas em `svg` (live: id do passo -> resultado; running: id em execução; pulse: ids recém-atualizados) */
-export function paintLiveSvg(svg,layout,live,{running='',pulse=new Set(),t}){
+/** pinta o diagrama já desenhado em `svg`: o caminho que o resultado percorre (verde, desfecho com erro em vermelho, ramos não tomados apagados)
+ e, nos passos ligados, a pílula com status e tempo. live: id do passo -> resultado; running: id em execução; pulse: ids recém-atualizados */
+export function paintLiveSvg(svg,layout,live,{model,running='',pulse=new Set(),t}){
  svg.querySelectorAll('.seq-live-tag').forEach(n=>n.remove());
- svg.querySelectorAll('.seq-msg').forEach(g=>g.classList.remove('is-live-ok','is-live-fail','is-live-pulse','is-live-run'));
+ const {state}=tracePath(model,live);
+ svg.querySelectorAll('[data-step]').forEach(el=>{
+  el.classList.remove('is-path-ok','is-path-fail','is-path-skip','is-live-pulse','is-live-run');
+  const v=state[Number(el.dataset.step)];if(v)el.classList.add(`is-path-${v}`);
+ });
+ svg.querySelectorAll('.seq-trace-life').forEach(n=>n.remove());
+ svg.querySelectorAll('.seq-actor').forEach(n=>n.classList.remove('is-path-ok'));
+ // as linhas de vida (pontilhadas) e as caixas dos participantes por onde o caminho passa
+ const span=new Map();
+ for(const it of layout.items){
+  if(it.kind!=='message'||!['ok','fail'].includes(state[it.step]))continue;
+  for(const p of new Set([it.from,it.to])){const r=span.get(p)||{y1:Infinity,y2:-Infinity};r.y1=Math.min(r.y1,it.y);r.y2=Math.max(r.y2,it.self?it.y2:it.y);span.set(p,r);}
+ }
+ const firstStep=svg.querySelector('.seq-bar,.seq-step');
+ for(const [p,r] of span){
+  const part=layout.participants[p],life=svgEl('line',{class:'seq-trace-life',x1:part.x,x2:part.x,y1:layout.bodyY,y2:r.y2+14});
+  (firstStep||svg.lastChild).before(life);
+  svg.querySelector(`.seq-actor[data-actor="${CSS.escape(part.id)}"]`)?.classList.add('is-path-ok');
+ }
  for(const it of layout.items){
   if(it.kind!=='message'||!it.sid)continue;
   const g=svg.querySelector(`.seq-msg[data-step="${it.step}"]`),v=live.get(it.sid);if(!g)continue;
   if(running===it.sid)g.classList.add('is-live-run');
   if(!v)continue;
-  g.classList.add(v.outcome==='ok'?'is-live-ok':'is-live-fail');if(pulse.has(it.sid))g.classList.add('is-live-pulse');
+  if(pulse.has(it.sid))g.classList.add('is-live-pulse');
   const label=liveText(v,t),w=Math.round(label.length*6.1+12),cx=it.self?it.x2+8+w/2:(it.x1+it.x2)/2,cy=it.self?it.y+11:it.y;
   const pill=svgEl('g',{class:`seq-live-tag is-${v.outcome}`});
   pill.append(svgEl('rect',{x:cx-w/2,y:cy-8,width:w,height:16,rx:8}),svgEl('text',{x:cx,y:cy+3.5,'text-anchor':'middle'}));
@@ -62,7 +81,7 @@ export function openLiveFlow({source,title,t,measure,api,onClose}){
   paint();
  }
  function paint(){
-  const svg=host.querySelector('svg');if(svg&&layout)paintLiveSvg(svg,layout,live,{running:runCtl?.current||'',pulse,t});
+  const svg=host.querySelector('svg');if(svg&&layout)paintLiveSvg(svg,layout,live,{model,running:runCtl?.current||'',pulse,t});
   sync();
  }
  function sync(){

@@ -1,8 +1,9 @@
 /* Editor visual do diagrama de sequência: lista de participantes e passos, canvas com o desenho, inspetor, desfazer/refazer e vista em texto.
    Trabalha sobre o modelo de sequence.js e só devolve o texto (Mermaid-compatível) ao aplicar. */
-import {parseSequence,stringifySequence,layoutSequence,renderSequenceSvg} from './sequence.js?v=1';
+import {parseSequence,stringifySequence,layoutSequence,renderSequenceSvg} from './sequence.js?v=2';
 import * as E from './sequence-edit.js?v=1';
-import {newStepId,normalizeBind,describeRule,evaluateOutcome,MAX_RULES} from './sequence-flow.js?v=1';
+import {paintLiveSvg} from './sequence-live.js?v=2';
+import {newStepId,normalizeBind,describeRule,evaluateOutcome,MAX_RULES} from './sequence-flow.js?v=2';
 
 function h(tag,props={},...kids){
  const el=document.createElement(tag);
@@ -254,21 +255,7 @@ export function openSequenceEditor({source,t,measure,onApply,onClose,loadRequest
  const liveText=v=>v.error?`${t('seqLiveError')}: ${v.error}`:`${v.status} · ${v.timeMs} ms${v.mock?` · MOCK ${v.mock}`:''}`;
  function paintLive(){
   const svg=host.querySelector('svg');
-  if(svg){
-   svg.querySelectorAll('.seq-live-tag').forEach(n=>n.remove());
-   svg.querySelectorAll('.seq-msg').forEach(g=>g.classList.remove('is-live-ok','is-live-fail','is-live-pulse','is-live-run'));
-   for(const it of layout?.items||[]){
-    if(it.kind!=='message'||!it.sid)continue;
-    const g=svg.querySelector(`.seq-msg[data-step="${it.step}"]`),v=live.get(it.sid);if(!g)continue;
-    if(runCtl?.current===it.sid)g.classList.add('is-live-run');
-    if(!v)continue;
-    g.classList.add(v.outcome==='ok'?'is-live-ok':'is-live-fail');if(pulse.has(it.sid))g.classList.add('is-live-pulse');
-    const label=liveText(v),w=Math.round(label.length*6.1+12),cx=it.self?it.x2+8+w/2:(it.x1+it.x2)/2,cy=it.self?it.y+11:it.y;
-    const pill=svgEl('g',{class:`seq-live-tag is-${v.outcome}`});
-    pill.append(svgEl('rect',{x:cx-w/2,y:cy-8,width:w,height:16,rx:8}),svgEl('text',{x:cx,y:cy+3.5,'text-anchor':'middle'}));
-    pill.lastChild.textContent=label;g.append(pill);
-   }
-  }
+  if(svg&&layout)paintLiveSvg(svg,layout,live,{model,running:runCtl?.current||'',pulse,t});
   renderLists();syncFlow();
  }
  function onResult(r){

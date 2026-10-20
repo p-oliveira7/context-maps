@@ -8,7 +8,7 @@ const MSG=new RegExp(`^(${ID})\\s*(${ARROWS})\\s*([+-]?)\\s*(${ID})\\s*:\\s*(.*)
 const HEAD={'->>':['solid','arrow'],'-->>':['dashed','arrow'],'->':['solid','open'],'-->':['dashed','open'],'-x':['solid','cross'],'--x':['dashed','cross'],'-)':['solid','async'],'--)':['dashed','async']};
 const GROUPS=new Set(['loop','alt','opt','par','critical','break']);
 const UNSUPPORTED=/^(box|create|destroy|link|links|properties|details|rect|end\s+box)\b|^%%\{/i;
-import {parseStepComment,stepComment,newStepId} from './sequence-flow.js?v=1';
+import {parseStepComment,stepComment,newStepId} from './sequence-flow.js?v=2';
 
 const fail=(code,line,detail='')=>Object.assign(new Error(`${code}:${line}`),{code,line,detail});
 
