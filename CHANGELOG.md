@@ -8,6 +8,7 @@ How to cut a release: [`docs/releasing.md`](docs/releasing.md).
 ## [Unreleased]
 
 ### Added
+- **Resizable collections and folders list** in the API client: drag the divider between the list and the editor (or focus it and use ← → / Shift+← → / Home / End; double-click or Enter restores the default), and collapse the list with the ☰ button to give the editor the whole panel. The width and the collapsed state are remembered; the list never gets narrower than 140 px and always leaves room for the editor.
 - **New request window**: creating a request (the + in the tree, a folder's +, or the right-click menu) opens a small window, like in Bruno: *From scratch* (name, method, URL) or *Import from cURL* (paste the command and its method, URL, headers, body and auth come along). It says where the request will be created, suggests a name such as `POST /orders` from the method and URL, validates before creating, and the new request opens in a tab.
 - **cURL in the API client**: paste a `curl …` command (the browser's *Copy as cURL* included) into the URL field and it becomes the whole request (method, URL, headers, body, basic auth); *Copy as…* gives the current request as cURL or `fetch`, with the environment's variables already resolved.
 - **Clearer variable problems**: when a request still has `{{variables}}` without a value, a notice names them and offers to pick an environment or edit the environments (the run report shows it too).

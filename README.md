@@ -234,6 +234,7 @@ The **API** button in the bottom bar splits the screen: the map stays on the lef
 - **cURL.** Paste a `curl …` command (the browser's *Copy as cURL* works) into the URL field, or type it and press Enter: it becomes the whole request. *Copy as…* gives the current request as cURL or `fetch`, with the environment's variables already resolved.
 - **Variables without a value.** If a request still has `{{variables}}` without a value, a notice names them and lets you pick an environment or edit the environments (the run report shows it too). A `{x} N` button in the header lists the session variables set by scripts and post-response variables, to edit, remove or clear them.
 - **Right-click menu.** On requests, folders and the collection (also the menu key, and long press on touch): open, duplicate, copy as cURL/fetch, run, new request or folder, rename, attach, delete. On narrow screens the request list is a drawer (☰).
+- **List width.** Drag the divider between the collections/folders list and the editor (or use ← → Shift+← → Home End on it; double-click or Enter restores the default), and collapse the list with ☰ to give the editor the whole panel. The width and the collapsed state are remembered.
 - **Tabs.** Every request you open gets a tab, so you can jump between requests without losing anything: each tab keeps its response, its inner tab and your edits, and a send that is still running finishes in its own tab. Close with the **×**, a middle click or **Delete**; **← → Home End** move between tabs; the open tabs return when you reopen the panel. The run report is a tab as well.
 - **Editor and response layout.** Show the response below the editor or beside it (◫ / ⬒), drag the divider or press the arrow keys on it, and use ⤢ to focus on the response. The choice is remembered.
 - **Quick open.** **Ctrl+K** inside the panel opens a request by typing part of its name, URL, method or folder (↑ ↓ Enter); **Ctrl+S** saves immediately, **Ctrl+Enter** sends.
@@ -403,7 +404,7 @@ node tests/edit.mjs                     # or run a single suite
 | `api` API-01..13 | split-view client, environments, sending, attaching to cards |
 | `polish` POL-01..07 · `curl` | cURL import/export, unresolved variables, context menu, session variables, narrow screens |
 | `response` RESP-01..10 | response body: JSON tree, path copy and filter, search, XML/HTML colours, preview |
-| `tabs` TAB-01..10 | request tabs, editor/response layout and divider, quick open |
+| `tabs` TAB-01..11 | request tabs, editor/response layout and divider, quick open |
 | `runner` RUN-01..11 · `runner.test` | running folders, interactive report, Bruno folder import |
 | `a11y` A11Y-01..07 | tree semantics, keyboard navigation, accessible names, dialog focus, pinch zoom |
 

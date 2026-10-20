@@ -233,6 +233,7 @@ O botão **API** na barra inferior divide a tela: o mapa fica à esquerda e abre
 - **cURL.** Cole um comando `curl …` (o *Copy as cURL* do navegador funciona) no campo de URL, ou digite e aperte Enter: ele vira a request inteira. *Copiar como…* entrega a request atual como cURL ou `fetch`, com as variáveis do ambiente já resolvidas.
 - **Variáveis sem valor.** Se uma request ainda tem `{{variáveis}}` sem valor, um aviso as nomeia e deixa escolher um ambiente ou editar os ambientes (o relatório de execução também mostra). Um botão `{x} N` no cabeçalho lista as variáveis de sessão definidas por scripts e variáveis pós-resposta, para editar, remover ou limpar.
 - **Menu do botão direito.** Em requests, pastas e na coleção (também a tecla de menu, e o toque longo): abrir, duplicar, copiar como cURL/fetch, executar, nova request ou pasta, renomear, anexar, excluir. Em telas estreitas a lista de requests vira uma gaveta (☰).
+- **Largura da lista.** Arraste o divisor entre a lista de coleções e pastas e o editor (ou use ← → Shift+← → Home End nele; duplo clique ou Enter volta ao padrão) e recolha a lista com ☰ para dar o painel todo ao editor. A largura e o estado recolhido ficam lembrados.
 - **Abas.** Cada request aberta ganha uma aba, e dá para alternar entre elas sem perder nada: cada aba guarda a sua resposta, a sua aba interna e o que você editou, e um envio que ainda está rodando termina na própria aba. Feche com o **×**, o clique do meio ou **Delete**; **← → Home End** navegam entre as abas; as abas abertas voltam quando você reabre o painel. O relatório de execução também é uma aba.
 - **Disposição do editor e da resposta.** Mostre a resposta abaixo do editor ou ao lado (◫ / ⬒), arraste o divisor ou use as setas nele, e use ⤢ para focar na resposta. A escolha fica lembrada.
 - **Abrir request rápido.** **Ctrl+K** dentro do painel abre uma request digitando parte do nome, da URL, do método ou da pasta (↑ ↓ Enter); **Ctrl+S** salva na hora e **Ctrl+Enter** envia.
@@ -402,7 +403,7 @@ node tests/edit.mjs                     # ou rode uma suíte só
 | `api` API-01..13 | cliente em tela dividida, ambientes, envio, anexar a cards |
 | `polish` POL-01..07 · `curl` | importar/copiar cURL, variáveis sem valor, menu de contexto, variáveis de sessão, telas estreitas |
 | `response` RESP-01..10 | corpo da resposta: árvore JSON, copiar e filtrar por caminho, busca, cores XML/HTML, preview |
-| `tabs` TAB-01..10 | abas de requests, disposição editor/resposta e divisor, abrir request rápido |
+| `tabs` TAB-01..11 | abas de requests, disposição editor/resposta e divisor, abrir request rápido |
 | `runner` RUN-01..11 · `runner.test` | executar pastas, relatório interativo, importar pasta do Bruno |
 | `a11y` A11Y-01..07 | semântica de árvore, navegação por teclado, nomes acessíveis, foco nas janelas, zoom por pinça |
 
