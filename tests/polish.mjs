@@ -75,16 +75,38 @@ try{
  await page.locator('.api-url').fill('curl');await page.keyboard.press('Enter'); // sem endereço: não é um curl válido, segue como uma URL
  await page.locator('.api-status').waitFor();assert.equal(await page.locator('.api-method-select').inputValue(),'put');
 
- // POL-02: copiar a request como cURL ou fetch, já com as variáveis do ambiente
+ // POL-02: copiar como cURL ou fetch: o comando inteiro aparece na tela antes de copiar
  await open('Create');
  await page.locator('#api-panel select[aria-label="Environment"]').selectOption('local');
+ const hostRe=host.replace(/[.]/g,'\\.');
+ const copyDlg=page.locator('.api-copyas-modal'),shown=()=>copyDlg.locator('.api-copyas-text').textContent();
  await page.locator('.api-copyas button',{hasText:'Copy as…'}).click();await page.locator('.api-copyas .api-menu button',{hasText:'cURL'}).click();
- const curl=await clip();
- assert.match(curl,new RegExp(`^curl -X POST '${host.replace(/[.]/g,'\\.')}/users'`));assert.match(curl,/-H 'X-Trace: t1'/);assert.match(curl,/-H 'Content-Type: application\/json'/);assert.match(curl,/--data-raw '\{"name":"Ana"\}'/);
- assert.match(await toast().textContent(),/Copied as cURL/);
+ await copyDlg.waitFor();assert.equal(await copyDlg.getAttribute('role'),'dialog');
+ assert.match(await copyDlg.locator('h3').textContent(),/Copy as — Create/);
+ const curl=await shown();
+ assert.match(curl,new RegExp(`^curl -X POST '${hostRe}/users'`));assert.match(curl,/-H 'X-Trace: t1'/);assert.match(curl,/-H 'Content-Type: application\/json'/);assert.match(curl,/--data-raw '\{"name":"Ana"\}'/);
+ assert.equal((await clip()).startsWith('curl -X POST'),false); // ainda não copiou nada
+ assert.equal(await page.evaluate(()=>document.activeElement.textContent),'Copy'); // o foco vai para Copiar
+ await copyDlg.getByRole('button',{name:'Copy',exact:true}).click();
+ await page.waitForFunction(async()=>(await navigator.clipboard.readText()).startsWith('curl -X POST'));
+ assert.equal((await clip()).replace(/\r\n/g,'\n'),curl.replace(/\r\n/g,'\n')); // o que foi copiado é exatamente o que estava na tela
+ assert.equal(await copyDlg.getByRole('button',{name:'Copied'}).count(),1);
+ // outro formato, e com as {{variáveis}} em vez dos valores
+ await copyDlg.getByLabel('fetch').check();
+ assert.match(await shown(),new RegExp(`^fetch\\("${hostRe}/users", \\{`));
+ await copyDlg.getByLabel('Replace {{variables}} with their values').uncheck();
+ assert.match(await shown(),/^fetch\("\{\{host\}\}\/users"/);
+ await copyDlg.getByLabel('cURL').check();assert.match(await shown(),/^curl -X POST '\{\{host\}\}\/users'/);
+ for(let i=0;i<10;i++){await page.keyboard.press('Tab');assert.equal(await page.evaluate(()=>!!document.activeElement.closest('.api-copyas-modal')),true,'o foco fica preso na janela');}
+ await page.keyboard.press('Escape');await copyDlg.waitFor({state:'detached'});
+ assert.equal(await page.locator('#api-panel').isVisible(),true);
+ // sem ambiente escolhido, o aviso de variáveis sem valor aparece na própria janela
+ await page.locator('#api-panel select[aria-label="Environment"]').selectOption('');
  await page.locator('.api-copyas button',{hasText:'Copy as…'}).click();await page.locator('.api-copyas .api-menu button',{hasText:'fetch'}).click();
- assert.match(await clip(),new RegExp(`^fetch\\("${host.replace(/[.]/g,'\\.')}/users", \\{`));
- await page.locator('.api-menu:not([hidden])').count().then(n=>assert.equal(n,0)); // o menu fecha
+ await copyDlg.waitFor();assert.match(await copyDlg.locator('.api-unresolved').textContent(),/\{\{host\}\}/);
+ await copyDlg.locator('footer').getByRole('button',{name:'Close'}).click();await copyDlg.waitFor({state:'detached'});
+ await page.locator('#api-panel select[aria-label="Environment"]').selectOption('local');
+ assert.equal(await page.locator('.api-menu:not([hidden])').count(),0); // o menu fecha
 
  // POL-03: variáveis sem valor avisam, com atalho para escolher o ambiente ou editar
  await open('Health');
@@ -114,7 +136,10 @@ try{
  assert.deepEqual([copyModel.method,copyModel.bodyMode,copyModel.body.json,copyModel.headers[0].name],['post','json','{"name":"Ana"}','X-Trace']);
  await page.locator('.api-row',{hasText:'List'}).click({button:'right'});
  await page.locator('.api-ctx button',{hasText:'Copy as cURL'}).click();
+ await copyDlg.waitFor();assert.match(await shown(),/^curl 'http:\/\/.*\/users\?page=1'/); // o menu de contexto também mostra antes de copiar
+ await copyDlg.getByRole('button',{name:'Copy',exact:true}).click();
  await page.waitForFunction(async()=>/^curl .*users\?page=1/.test(await navigator.clipboard.readText()));
+ await page.keyboard.press('Escape');await copyDlg.waitFor({state:'detached'});
  assert.equal(await page.locator('.api-ctx').count(),0);
  const mainBtn=page.locator('.api-row',{hasText:'Create'}).first().locator('.api-row-main');
  await mainBtn.focus();

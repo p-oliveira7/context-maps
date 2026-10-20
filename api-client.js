@@ -788,9 +788,44 @@ function unresolvedBanner(names){
    h('button',{type:'button',class:'api-btn',onClick:openEnvEditor},t('apiEditEnv'))));
 }
 const COPY_AS={curl:{label:'apiCopyCurl',make:toCurl},fetch:{label:'apiCopyFetch',make:toFetch}};
-async function copyAs(kind,model){ // com as variáveis do ambiente já resolvidas
- const text=COPY_AS[kind].make(buildRequest(model,allVars(model),state.coll?.defaults?.headers));
- try{await navigator.clipboard.writeText(text);toast(t('apiCopiedAs',t(COPY_AS[kind].label)));}catch{toast(t('apiCopyFailed'));}
+function copyAs(kind,model){ // mostra o texto inteiro antes de copiar
+ if(!state.coll||panel.querySelector('.api-modal'))return;
+ const back=document.activeElement;
+ let fmt=kind,resolved=true,current='';
+ const overlay=h('div',{class:'api-modal api-copyas-modal',role:'dialog','aria-modal':'true','aria-labelledby':'api-copyas-title'});
+ const out=h('pre',{class:'api-pre api-copyas-text',tabindex:'0','aria-label':t('apiCopyAsPreview')});
+ const note=h('p',{class:'api-unresolved',role:'status',hidden:true});
+ const draw=()=>{
+  const req=buildRequest(model,resolved?allVars(model):new Map(),state.coll?.defaults?.headers),names=resolved?findUnresolved(req):[];
+  current=COPY_AS[fmt].make(req);out.textContent=current;
+  note.hidden=!names.length;note.textContent=names.length?t('apiUnresolvedBody',names.map(n=>`{{${n}}}`).join(', ')):'';
+ };
+ const copyBtn=h('button',{type:'button',class:'api-btn primary',onClick:async()=>{
+  try{await navigator.clipboard.writeText(current);copyBtn.textContent=t('apiCopied');setTimeout(()=>{copyBtn.textContent=t('apiCopy');},1500);}
+  catch{toast(t('apiCopyFailed'));}
+ }},t('apiCopy'));
+ const close=()=>{overlay.remove();document.removeEventListener('keydown',onKey,true);if(back?.isConnected)back.focus({preventScroll:true});};
+ function onKey(e){
+  if(!overlay.isConnected)return;
+  if(e.key==='Escape'){e.preventDefault();e.stopPropagation();close();return;}
+  if(e.key==='Tab'){
+   const items=[...overlay.querySelectorAll('input,button,pre')].filter(x=>!x.disabled&&!x.closest('[hidden]'));
+   const first=items[0],last=items.at(-1);
+   if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
+   else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+  }
+ }
+ document.addEventListener('keydown',onKey,true);
+ overlay.addEventListener('pointerdown',e=>{if(e.target===overlay)close();});
+ const radio=key=>h('label',{class:'api-newreq-mode'},h('input',{type:'radio',name:'api-copyas-fmt',value:key,checked:key===fmt||null,onChange:()=>{fmt=key;draw();}}),h('span',{},t(COPY_AS[key].label)));
+ overlay.append(h('div',{class:'api-modal-card api-copyas-card'},
+  h('header',{},h('h3',{id:'api-copyas-title'},t('apiCopyAsTitle',model.name||'')),h('button',{type:'button',class:'api-icon-btn','aria-label':t('close'),onClick:close},'×')),
+  h('div',{class:'api-copyas-options'},
+   h('fieldset',{class:'api-newreq-modes'},h('legend',{class:'sr-only'},t('apiCopyAsFormat')),...Object.keys(COPY_AS).map(radio)),
+   h('label',{class:'api-copyas-resolve'},h('input',{type:'checkbox',checked:true,onChange:e=>{resolved=e.target.checked;draw();}}),h('span',{},t('apiCopyAsResolve')))),
+  note,out,
+  h('footer',{},h('button',{type:'button',class:'api-btn',onClick:close},t('close')),copyBtn)));
+ panel.append(overlay);draw();copyBtn.focus();
 }
 async function copyRowAs(kind,item){
  try{await copyAs(kind,tabEntry(item.path)?.request||await api('GET',`/collections/${state.coll.id}/request?path=${encodeURIComponent(item.path)}`));}catch(e){toast(e.message);}
