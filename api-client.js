@@ -331,6 +331,7 @@ function renderTree(){
  if(!state.coll.tree.length)els.tree.append(h('li',{class:'api-empty-small',role:'presentation'},t('apiEmptyCollection')));
 }
 async function newItem(type,parent=''){
+ if(type==='request'){openNewRequest(parent);return;}
  const name=prompt(t(type==='folder'?'apiPromptFolder':'apiPromptRequest'));if(!name||!name.trim())return;
  try{
   const made=await api('POST',`/collections/${state.coll.id}/items`,{type,parent,name:name.trim(),method:'get',url:''});
@@ -710,11 +711,7 @@ function renderAll(withMain=true){renderHeader();renderTree();if(withMain)render
 const CURL_RE=/^\s*curl(\.exe)?\s/i;
 function applyCurl(model){ // um comando curl colado na URL vira a request inteira
  const m=state.request;if(!m)return;
- m.method=METHODS.includes(model.method)?model.method:'get';
- m.url=model.url;m.headers=model.headers;
- m.bodyMode=model.bodyMode;m.body=model.body||{};m.formUrlEncoded=model.formUrlEncoded||[];
- m.authMode=model.authMode;if(model.basic)m.basic=model.basic;
- syncParamsFromUrl(m);markDirty();renderMain();renderTabbar();
+ mergeCurl(m,model);markDirty();renderMain();renderTabbar();
  els.urlInput?.focus({preventScroll:true});
  toast(t(model.notes?.includes('multipart')?'apiCurlMultipart':'apiCurlImported'));
 }
@@ -820,6 +817,100 @@ function hideTree(){panel?.classList.remove('show-tree');els.head?.querySelector
 function varsButton(){els.varsBtn=h('button',{type:'button',class:'api-btn api-vars-btn','aria-haspopup':'dialog',onClick:toggleVarsPop});syncVarsUi();return els.varsBtn;}
 function treeToggle(){
  return h('button',{type:'button',class:'api-icon-btn api-tree-toggle',title:t('apiTreeToggle'),'aria-label':t('apiTreeToggle'),'aria-controls':'api-tree-col','aria-expanded':String(!!panel?.classList.contains('show-tree')),onClick:e=>{const on=panel.classList.toggle('show-tree');e.currentTarget.setAttribute('aria-expanded',String(on));}},'☰');
+}
+
+/* ---------- nova request: do zero ou importando um cURL (janela de criação) ---------- */
+const pathOf=url=>{ // "/users" de "https://host/users?x=1" ou "{{host}}/users"
+ const p=String(url||'').trim().replace(/^[a-z][a-z0-9+.-]*:\/\/[^/?#]*/i,'').replace(/^\{\{[^}]*\}\}/,'').split(/[?#]/)[0];
+ return p&&p!=='/'?p:'';
+};
+const suggestName=(method,url)=>pathOf(url)?`${String(method).toUpperCase()} ${pathOf(url)}`:'';
+function openNewRequest(parent=''){
+ if(!state.coll||panel.querySelector('.api-modal'))return;
+ const back=document.activeElement,coll=state.coll;
+ const where=parent?`📁 ${findItem(coll.tree,parent)?.name||parent}`:`🗂 ${coll.name}`;
+ let mode='scratch',parsed=null;
+ const overlay=h('div',{class:'api-modal api-newreq',role:'dialog','aria-modal':'true','aria-labelledby':'api-newreq-title'});
+ const field=(label,control)=>h('label',{class:'api-field'},h('span',{},label),control);
+ const name=h('input',{type:'text',id:'api-newreq-name',spellcheck:'false',autocomplete:'off','aria-describedby':'api-newreq-error'});
+ const method=h('select',{class:'api-method-select api-m-get','aria-label':t('apiMethod'),onChange:()=>{method.className=`api-method-select api-m-${method.value}`;refresh();}},...METHODS.map(x=>h('option',{value:x},x.toUpperCase())));
+ const url=h('input',{type:'text',class:'api-url',placeholder:'{{host}}/path','aria-label':'URL',spellcheck:'false',onInput:()=>refresh()});
+ const curl=h('textarea',{class:'api-textarea',id:'api-newreq-curl',rows:6,spellcheck:'false',placeholder:t('apiNewReqCurlPlaceholder'),'aria-label':t('apiNewReqCurlLabel'),onInput:()=>refresh()});
+ const summary=h('p',{class:'api-hint',id:'api-newreq-summary','aria-live':'polite'});
+ const error=h('p',{class:'api-newreq-error',id:'api-newreq-error',role:'alert'});
+ const scratchBox=h('div',{class:'api-newreq-row'},method,url);
+ const curlBox=h('div',{class:'api-newreq-curl',hidden:true},field(t('apiNewReqCurlLabel'),curl),summary);
+ const create=h('button',{type:'button',class:'api-btn primary',onClick:()=>submit()},t('apiNewReqCreate'));
+ const radio=(value,label)=>h('label',{class:'api-newreq-mode'},h('input',{type:'radio',name:'api-newreq-mode',value,checked:value==='scratch'||null,onChange:()=>{
+  mode=value;scratchBox.hidden=value!=='scratch';curlBox.hidden=value!=='curl';refresh();(value==='curl'?curl:url).focus();
+ }}),h('span',{},label));
+ const close=(restore=true)=>{
+  overlay.remove();document.removeEventListener('keydown',onKey,true);
+  if(restore&&back?.isConnected)back.focus({preventScroll:true});
+ };
+ function refresh(){
+  if(mode==='curl'){
+   const text=curl.value.trim();parsed=text?parseCurl(text):null;
+   summary.textContent=parsed?t('apiNewReqCurlSummary',parsed.method.toUpperCase(),parsed.url,parsed.headers.length,parsed.bodyMode==='none'?t('apiNewReqNoBody'):t('apiNewReqBody',parsed.bodyMode)):'';
+   error.textContent=text&&!parsed?t('apiNewReqCurlInvalid'):'';
+   create.disabled=!parsed;
+   name.placeholder=parsed&&suggestName(parsed.method,parsed.url)||t('apiNewReqNamePh');
+  }else{
+   error.textContent='';create.disabled=false;
+   name.placeholder=suggestName(method.value,url.value)||t('apiNewReqNamePh');
+  }
+ }
+ async function submit(){
+  if(mode==='curl'&&!parsed)return;
+  const method0=mode==='curl'?parsed.method:method.value,url0=mode==='curl'?parsed.url:url.value.trim();
+  const finalName=name.value.trim()||suggestName(method0,url0);
+  if(!finalName){error.textContent=t('apiNewReqNameRequired');name.focus();return;}
+  create.disabled=true;
+  try{
+   await flushSave();
+   const id=coll.id,made=await api('POST',`/collections/${id}/items`,{type:'request',parent,name:finalName.slice(0,100),method:METHODS.includes(method0)?method0:'get',url:url0});
+   if(mode==='curl'){ // o resto do comando (cabeçalhos, corpo, autenticação) entra no arquivo recém-criado
+    const {path:_p,...model}=await api('GET',`/collections/${id}/request?path=${encodeURIComponent(made.path)}`);
+    mergeCurl(model,parsed);
+    await api('PUT',`/collections/${id}/request?path=${encodeURIComponent(made.path)}`,model);
+   }
+   close(false);
+   if(parent)state.expanded.add(parent);
+   await reloadTree();await openRequest(made.path);
+   if(mode==='curl'&&parsed?.notes?.includes('multipart'))toast(t('apiCurlMultipart'));
+  }catch(e){error.textContent=e.message;create.disabled=false;}
+ }
+ function onKey(e){
+  if(!overlay.isConnected)return;
+  if(e.key==='Escape'){e.preventDefault();e.stopPropagation();close();return;}
+  if(e.key==='Tab'){
+   const items=[...overlay.querySelectorAll('input,select,textarea,button')].filter(x=>!x.disabled&&!x.closest('[hidden]'));
+   if(!items.length)return;
+   const first=items[0],last=items.at(-1);
+   if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
+   else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+   return;
+  }
+  if(e.key!=='Enter'||!overlay.contains(e.target))return;
+  const tag=e.target.tagName;
+  if(e.target===curl?(e.ctrlKey||e.metaKey):(tag==='INPUT'&&e.target.type==='text')){e.preventDefault();e.stopPropagation();submit();}
+ }
+ document.addEventListener('keydown',onKey,true);
+ overlay.addEventListener('pointerdown',e=>{if(e.target===overlay)close();});
+ overlay.append(h('div',{class:'api-modal-card api-newreq-card'},
+  h('header',{},h('h3',{id:'api-newreq-title'},t('apiNewReqTitle')),h('button',{type:'button',class:'api-icon-btn','aria-label':t('close'),onClick:()=>close()},'×')),
+  h('p',{class:'api-hint'},t('apiNewReqIn',where)),
+  h('fieldset',{class:'api-newreq-modes'},h('legend',{class:'sr-only'},t('apiNewReqMode')),radio('scratch',t('apiNewReqScratch')),radio('curl',t('apiNewReqCurl'))),
+  field(t('apiNewReqName'),name),scratchBox,curlBox,error,
+  h('footer',{},h('button',{type:'button',class:'api-btn',onClick:()=>close()},t('cancel')),create)));
+ panel.append(overlay);refresh();name.focus();
+}
+function mergeCurl(m,parsed){ // aplica um curl lido (parseCurl) sobre um modelo de request
+ m.method=METHODS.includes(parsed.method)?parsed.method:'get';
+ m.url=parsed.url;m.headers=parsed.headers;
+ m.bodyMode=parsed.bodyMode;m.body=parsed.body||{};m.formUrlEncoded=parsed.formUrlEncoded||[];
+ m.authMode=parsed.authMode;if(parsed.basic)m.basic=parsed.basic;
+ syncParamsFromUrl(m);
 }
 
 /* ---------- abrir request pelo teclado (Ctrl+K no painel) ---------- */

@@ -80,8 +80,8 @@ try{
  assert.ok(saved.includes('auth:bearer {\n  token: {{token}}\n}')&&saved.includes('~X-Off: no'));
 
  // API-04: nova request pela interface, corpo JSON com variável da request e variável embutida
- page.once('dialog',d=>d.accept('Criar item'));
  await page.locator('.api-tree-tools button[aria-label="Nova request"]').click();
+ await page.locator('#api-newreq-name').fill('Criar item');await page.keyboard.press('Enter'); // a janela de nova request
  await page.locator('.api-row-name',{hasText:'Criar item'}).waitFor();
  await page.locator('.api-req-title strong',{hasText:'Criar item'}).waitFor(); // a request nova abre no editor
  await page.locator('#api-panel .api-method-select').selectOption('post');
