@@ -143,7 +143,7 @@ All the images in this README come from it, with the interface in English.
 
 - **Images and diagrams** open full screen; with several items there are ‹ › arrows (or ← →) and a counter.
 - **Links** show as a "🔗 N link(s)" badge below the card: one link opens directly, several open a list.
-- **Diagrams** use the [Mermaid](https://mermaid.js.org/) syntax, edited in the app with a live preview. A **sequence diagram** (`sequenceDiagram`) is drawn by Context Maps itself (labels size the lifelines, every arrow and note is addressable, errors name the line); anything it does not support falls back to Mermaid. Start a new diagram from the *Flowchart* or *Sequence diagram* template.
+- **Diagrams** use the [Mermaid](https://mermaid.js.org/) syntax, edited in the app with a live preview. A **sequence diagram** (`sequenceDiagram`) is drawn by Context Maps itself (labels size the lifelines, every arrow and note is addressable, errors name the line); anything it does not support falls back to Mermaid. Start a new diagram from the *Flowchart* or *Sequence diagram* template. For sequence diagrams, **Edit visually** opens a full editor: participants and steps as lists, a canvas where you click to select, **drag from one lifeline to another to add a message**, double-click a label to rename it, an inspector for every property, notes and `loop`/`alt`/`opt`/`par` blocks with branches, reorder with the buttons or Alt+arrows, a **Text** view of the same diagram, zoom, and unlimited undo/redo (Ctrl+Z / Ctrl+Y). Apply sends the text back to the diagram editor.
 
 <p align="center">
   <img src="docs/images/07-diagram-editor.png" alt="The Mermaid diagram editor with live preview" width="820"><br>
@@ -406,7 +406,7 @@ node tests/edit.mjs                     # or run a single suite
 | `polish` POL-01..07 · `curl` | cURL import/export, unresolved variables, context menu, session variables, narrow screens |
 | `response` RESP-01..10 | response body: JSON tree, path copy and filter, search, XML/HTML colours, preview |
 | `tabs` TAB-01..12 | request tabs, editor/response layout and divider, quick open |
-| `sequence` SEQ-01..06 · `sequence.test` | native sequence diagrams: parser, layout, SVG, editor |
+| `sequence` SEQ-01..09 · `sequence.test` · `sequence-edit.test` | native sequence diagrams: parser, layout, SVG, visual editor, editing operations |
 | `runner` RUN-01..12 · `runner.test` | running folders, interactive report, Bruno folder import |
 | `a11y` A11Y-01..07 | tree semantics, keyboard navigation, accessible names, dialog focus, pinch zoom |
 
