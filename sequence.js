@@ -64,15 +64,15 @@ export function stringifySequence(model){
  if(model.autonumber)out.push('  autonumber');
  for(const p of model.participants)out.push(`  ${p.kind==='actor'?'actor':'participant'} ${p.id}${p.name&&p.name!==p.id?` as ${p.name}`:''}`);
  const arrow={solid:{arrow:'->>',open:'->',cross:'-x',async:'-)'},dashed:{arrow:'-->>',open:'-->',cross:'--x',async:'--)'}};
- let depth=0;
+ let depth=0;const kinds=[];
  for(const s of model.steps){
-  if(s.type==='end')depth--;
+  if(s.type==='end'){depth--;kinds.pop();}
   const pad='  '.repeat(depth+1);
   if(s.type==='message')out.push(`${pad}${s.from}${arrow[s.style][s.head]}${s.activate}${s.to}: ${s.text}`);
   else if(s.type==='note')out.push(`${pad}Note ${s.position==='over'?'over':`${s.position} of`} ${s.actors.join(',')}: ${s.text}`);
   else if(s.type==='activate'||s.type==='deactivate')out.push(`${pad}${s.type} ${s.actor}`);
-  else if(s.type==='group'){out.push(`${pad}${s.kind}${s.label?` ${s.label}`:''}`);depth++;}
-  else if(s.type==='else')out.push(`${'  '.repeat(depth)}${s.label?`else ${s.label}`:'else'}`);
+  else if(s.type==='group'){out.push(`${pad}${s.kind}${s.label?` ${s.label}`:''}`);depth++;kinds.push(s.kind);}
+  else if(s.type==='else'){const w=kinds.at(-1)==='par'?'and':kinds.at(-1)==='critical'?'option':'else';out.push(`${'  '.repeat(depth)}${s.label?`${w} ${s.label}`:w}`);}
   else if(s.type==='end')out.push(`${pad}end`);
  }
  return out.join('\n')+'\n';
@@ -130,9 +130,10 @@ export function layoutSequence(model,{measure=defaultMeasure}={}){
  const shift=Math.max(0,Math.ceil(leftExtra));if(shift)for(let i=0;i<x.length;i++)x[i]+=shift;
  // 2) alturas
  const top=MARGIN+(model.title?26:0),headY=top,bodyY=headY+BOX_H+22;
- let y=bodyY;const items=[],open=[],active=P.map(()=>[]),bars=[];let n2=0,maxRight=0;
+ let y=bodyY;const items=[],open=[],active=P.map(()=>[]),bars=[],stepY=[];let n2=0,maxRight=0;
  const touch=(i)=>{open.forEach(g=>{g.min=Math.min(g.min,i);g.max=Math.max(g.max,i);});};
  model.steps.forEach((s,k)=>{
+  stepY[k]=y; // topo de cada passo (o editor usa para saber onde inserir)
   if(s.type==='message'){
    n2++;const a=idx.get(s.from),b=idx.get(s.to),label=labelOf(s,n2),ls=linesOf(label),labelH=ls.length*LINE_H;
    touch(a);touch(b);
@@ -168,7 +169,7 @@ export function layoutSequence(model,{measure=defaultMeasure}={}){
  }
  const lastX=x.at(-1)+boxW.at(-1)/2;
  const width=Math.ceil(Math.max(lastX+rightExtra,maxRight)+MARGIN);
- return {width,height:Math.ceil(bottom+MARGIN/2),title:model.title,headY,bodyY,bottom,
+ return {width,height:Math.ceil(bottom+MARGIN/2),title:model.title,headY,bodyY,bottom,stepY,
   participants:P.map((p,i)=>({...p,x:x[i],w:boxW[i],h:BOX_H,y:headY})),items,bars,autonumber:model.autonumber};
 }
 
