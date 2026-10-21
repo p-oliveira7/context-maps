@@ -841,3 +841,6 @@ button.api-dd-item:hover,button.api-dd-item:focus-visible{background:#ffffff14;o
 @media (min-width:901px){body.api-open.api-short .api-panel{top:auto;bottom:0;height:var(--api-h);border-top:1px solid #ffffff1f;border-top-left-radius:12px}}
 body.api-resizing-v{cursor:row-resize;user-select:none}
 @media (max-width:900px){.api-resizer-v{display:none}}
+.seq-stage{cursor:grab}.seq-stage.is-panning{cursor:grabbing;user-select:none}
+.seq-stage .seq-step,.seq-stage .seq-actor,.seq-stage .seq-hit{cursor:pointer}
+.seq-fit{padding:.2rem .5rem}

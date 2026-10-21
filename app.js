@@ -6,7 +6,7 @@ import {VERSION} from './version.js?v=1';
 import {initApiClient,openApiPanel,closeApiPanel,isApiOpen,setAttachTarget,summarize,summarizeTree,API_DRAG_TYPE} from './api-client.js?v=15';
 import {apiDropdown,closeApiDropdown} from './api-dropdown.js?v=1';
 import {isSequenceSource,renderSequence,FONT as SEQ_FONT} from './sequence.js?v=1';
-import {openSequenceEditor} from './sequence-editor.js?v=1';
+import {openSequenceEditor} from './sequence-editor.js?v=2';
 applyStatic();
 const $=s=>document.querySelector(s), viewport=$('#viewport'), world=$('#world');
 $('#doc-version').textContent=`Context Maps v${VERSION}`;

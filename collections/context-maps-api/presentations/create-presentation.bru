@@ -20,6 +20,17 @@ body:json {
   }
 }
 
+vars:post-response {
+  createdId: res.body.id
+}
+
+assert {
+  res.status: eq 201
+}
+
 docs {
-  Creates an empty presentation. Delete it later with the Delete request.
+  Creates an empty presentation and keeps its id in the `createdId` variable.
+  The "Delete the presentation created above" request (last in this folder) removes it,
+  so running the folder or the collection leaves nothing behind. If you send this request
+  on its own, delete the presentation afterwards.
 }
