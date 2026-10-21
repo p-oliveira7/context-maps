@@ -834,3 +834,6 @@ button.api-dd-item:hover,button.api-dd-item:focus-visible{background:#ffffff14;o
 .seq-hint{margin:.2rem 0;color:#ffffff80;font-size:.74rem;line-height:1.45}
 .seq-actions{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.3rem}
 @media (max-width:900px){.seq-ed-body{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr) auto}.seq-ed-left,.seq-ed-right{max-height:30vh}}
+.seq-stage{cursor:grab}.seq-stage.is-panning{cursor:grabbing;user-select:none}
+.seq-stage .seq-step,.seq-stage .seq-actor,.seq-stage .seq-hit{cursor:pointer}
+.seq-fit{padding:.2rem .5rem}
