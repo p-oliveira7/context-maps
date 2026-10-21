@@ -1249,25 +1249,33 @@ function build(){
  const endResize=e=>{if(resizer.hasPointerCapture?.(e.pointerId))resizer.releasePointerCapture(e.pointerId);document.body.classList.remove('api-resizing');hooks.layout?.();};
  resizer.addEventListener('pointerup',endResize);resizer.addEventListener('pointercancel',endResize);
  resizer.addEventListener('keydown',e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();setWidth(panel.offsetWidth+(e.key==='ArrowLeft'?40:-40));hooks.layout?.();}});
- // altura: arrastar a borda de baixo (duplo clique volta à altura toda); mais baixo que a janela, o painel flutua no canto e o mapa ocupa a largura toda
- const MIN_H=220;
- const setHeight=px=>{
+ // altura: arrastar a borda de CIMA (a barra de cima da tela fica livre, ex.: o menu de compartilhamento do Teams); duplo clique volta à altura toda; mais baixo que a janela, o painel fica ancorado embaixo e o mapa ocupa a largura toda
+ // por padrão o painel abre um pouco abaixo do topo (TOP_GAP livres: o menu de compartilhamento do Teams fica ali)
+ const MIN_H=220,TOP_GAP=56;
+ const applyHeight=px=>{
   const max=window.innerHeight;
-  if(px===null||px>=max-12){document.documentElement.style.removeProperty('--api-h');document.body.classList.remove('api-short');store.set('cm-api-height','');return;}
-  const h2=Math.min(Math.max(px,MIN_H),max);
-  document.documentElement.style.setProperty('--api-h',`${h2}px`);document.body.classList.add('api-short');store.set('cm-api-height',String(Math.round(h2)));
+  if(px>=max-4){document.documentElement.style.removeProperty('--api-h');document.body.classList.remove('api-short');return;}
+  document.documentElement.style.setProperty('--api-h',`${Math.min(Math.max(px,MIN_H),max)}px`);document.body.classList.add('api-short');
+ };
+ // pref: número = altura escolhida; 'full' = altura toda; vazio = padrão (janela menos TOP_GAP)
+ const heightPref=()=>store.get('cm-api-height')||'';
+ const applyPref=()=>{const p=heightPref();applyHeight(p==='full'?window.innerHeight:Number(p)||window.innerHeight-TOP_GAP);};
+ const setHeight=px=>{ // arrasto e teclado
+  const max=window.innerHeight;
+  if(px===null||px>=max-12){store.set('cm-api-height','full');applyHeight(max);return;}
+  const h2=Math.min(Math.max(px,MIN_H),max);store.set('cm-api-height',String(Math.round(h2)));applyHeight(h2);
  };
  resizerV.addEventListener('pointerdown',e=>{e.preventDefault();resizerV.setPointerCapture(e.pointerId);document.body.classList.add('api-resizing-v');});
- resizerV.addEventListener('pointermove',e=>{if(resizerV.hasPointerCapture(e.pointerId))setHeight(e.clientY);});
+ resizerV.addEventListener('pointermove',e=>{if(resizerV.hasPointerCapture(e.pointerId))setHeight(window.innerHeight-e.clientY);});
  const endResizeV=e=>{if(resizerV.hasPointerCapture?.(e.pointerId))resizerV.releasePointerCapture(e.pointerId);document.body.classList.remove('api-resizing-v');hooks.layout?.();};
  resizerV.addEventListener('pointerup',endResizeV);resizerV.addEventListener('pointercancel',endResizeV);
- resizerV.addEventListener('dblclick',()=>{setHeight(null);hooks.layout?.();});
+ resizerV.addEventListener('dblclick',()=>{store.set('cm-api-height','');applyPref();hooks.layout?.();}); // volta ao padrão
  resizerV.addEventListener('keydown',e=>{
-  if(e.key==='ArrowUp'||e.key==='ArrowDown'){e.preventDefault();setHeight(panel.offsetHeight+(e.key==='ArrowUp'?-40:40));hooks.layout?.();}
-  else if(e.key==='Home'||e.key==='End'){e.preventDefault();setHeight(e.key==='Home'?MIN_H:null);hooks.layout?.();}
+  if(e.key==='ArrowUp'||e.key==='ArrowDown'){e.preventDefault();setHeight(panel.offsetHeight+(e.key==='ArrowUp'?40:-40));hooks.layout?.();} // a borda sobe (painel maior) ou desce (menor)
+  else if(e.key==='Home'||e.key==='End'){e.preventDefault();setHeight(e.key==='Home'?null:MIN_H);hooks.layout?.();}
  });
- window.addEventListener('resize',()=>{const h3=Number(store.get('cm-api-height'));if(h3)setHeight(h3);});
- const savedH=Number(store.get('cm-api-height'));if(savedH)setHeight(savedH);
+ window.addEventListener('resize',()=>applyPref());
+ applyPref();
  const saved=Number(store.get('cm-api-width'));
  document.documentElement.style.setProperty('--api-w',saved>=420?`${Math.min(saved,window.innerWidth-260)}px`:'50vw');
  panel.addEventListener('keydown',e=>{
