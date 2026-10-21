@@ -834,6 +834,17 @@ button.api-dd-item:hover,button.api-dd-item:focus-visible{background:#ffffff14;o
 .seq-hint{margin:.2rem 0;color:#ffffff80;font-size:.74rem;line-height:1.45}
 .seq-actions{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.3rem}
 @media (max-width:900px){.seq-ed-body{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr) auto}.seq-ed-left,.seq-ed-right{max-height:30vh}}
+
+/* ---------- imagem aberta: ao lado do API client e com zoom ---------- */
+dialog.is-beside{position:fixed;inset:0;width:auto;height:auto;z-index:500}
+body.api-open dialog.is-beside{right:var(--api-w)}
+@media (max-width:900px){body.api-open dialog.is-beside{right:0;bottom:55vh}}
+dialog img{transform-origin:center;touch-action:none;user-select:none;-webkit-user-drag:none}
+dialog.is-zoomed{cursor:grab}dialog.is-zoomed.is-panning{cursor:grabbing}
+.lightbox-zoom{position:absolute;top:12px;left:12px;z-index:2;display:flex;align-items:center;gap:.3rem;padding:.25rem;border-radius:10px;background:#000b;border:1px solid #ffffff33}
+.lightbox-zoom button{min-width:2rem;height:2rem;border-radius:8px;border:1px solid #ffffff33;background:#1c1c1c;color:#fff;font:inherit;font-size:1rem;cursor:pointer}
+.lightbox-zoom button:hover{background:#2b2b2b}
+.lightbox-zoom-label{min-width:3rem;text-align:center;font-size:.8rem;color:#ffffffb3}
 .seq-stage{cursor:grab}.seq-stage.is-panning{cursor:grabbing;user-select:none}
 .seq-stage .seq-step,.seq-stage .seq-actor,.seq-stage .seq-hit{cursor:pointer}
 .seq-fit{padding:.2rem .5rem}
