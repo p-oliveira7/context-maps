@@ -1232,8 +1232,9 @@ function build(){
   h('div',{class:'api-tree-tools'},filter,h('button',{type:'button',class:'api-icon-btn',title:t('apiNewRequest'),'aria-label':t('apiNewRequest'),onClick:()=>state.coll&&newItem('request','')},'+'),h('button',{type:'button',class:'api-icon-btn',title:t('apiNewFolder'),'aria-label':t('apiNewFolder'),onClick:()=>state.coll&&newItem('folder','')},'▤')),
   els.tree);
  const resizer=h('div',{class:'api-resizer',role:'separator','aria-orientation':'vertical','aria-label':t('apiResize'),tabindex:'0'});
+ const resizerV=h('div',{class:'api-resizer-v',role:'separator','aria-orientation':'horizontal','aria-label':t('apiResizeHeight'),title:t('apiResizeHeightHint'),tabindex:'0'});
  els.banner=h('div',{class:'api-attach-banner',role:'status',hidden:true},h('span',{}),h('button',{type:'button',class:'api-btn',onClick:()=>{setAttachTarget(null);hooks.attachCancel?.();}},t('apiAttachCancel')));
- panel=h('aside',{id:'api-panel',class:'api-panel',role:'complementary','aria-label':t('apiTitle'),hidden:true},resizer,els.head,els.banner,h('div',{class:'api-body'},treeCol,treeResizer(),els.main),els.importInput,els.folderInput);
+ panel=h('aside',{id:'api-panel',class:'api-panel',role:'complementary','aria-label':t('apiTitle'),hidden:true},resizer,resizerV,els.head,els.banner,h('div',{class:'api-body'},treeCol,treeResizer(),els.main),els.importInput,els.folderInput);
  document.addEventListener('keydown',e=>{ // Ctrl+S com o painel aberto grava a request da aba ativa (e evita o "salvar página" do navegador)
   if(state.open&&!e.shiftKey&&!e.altKey&&(e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault();saveActive();}
  });
@@ -1248,6 +1249,25 @@ function build(){
  const endResize=e=>{if(resizer.hasPointerCapture?.(e.pointerId))resizer.releasePointerCapture(e.pointerId);document.body.classList.remove('api-resizing');hooks.layout?.();};
  resizer.addEventListener('pointerup',endResize);resizer.addEventListener('pointercancel',endResize);
  resizer.addEventListener('keydown',e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();setWidth(panel.offsetWidth+(e.key==='ArrowLeft'?40:-40));hooks.layout?.();}});
+ // altura: arrastar a borda de baixo (duplo clique volta à altura toda); mais baixo que a janela, o painel flutua no canto e o mapa ocupa a largura toda
+ const MIN_H=220;
+ const setHeight=px=>{
+  const max=window.innerHeight;
+  if(px===null||px>=max-12){document.documentElement.style.removeProperty('--api-h');document.body.classList.remove('api-short');store.set('cm-api-height','');return;}
+  const h2=Math.min(Math.max(px,MIN_H),max);
+  document.documentElement.style.setProperty('--api-h',`${h2}px`);document.body.classList.add('api-short');store.set('cm-api-height',String(Math.round(h2)));
+ };
+ resizerV.addEventListener('pointerdown',e=>{e.preventDefault();resizerV.setPointerCapture(e.pointerId);document.body.classList.add('api-resizing-v');});
+ resizerV.addEventListener('pointermove',e=>{if(resizerV.hasPointerCapture(e.pointerId))setHeight(e.clientY);});
+ const endResizeV=e=>{if(resizerV.hasPointerCapture?.(e.pointerId))resizerV.releasePointerCapture(e.pointerId);document.body.classList.remove('api-resizing-v');hooks.layout?.();};
+ resizerV.addEventListener('pointerup',endResizeV);resizerV.addEventListener('pointercancel',endResizeV);
+ resizerV.addEventListener('dblclick',()=>{setHeight(null);hooks.layout?.();});
+ resizerV.addEventListener('keydown',e=>{
+  if(e.key==='ArrowUp'||e.key==='ArrowDown'){e.preventDefault();setHeight(panel.offsetHeight+(e.key==='ArrowUp'?-40:40));hooks.layout?.();}
+  else if(e.key==='Home'||e.key==='End'){e.preventDefault();setHeight(e.key==='Home'?MIN_H:null);hooks.layout?.();}
+ });
+ window.addEventListener('resize',()=>{const h3=Number(store.get('cm-api-height'));if(h3)setHeight(h3);});
+ const savedH=Number(store.get('cm-api-height'));if(savedH)setHeight(savedH);
  const saved=Number(store.get('cm-api-width'));
  document.documentElement.style.setProperty('--api-w',saved>=420?`${Math.min(saved,window.innerWidth-260)}px`:'50vw');
  panel.addEventListener('keydown',e=>{

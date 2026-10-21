@@ -834,3 +834,11 @@ button.api-dd-item:hover,button.api-dd-item:focus-visible{background:#ffffff14;o
 .seq-hint{margin:.2rem 0;color:#ffffff80;font-size:.74rem;line-height:1.45}
 .seq-actions{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.3rem}
 @media (max-width:900px){.seq-ed-body{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr) auto}.seq-ed-left,.seq-ed-right{max-height:30vh}}
+
+/* ---------- altura do API client ---------- */
+.api-resizer-v{position:absolute;left:0;right:0;bottom:0;height:8px;cursor:row-resize;z-index:3}
+.api-resizer-v:hover,.api-resizer-v:focus-visible,body.api-resizing-v .api-resizer-v{background:#4f9d7a66;outline:none}
+body.api-open.api-short .api-panel{bottom:auto;height:var(--api-h);border-bottom:1px solid #ffffff1f;border-bottom-left-radius:12px}
+body.api-open.api-short #viewport{right:0}
+body.api-resizing-v{cursor:row-resize;user-select:none}
+@media (max-width:900px){.api-resizer-v{display:none}}

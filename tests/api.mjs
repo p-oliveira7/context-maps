@@ -493,6 +493,25 @@ try{
  assert.equal((await fetch(`${base}/api/send`,{headers:H})).status,405);
  assert.equal(seen.some(s=>s.url==='/x'),false);
  assert.equal(existsSync(path.join(collections,'.secrets')),true);
+ // API-14: a altura do painel também se ajusta: arrastar a borda de baixo, setas, duplo clique restaura, e a escolha é lembrada
+ await page.locator('#api-btn').click().catch(()=>{});
+ if(!(await page.locator('#api-panel').isVisible())){await page.locator('#api-btn').click();await page.locator('#api-panel').waitFor({state:'visible'});}
+ const vh=()=>page.evaluate(()=>({panel:document.querySelector('#api-panel').getBoundingClientRect().height,win:innerHeight,short:document.body.classList.contains('api-short'),viewportRight:getComputedStyle(document.querySelector('#viewport')).right}));
+ let hv=await vh();assert.equal(hv.short,false);assert.ok(hv.panel>=hv.win-1,'começa com a altura toda');
+ const grip=await page.locator('.api-resizer-v').boundingBox();
+ await page.mouse.move(grip.x+grip.width/2,grip.y+grip.height/2);await page.mouse.down();await page.mouse.move(grip.x+grip.width/2,420,{steps:8});await page.mouse.up();
+ hv=await vh();assert.equal(hv.short,true);assert.ok(hv.panel>380&&hv.panel<460,`altura seguiu o arrasto (${hv.panel})`);assert.equal(hv.viewportRight,'0px');
+ assert.equal(await page.locator('#api-panel .api-head').isVisible(),true);
+ // o mínimo vale (não dá para sumir com o painel) e as setas ajustam
+ await page.locator('.api-resizer-v').focus();await page.keyboard.press('Home');
+ hv=await vh();assert.ok(hv.panel>=219&&hv.panel<=225,`altura mínima (${hv.panel})`);
+ await page.keyboard.press('ArrowDown');hv=await vh();assert.ok(hv.panel>255&&hv.panel<265);
+ // lembra depois de recarregar
+ await page.reload();await page.locator('.node').first().waitFor();await page.locator('#api-btn').click();await page.locator('#api-panel').waitFor({state:'visible'});
+ hv=await vh();assert.equal(hv.short,true);assert.ok(hv.panel>255&&hv.panel<265,`altura lembrada (${hv.panel})`);
+ // duplo clique volta à altura toda
+ await page.locator('.api-resizer-v').dblclick();
+ hv=await vh();assert.equal(hv.short,false);assert.ok(hv.panel>=hv.win-1);
  assert.deepEqual(errors,[]);
- console.log('PASS API-01..13 API client panel');
+ console.log('PASS API-01..14 API client panel');
 }finally{await browser.close();server.kill();target.close();await rm(work,{recursive:true,force:true});}
