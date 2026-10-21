@@ -220,6 +220,36 @@ try{
  await openEditor();
  assert.equal(await modal.getAttribute('aria-modal'),'true');
  await page.keyboard.press('Escape');await modal.waitFor({state:'hidden'});
+ // SEQ-10: diagramas largos abrem ajustados à largura; ajustar, Ctrl+roda no cursor, atalhos e arrastar o fundo para rolar
+ await openEditor();
+ const wide='sequenceDiagram\n'+Array.from({length:9},(_,i)=>`  participant P${i+1} as Serviço número ${i+1}`).join('\n')+'\n'+Array.from({length:8},(_,i)=>`  P${i+1}->>P${i+2}: chamada longa ${i+1}`).join('\n')+'\n';
+ await type(wide);await page.waitForFunction(()=>document.querySelector('#diagram-engine').textContent==='Sequence diagram engine');
+ await page.locator('#diagram-visual').click();
+ const edZ=page.locator('.seq-ed');await edZ.waitFor();
+ const zoomNow=async()=>Number((await page.locator('.seq-zoom-label').textContent()).replace('%',''));
+ await page.waitForFunction(()=>Number(document.querySelector('.seq-zoom-label').textContent.replace('%',''))<100); // abriu ajustado, sem rolagem horizontal
+ const zwidths=await page.evaluate(()=>({svg:document.querySelector('.seq-svg-host svg').getBoundingClientRect().width,stage:document.querySelector('.seq-stage').clientWidth}));
+ assert.ok(zwidths.svg<=zwidths.stage,`o desenho cabe na janela (${JSON.stringify(zwidths)})`);
+ const zfitted=await zoomNow();
+ await edZ.getByRole('button',{name:'Zoom in'}).click();await edZ.getByRole('button',{name:'Zoom in'}).click();
+ assert.ok((await zoomNow())>zfitted);
+ await edZ.getByRole('button',{name:'Fit to width'}).click();assert.equal(await zoomNow(),zfitted);
+ // Ctrl+roda dá zoom (sem rolar a página) e Ctrl+0 / Ctrl+= / Ctrl+- fazem o mesmo pelo teclado
+ const zbox=await page.locator('.seq-stage').boundingBox();
+ await page.mouse.move(zbox.x+zbox.width/2,zbox.y+zbox.height/2);
+ await page.keyboard.down('Control');await page.mouse.wheel(0,-300);await page.keyboard.up('Control');
+ await page.waitForFunction(f=>Number(document.querySelector('.seq-zoom-label').textContent.replace('%',''))>f,zfitted);
+ await page.keyboard.press('Control+0');assert.equal(await zoomNow(),zfitted);
+ await page.keyboard.press('Control+=');assert.ok((await zoomNow())>zfitted);
+ await page.keyboard.press('Control+-');assert.equal(await zoomNow(),zfitted);
+ // com zoom maior, arrastar o fundo rola o desenho e não limpa/!muda a seleção
+ await edZ.getByRole('button',{name:'Zoom in'}).click();await edZ.getByRole('button',{name:'Zoom in'}).click();await edZ.getByRole('button',{name:'Zoom in'}).click();
+ const zstage=await page.locator('.seq-stage').boundingBox();
+ const scrollBefore=await page.locator('.seq-stage').evaluate(e=>e.scrollLeft);
+ await page.mouse.move(zstage.x+zstage.width-14,zstage.y+zstage.height-14);await page.mouse.down();await page.mouse.move(zstage.x+zstage.width-214,zstage.y+zstage.height-14,{steps:6});await page.mouse.up();
+ assert.ok((await page.locator('.seq-stage').evaluate(e=>e.scrollLeft))>scrollBefore,'arrastar o fundo rola para a direita');
+ page.once('dialog',d=>d.accept());await edZ.getByRole('button',{name:'Cancel',exact:true}).click();await edZ.waitFor({state:'hidden'});
+ await page.locator('#diagram-editor .modal-card [aria-label="Close"], #diagram-editor button:has-text("Cancel")').first().click().catch(()=>{});
  // SEQ-11: com o API client aberto, o diagrama aberto fica ao lado dele (sem bloquear) e tem zoom e arrasto; sem o painel continua modal
  await page.goto(`${base}/?p=${made.id}`);await page.locator('.node').first().waitFor();await page.locator('#expand').click();await page.locator('#fit').click();
  const lightbox=page.locator('dialog');
