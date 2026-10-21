@@ -1,0 +1,24 @@
+meta {
+  name: Delete the presentation created above
+  type: http
+  seq: 9
+}
+
+delete {
+  url: {{host}}/api/presentations/:id
+  body: none
+  auth: none
+}
+
+params:path {
+  id: {{createdId}}
+}
+
+assert {
+  res.status: eq 200
+}
+
+docs {
+  Deletes the presentation made by "Create a presentation" (its id is in `createdId`).
+  It only works after that request has run in the same session; it never targets your own presentations.
+}
