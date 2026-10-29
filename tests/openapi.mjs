@@ -99,11 +99,19 @@ try{
  assert.equal((await viewer.locator('.request-url pre').first().textContent()).trim(),`${host}/pets`);
  assert.match(await viewer.locator('.live-responses-table .response-col_description pre').first().textContent(),/"Rex"/);
 
- // OA-06: Esc fecha; sem o API client a documentação ocupa a largura toda
+ // OA-06: Esc fecha; sem o API client a documentação ocupa a metade direita, a borda ajusta a largura (lembrada) e o duplo clique volta à metade
  await viewer.locator('.oa-close').focus();await page.keyboard.press('Escape');await viewer.waitFor({state:'detached'});
  await page.evaluate(()=>document.querySelector('#api-btn').click());await page.locator('#api-panel').waitFor({state:'hidden'});
  await page.locator('.image-button.is-openapi').click();await viewer.locator('.opblock').first().waitFor();
- assert.ok((await page.evaluate(()=>document.querySelector('.oa-viewer').getBoundingClientRect().width))>=1490);
+ const vbox=()=>page.evaluate(()=>{const r=document.querySelector('.oa-viewer').getBoundingClientRect();return {left:r.left,right:r.right,width:r.width};});
+ let vb=await vbox();assert.ok(Math.abs(vb.width-750)<4&&vb.right>=1499,`metade direita da tela (${JSON.stringify(vb)})`);
+ const grip=await page.locator('.oa-resizer').boundingBox();
+ await page.mouse.move(grip.x+4,grip.y+200);await page.mouse.down();await page.mouse.move(500,grip.y+200,{steps:6});await page.mouse.up();
+ vb=await vbox();assert.ok(Math.abs(vb.left-500)<6,`a borda seguiu o arrasto (${vb.left})`);
+ await page.locator('.oa-close').click();await viewer.waitFor({state:'detached'});
+ await page.locator('.image-button.is-openapi').click();await viewer.locator('.opblock').first().waitFor();
+ vb=await vbox();assert.ok(Math.abs(vb.left-500)<6,'a largura é lembrada');
+ await page.locator('.oa-resizer').dblclick();vb=await vbox();assert.ok(Math.abs(vb.width-750)<4,'duplo clique: metade da tela');
  await page.locator('.oa-close').click();await viewer.waitFor({state:'detached'});
 
  // OA-07: no modo de edição dá para trocar a especificação (a janela abre com o texto atual)
