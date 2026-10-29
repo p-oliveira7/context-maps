@@ -845,6 +845,12 @@ dialog.is-zoomed{cursor:grab}dialog.is-zoomed.is-panning{cursor:grabbing}
 .lightbox-zoom button{min-width:2rem;height:2rem;border-radius:8px;border:1px solid #ffffff33;background:#1c1c1c;color:#fff;font:inherit;font-size:1rem;cursor:pointer}
 .lightbox-zoom button:hover{background:#2b2b2b}
 .lightbox-zoom-label{min-width:3rem;text-align:center;font-size:.8rem;color:#ffffffb3}
+/* ---------- altura do API client ---------- */
+.api-resizer-v{position:absolute;left:0;right:0;top:0;height:8px;cursor:row-resize;z-index:3}
+.api-resizer-v:hover,.api-resizer-v:focus-visible,body.api-resizing-v .api-resizer-v{background:#4f9d7a66;outline:none}
+@media (min-width:901px){body.api-open.api-short .api-panel{top:auto;bottom:0;height:var(--api-h);border-top:1px solid #ffffff1f;border-top-left-radius:12px}}
+body.api-resizing-v{cursor:row-resize;user-select:none}
+@media (max-width:900px){.api-resizer-v{display:none}}
 .seq-stage{cursor:grab}.seq-stage.is-panning{cursor:grabbing;user-select:none}
 .seq-stage .seq-step,.seq-stage .seq-actor,.seq-stage .seq-hit{cursor:pointer}
 .seq-fit{padding:.2rem .5rem}
