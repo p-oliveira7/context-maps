@@ -40,13 +40,34 @@ function imageFor(image){const img=document.createElement('img');img.src=image.s
 const gallery={images:[],index:0};
 function showGalleryImage(){
  const image=gallery.images[gallery.index],lightbox=$('dialog');
+ lbReset();
  lightbox.querySelector('img').src=image.src;lightbox.querySelector('img').alt=image.alt;lightbox.querySelector('p').textContent=image.alt;
  const many=gallery.images.length>1;
  for(const id of ['lightbox-prev','lightbox-next','lightbox-count'])$('#'+id).hidden=!many;
  $('#lightbox-count').textContent=`${gallery.index+1} / ${gallery.images.length}`;
 }
+/* Zoom e arrasto da imagem aberta: roda do mouse (no cursor), botões, + / − / 0; arrastar move quando ampliada. */
+const lb={z:1,x:0,y:0,drag:null,moved:false};
+let lbLabel=null;
+function lbApply(){
+ const d=$('dialog'),img=d.querySelector('img');
+ img.style.transform=lb.z===1&&!lb.x&&!lb.y?'':`translate(${lb.x}px,${lb.y}px) scale(${lb.z})`;
+ d.classList.toggle('is-zoomed',lb.z>1);if(lbLabel)lbLabel.textContent=`${Math.round(lb.z*100)}%`;
+}
+function lbReset(){lb.z=1;lb.x=0;lb.y=0;lb.drag=null;lb.moved=false;lbApply();}
+function lbZoom(factor,point){
+ const d=$('dialog'),r=d.getBoundingClientRect(),z2=Math.min(8,Math.max(1,Math.round(lb.z*factor*100)/100));
+ if(z2===lb.z)return;
+ const px=(point?point.x:r.left+r.width/2)-(r.left+r.width/2),py=(point?point.y:r.top+r.height/2)-(r.top+r.height/2);
+ lb.x=px-(px-lb.x)*(z2/lb.z);lb.y=py-(py-lb.y)*(z2/lb.z);lb.z=z2;
+ if(z2===1){lb.x=0;lb.y=0;}
+ lbApply();
+}
 function openImage(node,index=0){
- gallery.images=imagesOf(node);gallery.index=index;showGalleryImage();$('dialog').showModal();
+ const d=$('dialog');
+ gallery.images=imagesOf(node);gallery.index=index;showGalleryImage();
+ if(isApiOpen()){d.classList.add('is-beside');d.show();} // API client aberto: a imagem fica ao lado e o painel segue utilizável
+ else{d.classList.remove('is-beside');d.showModal();}
 }
 function stepGallery(delta){const n=gallery.images.length;if(n<2)return;gallery.index=(gallery.index+delta+n)%n;showGalleryImage();}
 function imageButton(node,image,index){
@@ -1345,10 +1366,33 @@ $('#import-input').onchange=async e=>{ // importa um .zip (pacote) ou um .html e
 $('#doc-delete').onclick=()=>{closeMenu();deleteDoc();};
 document.addEventListener('pointerdown',e=>{if(!e.target.closest('#doc-bar'))closeMenu();if(!e.target.closest('.node-badges'))closeLinkMenus();});
 window.addEventListener('beforeunload',()=>{if(doc.id&&saveTimer)flush();});
-$('#close-dialog').onclick=e=>{e.stopPropagation();$('dialog').close();};$('dialog').addEventListener('click',()=>$('dialog').close());
+$('#close-dialog').onclick=e=>{e.stopPropagation();$('dialog').close();};
+$('dialog').addEventListener('click',()=>{if(lb.moved){lb.moved=false;return;}if(lb.z>1)return;$('dialog').close();});
+$('dialog').addEventListener('close',()=>{lbReset();$('dialog').classList.remove('is-beside');});
+{ // controles de zoom da imagem aberta
+ const d=$('dialog'),mk=(label,aria,fn)=>{const b=document.createElement('button');b.type='button';b.textContent=label;b.setAttribute('aria-label',aria);b.title=aria;b.onclick=e=>{e.stopPropagation();fn();};return b;};
+ lbLabel=document.createElement('span');lbLabel.className='lightbox-zoom-label';lbLabel.textContent='100%';
+ const bar=document.createElement('div');bar.className='lightbox-zoom';bar.setAttribute('role','group');bar.setAttribute('aria-label',t('lightboxZoom'));
+ bar.append(mk('−',t('lightboxZoomOut'),()=>lbZoom(1/1.4)),lbLabel,mk('+',t('lightboxZoomIn'),()=>lbZoom(1.4)),mk('⤢',t('lightboxZoomReset'),()=>lbReset()));
+ bar.addEventListener('click',e=>e.stopPropagation());
+ d.append(bar);
+ d.addEventListener('wheel',e=>{e.preventDefault();lbZoom(Math.exp(-e.deltaY*.0015),{x:e.clientX,y:e.clientY});},{passive:false});
+ d.addEventListener('pointerdown',e=>{if(e.button!==0||lb.z<=1||e.target.closest('button'))return;lb.drag={x:e.clientX,y:e.clientY,tx:lb.x,ty:lb.y};d.setPointerCapture(e.pointerId);});
+ d.addEventListener('pointermove',e=>{
+  if(!lb.drag)return;const dx=e.clientX-lb.drag.x,dy=e.clientY-lb.drag.y;
+  if(!lb.moved&&Math.hypot(dx,dy)<4)return;lb.moved=true;d.classList.add('is-panning');lb.x=lb.drag.tx+dx;lb.y=lb.drag.ty+dy;lbApply();
+ });
+ const endPan=()=>{lb.drag=null;d.classList.remove('is-panning');};
+ d.addEventListener('pointerup',endPan);d.addEventListener('pointercancel',endPan);
+ // ao lado do API client a janela não é modal: o Esc precisa ser tratado aqui (e não quando o foco está no painel)
+ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&d.open&&d.classList.contains('is-beside')&&!e.target.closest?.('#api-panel'))d.close();});
+}
 $('#lightbox-prev').onclick=e=>{e.stopPropagation();stepGallery(-1);};
 $('#lightbox-next').onclick=e=>{e.stopPropagation();stepGallery(1);};
-$('dialog').addEventListener('keydown',e=>{if(e.key==='ArrowLeft'){e.preventDefault();stepGallery(-1);}if(e.key==='ArrowRight'){e.preventDefault();stepGallery(1);}});
+$('dialog').addEventListener('keydown',e=>{
+ if(e.key==='ArrowLeft'){e.preventDefault();stepGallery(-1);}if(e.key==='ArrowRight'){e.preventDefault();stepGallery(1);}
+ if(e.key==='+'||e.key==='='){e.preventDefault();lbZoom(1.4);}else if(e.key==='-'){e.preventDefault();lbZoom(1/1.4);}else if(e.key==='0'){e.preventDefault();lbReset();}
+});
 viewport.addEventListener('wheel',e=>{e.preventDefault();world.classList.remove('is-glide');const r=viewport.getBoundingClientRect();zoom(Math.exp(-e.deltaY*.0015),{x:e.clientX-r.left,y:e.clientY-r.top});},{passive:false});
 viewport.addEventListener('dragstart',e=>{if(!e.target.closest?.('.image-item'))e.preventDefault();});
 let drag=null;
