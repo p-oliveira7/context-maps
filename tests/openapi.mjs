@@ -87,6 +87,8 @@ try{
  const geo=await page.evaluate(()=>({v:document.querySelector('.oa-viewer').getBoundingClientRect().right,p:document.querySelector('#api-panel').getBoundingClientRect().left}));
  assert.ok(geo.v<=geo.p+1,`a documentação fica ao lado do API client (${JSON.stringify(geo)})`);
  assert.equal(await page.locator('dialog[open]').count(),0);
+ assert.match(await viewer.locator('.swagger-ui').first().evaluate(e=>getComputedStyle(e).filter),/invert/); // tema escuro
+ assert.equal(await viewer.locator('.oa-host').evaluate(e=>getComputedStyle(e).backgroundColor),'rgb(22, 22, 22)');
  await page.locator('#api-panel .api-menu-wrap button[aria-haspopup=menu]').first().click();
  assert.equal(await page.locator('#api-panel .api-menu').first().isVisible(),true);
  await page.locator('#api-panel .api-menu-wrap button[aria-haspopup=menu]').first().click();
