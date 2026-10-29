@@ -46,6 +46,14 @@ export function syncParamsFromUrl(model){
  const names=[...base.matchAll(/\/:([A-Za-z_]\w*)/g)].map(m=>m[1]),old=new Map((model.pathParams||[]).map(p=>[p.name,p.value]));
  model.pathParams=names.map(name=>({name,value:old.get(name)??'',enabled:true}));if(!model.pathParams.length)delete model.pathParams;
 }
+/** request lida do disco (criada fora do app, por cURL antigo ou pelo diálogo de nova request): a URL manda nos parâmetros */
+export function reconcileParams(model){
+ const [base,qs]=splitUrl(model.url||'');
+ const active=activeEntries(model.query).map(e=>`${e.name}=${e.value}`).join('&');
+ const pathNames=[...base.matchAll(/\/:([A-Za-z_]\w*)/g)].map(m=>m[1]).join(','),known=(model.pathParams||[]).map(p=>p.name).join(',');
+ if(qs!==active||pathNames!==known)syncParamsFromUrl(model);
+ return model;
+}
 export function syncUrlFromParams(model){
  const [base]=splitUrl(model.url||''),qs=activeEntries(model.query).map(e=>`${e.name}=${e.value}`).join('&');
  model.url=qs?`${base}?${qs}`:base;
@@ -110,7 +118,7 @@ async function loadEnv(){
 /* ---------- abas de requests ----------
    state.request/reqPath/response/tab/respTab são os da aba ativa; cada aba guarda os seus em state.tabs. */
 const tabEntry=path=>state.tabs.find(x=>x.path===path);
-const newEntry=(path,request)=>({path,request,dirty:false,response:state.coll?runResponses.get(runKey(state.coll.id,path))||null:null,tab:'params',respTab:'body',sending:false,abort:null});
+const newEntry=(path,request)=>({path,request:reconcileParams(request),dirty:false,response:state.coll?runResponses.get(runKey(state.coll.id,path))||null:null,tab:'params',respTab:'body',sending:false,abort:null});
 function stashActive(){const e=tabEntry(state.reqPath);if(e){e.request=state.request;e.response=state.response;e.tab=state.tab;e.respTab=state.respTab;}}
 function loadEntry(e){state.request=e.request;state.reqPath=e.path;state.response=e.response;state.tab=e.tab;state.respTab=e.respTab;state.sending=!!e.sending;state.abort=e.abort||null;}
 function clearActive(){state.request=null;state.reqPath='';state.response=null;state.sending=false;state.abort=null;}

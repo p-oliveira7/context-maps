@@ -44,6 +44,7 @@ How to cut a release: [`docs/releasing.md`](docs/releasing.md).
 - **Clean full screen**: in the browser's full-screen mode the presentation name, the button bar and the zoom controls disappear and only show when the mouse gets close to the top (name and menu) or the bottom (buttons and zoom) of the screen, or while a control has keyboard focus, the presentation menu is open or a save error is showing.
 
 ### Fixed
+- **Query parameters from the URL show up in Params**: a request whose URL already had ?query (or /:path) parameters, created in the New request window or written outside the app, opened with an empty Params tab until the URL was edited. New requests now save params:query / params:path like Bruno, and opening a request fills the tab from the URL.
 - **Script time limit on slow machines**: the 5 s limit now starts when the script starts running, not when the sandbox is created, so a busy machine no longer reports a timeout for a trivial script. A script cannot extend its own deadline.
 
 ## [0.4.0] - 2026-10-17

@@ -105,6 +105,14 @@ export function createCollections({dir,writeJson}){
   await writeJson(path.join(dir,id,'bruno.json'),{version:'1',name:title,type:'collection',ignore:['node_modules','.git']});
   return {id,name:title};
  }
+ // parâmetros de query e de caminho (/:id) que a URL já traz, como o Bruno grava (params:query / params:path)
+ function paramsOfUrl(url){
+  const at=url.indexOf('?'),base=at<0?url:url.slice(0,at),qs=at<0?'':url.slice(at+1),out={};
+  const query=qs.split('&').filter(Boolean).map(pair=>{const i=pair.indexOf('=');return {name:i<0?pair:pair.slice(0,i),value:i<0?'':pair.slice(i+1),enabled:true};}).filter(e=>e.name);
+  const pathParams=[...base.matchAll(/\/:([A-Za-z_]\w*)/g)].map(m=>({name:m[1],value:'',enabled:true}));
+  if(query.length)out.query=query;if(pathParams.length)out.pathParams=pathParams;
+  return out;
+ }
  async function createItem(id,{type,parent='',name,method,url}){
   const title=String(name||'').trim().slice(0,100);if(!title)throw fail(400,'Informe um nome');
   const {file:folder,parts}=inside(id,parent);
@@ -118,7 +126,7 @@ export function createCollections({dir,writeJson}){
   if(type!=='request')throw fail(400,'Tipo inválido');
   const verb=METHODS.includes(String(method||'').toLowerCase())?String(method).toLowerCase():'get';
   const fileName=uniqueName(folder,slugOf(title)||'request','.bru');
-  await writeFile(path.join(folder,fileName),stringifyBru({name:title,type:'http',seq,method:verb,url:String(url||''),bodyMode:'none',authMode:'none'}));
+  await writeFile(path.join(folder,fileName),stringifyBru({name:title,type:'http',seq,method:verb,url:String(url||''),...paramsOfUrl(String(url||'')),bodyMode:'none',authMode:'none'}));
   return {type,path:[...parts,fileName].join('/')};
  }
  const requestFile=(id,rel)=>{const {file}=inside(id,rel);if(!file.endsWith('.bru'))throw fail(400,'Caminho inválido');return file;};
