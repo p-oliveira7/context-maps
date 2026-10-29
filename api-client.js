@@ -1,12 +1,13 @@
 /* Cliente de API (estilo Postman/Bruno): painel à direita, coleções no formato Bruno, variáveis de ambiente e envio pelo servidor local. */
 import {t,lang} from './i18n.js?v=1';
+import {jwtButton} from './jwt.js?v=3';
 import {activeEntries,resolveVars,buildRaw,resolveRaw,buildRequest,toScriptReq,applyScriptReq,makeScope} from './pipeline.js?v=1';
 import {runAssertions,evalValueExpression} from './assertions.js?v=1';
 import {runScript,sandboxSupported} from './sandbox.js?v=1';
 import {createVarFields} from './var-field.js?v=1';
 import {collectRequests,runSequence,reportJson,reportText} from './runner.js?v=1';
 import {createRunReport} from './run-report.js?v=1';
-import {createBodyView} from './response-view.js?v=2';
+import {createBodyView} from './response-view.js?v=5';
 import {parseCurl,toCurl,toFetch} from './curl.js?v=1';
 import {normalizeMocks,emptyMocks,effectiveMock,mockBadge,mockCounts,scenarioResponse,scenarioFromPreset,newScenarioId,statusText,PRESETS} from './mocks.js?v=1';
 export {resolveVars,buildRequest};
@@ -340,13 +341,23 @@ async function send(){
 }
 
 /* ---------- tabelas chave/valor ---------- */
-function kvTable(list,{onChange,toggle=true,namePlaceholder=t('apiName'),valuePlaceholder=t('apiValue'),addLabel=t('apiAdd'),lockedNames=false}){
+/* botão JWT para um valor da request: resolve as {{variáveis}} antes (ex.: "Bearer {{token}}") e se atualiza ao digitar */
+function requestJwtSlot(getValue,source){
+ const slot=h('span',{class:'api-jwt-slot'});
+ const update=()=>{let v=String(getValue()??'');try{v=resolveVars(v,allVars());}catch{}slot.replaceChildren(...[jwtButton(v,{t,lang,source})].filter(Boolean));};
+ update();return {slot,update};
+}
+function kvTable(list,{onChange,toggle=true,namePlaceholder=t('apiName'),valuePlaceholder=t('apiValue'),addLabel=t('apiAdd'),lockedNames=false,jwt=false}){
  const body=h('div',{class:'api-kv'});
  const draw=()=>{
   body.replaceChildren(...[...list.map((entry,i)=>h('div',{class:'api-kv-row'},
    toggle?h('input',{type:'checkbox','aria-label':t('apiEnabled'),checked:entry.enabled!==false,onChange:e=>{entry.enabled=e.target.checked;onChange();}}):null,
    h('input',{type:'text',value:entry.name,placeholder:namePlaceholder,'aria-label':namePlaceholder,spellcheck:'false',readonly:lockedNames||null,onInput:e=>{entry.name=e.target.value;onChange();}}),
-   vf.varField(h('input',{type:'text',value:entry.value,placeholder:valuePlaceholder,'aria-label':valuePlaceholder,spellcheck:'false',onInput:e=>{entry.value=e.target.value;onChange();}})),
+   (()=>{
+    const field=vf.varField(h('input',{type:'text',value:entry.value,placeholder:valuePlaceholder,'aria-label':valuePlaceholder,spellcheck:'false',onInput:e=>{entry.value=e.target.value;jwtSlot?.update();onChange();}}));
+    const jwtSlot=jwt?requestJwtSlot(()=>entry.value,entry.name):null;
+    return jwtSlot?h('span',{class:'api-kv-value'},field,jwtSlot.slot):field;
+   })(),
    lockedNames?null:h('button',{type:'button',class:'api-icon-btn','aria-label':t('apiRemove'),title:t('apiRemove'),onClick:()=>{list.splice(i,1);draw();onChange();}},'×')
   )),lockedNames?null:h('button',{type:'button',class:'api-add',onClick:()=>{list.push({name:'',value:'',enabled:true});draw();body.querySelector('.api-kv-row:last-of-type input[type=text]')?.focus();onChange();}},`+ ${addLabel}`)].filter(Boolean));
  };
@@ -525,7 +536,7 @@ function renderTab(){
   const q=kvTable(m.query,{onChange:()=>{syncUrlFromParams(m);if(els.urlInput)els.urlInput.value=m.url;changed();}});
   box.replaceChildren(h('h4',{},t('apiQuery')),q,...(m.pathParams.length?[h('h4',{},t('apiPathParams')),kvTable(m.pathParams,{onChange:changed,toggle:false,lockedNames:true})]:[]));
  }else if(state.tab==='headers'){
-  m.headers||=[];box.replaceChildren(kvTable(m.headers,{onChange:changed}));
+  m.headers||=[];box.replaceChildren(kvTable(m.headers,{onChange:changed,jwt:true}));
   if(state.coll?.defaults?.headers?.length)box.append(h('p',{class:'api-hint'},`${t('apiInherited')}: ${state.coll.defaults.headers.map(x=>x.name).join(', ')}`));
  }else if(state.tab==='body'){
   const modes=[['none',t('apiBodyNone')],['json','JSON'],['text',t('apiBodyText')],['xml','XML'],['formUrlEncoded',t('apiBodyForm')],['multipartForm',t('apiBodyMultipart')]];
@@ -539,7 +550,7 @@ function renderTab(){
  }else if(state.tab==='auth'){
   const sel=h('select',{'aria-label':t('apiTab_auth'),onChange:e=>{m.authMode=e.target.value;changed();renderTab();}},...[['none',t('apiAuthNone')],['bearer',t('apiAuthBearer')],['basic',t('apiAuthBasic')],['inherit',t('apiAuthInherit')]].map(([v,l])=>h('option',{value:v,selected:v===(m.authMode||'none')},l)));
   box.replaceChildren(h('div',{class:'api-field-row'},sel));
-  if(m.authMode==='bearer'){m.bearer||={token:''};box.append(labelled(t('apiToken'),vf.varField(h('input',{type:'text',value:m.bearer.token,spellcheck:'false',onInput:e=>{m.bearer.token=e.target.value;changed();}}))));}
+  if(m.authMode==='bearer'){m.bearer||={token:''};const bearerJwt=requestJwtSlot(()=>m.bearer.token,'Authorization: Bearer');box.append(labelled(t('apiToken'),h('span',{class:'api-kv-value'},vf.varField(h('input',{type:'text',value:m.bearer.token,spellcheck:'false',onInput:e=>{m.bearer.token=e.target.value;bearerJwt.update();changed();}})),bearerJwt.slot)));}
   else if(m.authMode==='basic'){m.basic||={username:'',password:''};box.append(labelled(t('apiUsername'),vf.varField(h('input',{type:'text',value:m.basic.username,onInput:e=>{m.basic.username=e.target.value;changed();}}))),labelled(t('apiPassword'),h('input',{type:'password',value:m.basic.password,onInput:e=>{m.basic.password=e.target.value;changed();}})));}
   else if(m.authMode==='inherit')box.append(h('p',{class:'api-hint'},t('apiAuthInheritNote')));
  }else if(state.tab==='vars'){
@@ -594,14 +605,15 @@ function renderResponse(){
  if(extra.logs.length||extra.errors.length)tabs.push(['console',`${t('apiRespConsole')}${extra.errors.length?' !':''}`]);
  if(!tabs.some(([id])=>id===state.respTab))state.respTab='body';
  const view=state.respTab==='body'?(bodyUi||=createBodyView({h,t,fmtSize})).mount(r):null;
- const body=state.respTab==='tests'?testsView(extra):state.respTab==='console'?consoleView(extra):view?view.el:h('pre',{class:'api-pre api-resp-body',tabindex:'0'},r.headers.map(([k,v])=>`${k}: ${v}`).join('\n'));
+ const headersText=r.headers.map(([k,v])=>`${k}: ${v}`).join('\n');
+ const body=state.respTab==='tests'?testsView(extra):state.respTab==='console'?consoleView(extra):view?view.el:h('pre',{class:'api-pre api-resp-body',tabindex:'0'},...r.headers.map(([k,v])=>h('div',{class:'api-resp-header'},`${k}: ${v}`,jwtButton(v,{t,lang,source:k}))));
  box.replaceChildren(
   ...[unresolvedBanner(r.unresolved)].filter(Boolean),
   h('div',{class:`api-status ${kind}`},h('strong',{},`${r.status} ${r.statusText||''}`),r.mock?mockResponsePill(r.mock):null,h('span',{},`${r.timeMs} ms`),h('span',{},fmtSize(r.size)),r.truncated?h('span',{},t('apiTruncated')):null,
    summary.total?h('span',{class:summary.failed?'api-tests-bad':'api-tests-ok'},`${summary.failed?'✗':'✓'} ${t('apiTestsSummary',summary.passed,summary.total)}`):null),
   h('div',{class:'api-resp-tabs',role:'tablist'},
    ...tabs.map(([id,label])=>h('button',{type:'button',role:'tab','aria-selected':String(state.respTab===id),class:state.respTab===id?'is-active':'',onClick:()=>{state.respTab=id;renderResponse();}},label)),
-   h('button',{type:'button',class:'api-btn',onClick:async e=>{try{await navigator.clipboard.writeText(view?view.text():body.textContent);e.target.textContent=t('apiCopied');setTimeout(()=>{e.target.textContent=t('apiCopy');},1200);}catch{}}},t('apiCopy'))),
+   h('button',{type:'button',class:'api-btn',onClick:async e=>{try{await navigator.clipboard.writeText(view?view.text():state.respTab==='headers'?headersText:body.textContent);e.target.textContent=t('apiCopied');setTimeout(()=>{e.target.textContent=t('apiCopy');},1200);}catch{}}},t('apiCopy'))),
   body);
 }
 function extraSummary(extra){
@@ -634,10 +646,11 @@ async function openEnvEditor(){
   const sel=h('select',{'aria-label':t('apiEnvironment'),onChange:async e=>{current=e.target.value;await draw();}},...names.map(n=>h('option',{value:n,selected:n===current},n)));
   const table=h('div',{class:'api-kv api-env-table'},h('div',{class:'api-kv-row api-kv-head'},h('span',{}),h('span',{},t('apiName')),h('span',{},t('apiValue')),h('span',{},t('apiSecret')),h('span',{})));
   const rows=()=>vars.forEach((v,i)=>{
-   const value=h('input',{type:v.secret?'password':'text',value:v.value,spellcheck:'false','aria-label':t('apiValue'),onInput:e=>{v.value=e.target.value;}});
+   const chip=h('span',{class:'api-jwt-slot'},jwtButton(v.value,{t,lang,source:v.name}));
+   const value=h('input',{type:v.secret?'password':'text',value:v.value,spellcheck:'false','aria-label':t('apiValue'),onInput:e=>{v.value=e.target.value;chip.replaceChildren(...[jwtButton(v.value,{t,lang,source:v.name})].filter(Boolean));}});
    table.append(h('div',{class:'api-kv-row'},
     h('input',{type:'checkbox',checked:v.enabled!==false,'aria-label':t('apiEnabled'),onChange:e=>{v.enabled=e.target.checked;}}),
-    h('input',{type:'text',value:v.name,placeholder:t('apiName'),'aria-label':t('apiName'),spellcheck:'false',onInput:e=>{v.name=e.target.value;}}),value,
+    h('input',{type:'text',value:v.name,placeholder:t('apiName'),'aria-label':t('apiName'),spellcheck:'false',onInput:e=>{v.name=e.target.value;}}),h('span',{class:'api-env-value'},value,chip),
     h('input',{type:'checkbox',checked:!!v.secret,'aria-label':t('apiSecret'),onChange:e=>{v.secret=e.target.checked;value.type=v.secret?'password':'text';}}),
     h('button',{type:'button',class:'api-icon-btn','aria-label':t('apiRemove'),onClick:()=>{vars.splice(i,1);table.replaceChildren(table.firstChild);rows();}},'×')));
   });
@@ -943,6 +956,7 @@ function drawVarsPop(){
   h('p',{class:'api-hint'},t('apiSessionVarsNote')),
   ...[...state.runtime].map(([name,value])=>h('div',{class:'api-vars-row'},h('code',{},name),
    h('input',{type:'text',value,'aria-label':name,spellcheck:'false',onChange:e=>{state.runtime.set(name,e.target.value);refreshVars();if(state.view==='request'&&state.tab==='vars')renderTab();}}),
+   jwtButton(value,{t,lang,source:name}),
    h('button',{type:'button',class:'api-icon-btn','aria-label':`${t('apiRemove')}: ${name}`,title:t('apiRemove'),onClick:()=>{state.runtime.delete(name);refreshVars();if(state.view==='request'&&state.tab==='vars')renderTab();syncVarsUi();}},'×'))),
   h('button',{type:'button',class:'api-btn',onClick:()=>{state.runtime=new Map();refreshVars();if(state.view==='request'&&state.tab==='vars')renderTab();syncVarsUi();}},t('apiClearVars')));
 }

@@ -894,3 +894,38 @@ body.api-open .oa-viewer{right:var(--api-w)}
 .oa-focus-field{display:flex;flex-direction:column;gap:.25rem;font-size:.78rem;color:#ffffffb3}
 .oa-focus{padding:.35rem .5rem;border-radius:8px;border:1px solid #ffffff2e;background:#0f0f0f;color:#eee;font:inherit}
 .oa-host .opblock[data-oa-focus]{box-shadow:0 0 0 3px #49cc9066}
+
+/* ---------- tokens JWT ---------- */
+.jwt-chip{display:inline-flex;align-items:center;margin-left:.3rem;padding:0 .35rem;border-radius:4px;border:1px solid #d6336c88;background:#d6336c22;color:#ff8fb3;font:inherit;font-size:.62rem;font-weight:700;letter-spacing:.04em;line-height:1.5;cursor:pointer;vertical-align:middle}
+.jwt-chip:hover{background:#d6336c44}
+.api-env-value{display:flex;align-items:center;gap:.25rem;min-width:0}.api-env-value input{flex:1;min-width:0}
+.api-jwt-slot:empty{display:none}
+.api-resp-header{white-space:pre-wrap;word-break:break-all}
+.jwt-overlay{position:fixed;inset:0;z-index:900;display:flex;align-items:center;justify-content:center;padding:1rem;background:#000a}
+.jwt-card{width:min(860px,100%);max-height:100%;overflow:auto;display:flex;flex-direction:column;gap:.6rem;padding:1rem 1.1rem;background:#161616;border:1px solid #ffffff26;border-radius:14px;color:#e6e6e6;font-size:.84rem}
+.jwt-head{display:flex;align-items:center;gap:.6rem}.jwt-head h3{margin:0;font-size:1rem}
+.jwt-source{flex:1;color:#ffffff80;font-family:ui-monospace,Consolas,monospace;font-size:.75rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.jwt-close{margin-left:auto;width:2rem;height:2rem;border-radius:8px;border:1px solid #ffffff2e;background:#222;color:#fff;font-size:1.1rem;cursor:pointer}
+.jwt-status{margin:0;padding:.45rem .7rem;border-radius:8px;font-weight:600}
+.jwt-status.is-valid{background:#4cc38a1f;color:#8fe7b8}.jwt-status.is-expired{background:#e573731f;color:#ffb0b0}.jwt-status.is-notYet{background:#e0a4581f;color:#f3d29c}.jwt-status.is-noExp{background:#ffffff12;color:#ffffffb3}
+.jwt-token{margin:0;padding:.5rem .7rem;border-radius:8px;background:#0f0f0f;font:12px ui-monospace,Consolas,monospace;word-break:break-all;max-height:6.5rem;overflow:auto}
+.jwt-t1{color:#ff7ea8}.jwt-t2{color:#c39bff}.jwt-t3{color:#5fd0e6}
+.jwt-claims{display:grid;grid-template-columns:auto 1fr;gap:.2rem .8rem;margin:0}
+.jwt-claims dt{color:#ffffff80;font-family:ui-monospace,Consolas,monospace}.jwt-claims dd{margin:0;word-break:break-word}
+.jwt-cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:.8rem}
+.jwt-cols h4{margin:0 0 .3rem;font-size:.72rem;letter-spacing:.05em;text-transform:uppercase;color:#ffffff80;display:flex;gap:.5rem;align-items:center}
+.jwt-alg{padding:0 .35rem;border-radius:4px;background:#ffffff14;color:#ffffffb3;text-transform:none;letter-spacing:0}
+.jwt-json{margin:0;padding:.6rem .7rem;border-radius:8px;background:#0f0f0f;font:12px/1.45 ui-monospace,Consolas,monospace;white-space:pre-wrap;word-break:break-word;max-height:22rem;overflow:auto}
+.jwt-k{color:#8fd1b3}.jwt-s{color:#f0c27a}.jwt-n,.jwt-b{color:#7fb6ff}
+.jwt-note{margin:0;color:#ffffff80;font-size:.74rem}
+.jwt-foot{display:flex;gap:.5rem;justify-content:flex-end}
+.jwt-btn{padding:.35rem .7rem;border-radius:8px;border:1px solid #ffffff2e;background:#222;color:#eee;font:inherit;cursor:pointer}
+@media (max-width:700px){.jwt-cols{grid-template-columns:1fr}}
+.api-kv-value{display:flex;align-items:center;gap:.25rem;min-width:0}.api-kv-value>:first-child{flex:1;min-width:0}
+/* com o API client aberto, o token abre por cima dele (do tamanho do painel), sem cobrir o mapa */
+body.api-open .jwt-overlay{left:auto;width:var(--api-w);padding:.6rem}
+body.api-open .jwt-card{width:100%}
+body.api-open .jwt-cols{grid-template-columns:1fr}
+@media (max-width:900px){body.api-open .jwt-overlay{left:0;width:auto;top:auto;height:55vh}}
+.jwt-form{padding:.05rem .45rem;border-radius:999px;border:1px solid #ffffff2e;color:#ffffffb3;font-size:.72rem;white-space:nowrap}
+.jwt-form.is-prefixed{border-color:#d6336c88;color:#ff8fb3}
