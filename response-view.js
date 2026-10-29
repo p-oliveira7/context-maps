@@ -2,6 +2,8 @@
    busca dentro do corpo (Ctrl+F) e filtro por caminho (items[0].id). Só constrói nós DOM com textContent: nada do corpo vira HTML. */
 import {parseResponseBody} from './pipeline.js?v=1';
 import {getPath} from './assertions.js?v=1';
+import {jwtButton} from './jwt.js?v=3';
+import {lang} from './i18n.js?v=1';
 
 const TREE_BUDGET=4000,PAGE=200,MAX_STR=1500,MAX_MATCHES=2000,MAX_HIGHLIGHT=300000;
 const OPEN_ALL=1500; // até este número de objetos/listas a árvore abre inteira; acima, só os dois primeiros níveis (para não travar)
@@ -34,9 +36,11 @@ export function createBodyView({h,t,fmtSize}){
  function tree(value,rootPath,onCopyPath,openDepth=2){ // ramos com profundidade >= openDepth começam recolhidos
   const ctx={count:0};
   const punct=s=>h('span',{class:'jv-punct'},s);
-  const prim=v=>{
+  const prim=(v,path)=>{
    if(v===null)return h('span',{class:'jv-null'},'null');
    if(typeof v==='string'){
+    const jwt=jwtButton(v,{t,lang,source:path}); // token JWT: botão para abrir
+    if(jwt)return h('span',{},h('span',{class:'jv-str'},JSON.stringify(v)),' ',jwt);
     if(v.length<=MAX_STR)return h('span',{class:'jv-str'},JSON.stringify(v));
     const holder=h('span',{class:'jv-str'},JSON.stringify(v.slice(0,MAX_STR)).slice(0,-1)+'…"');
     const more=h('button',{type:'button',class:'jv-more',onClick:()=>{holder.textContent=JSON.stringify(v);more.remove();}},t('apiBodyShowAll',v.length));
@@ -49,7 +53,7 @@ export function createBodyView({h,t,fmtSize}){
    const comma=last?null:punct(',');
    const head=[];
    if(label!==null)head.push(keyNode(label,path),punct(': '));
-   if(v===null||typeof v!=='object')return h('div',{class:'jv-row'},...head,prim(v),comma);
+   if(v===null||typeof v!=='object')return h('div',{class:'jv-row'},...head,prim(v,path),comma);
    const isArr=Array.isArray(v),entries=isArr?v.map((x,i)=>[i,x]):Object.entries(v),[open,close]=isArr?['[',']']:['{','}'];
    if(!entries.length)return h('div',{class:'jv-row'},...head,punct(open+close),comma);
    ctx.count++;

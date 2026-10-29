@@ -15,7 +15,10 @@ export const list=()=>json(base);
 export const load=id=>json(`${base}/${id}`);
 export const create=(title,dir)=>json(base,{method:'POST',...jsonBody({title,dir})});
 export const copy=(id,title,dir)=>json(`${base}/${id}/copy`,{method:'POST',...jsonBody({title,dir})});
-export const save=doc=>json(`${base}/${doc.id}`,{method:'PUT',...jsonBody({title:doc.title,roots:doc.roots}),keepalive:true});
+// keepalive deixa o último salvamento terminar mesmo fechando a página, mas o navegador recusa corpos acima de 64 KB nesse
+// modo ("Failed to fetch"): apresentações maiores (ex.: com especificação OpenAPI) vão sem ele.
+const KEEPALIVE_MAX=60*1024;
+export const save=doc=>{const body=jsonBody({title:doc.title,roots:doc.roots});return json(`${base}/${doc.id}`,{method:'PUT',...body,keepalive:new Blob([body.body]).size<=KEEPALIVE_MAX});};
 export const remove=id=>json(`${base}/${id}`,{method:'DELETE'});
 export const libraries=()=>json('api/libraries');
 export const addLibrary=dir=>json('api/libraries',{method:'POST',...jsonBody({dir})});

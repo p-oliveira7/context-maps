@@ -156,6 +156,17 @@ try{
  assert.equal(second.source,SPEC);assert.deepEqual(second.focus,{method:'post',path:'/pets'});
  assert.deepEqual((await saved()).images[0].focus,{method:'delete',path:'/pets/{id}'}); // o primeiro card continua com o foco dele
 
+ // OA-09: especificação grande (mais de 5 MB) salva sem erro; JSON vai compacto para a apresentação (o modo de edição já está ligado)
+ const bigSpec=JSON.stringify({openapi:'3.0.3',info:{title:'Big API',version:'1'},'x-padding':'x'.repeat(5.5*1024*1024),paths:{'/a':{get:{summary:'A',responses:{'200':{description:'OK'}}}}}},null,2);
+ await page.locator('.image-tools button',{hasText:'Replace'}).first().click();await dlg.waitFor();
+ await page.locator('.oa-source').evaluate((el,v)=>{el.value=v;el.dispatchEvent(new Event('input',{bubbles:true}));},bigSpec);
+ await page.locator('.oa-status',{hasText:'Valid specification: 1 endpoint(s).'}).waitFor({timeout:60000});
+ await dlg.getByRole('button',{name:'Replace'}).click();await dlg.waitFor({state:'detached'});
+ for(let i=0;i<300&&(await saved()).images[0].title!=='Big API';i++)await new Promise(r=>setTimeout(r,100));
+ const bigEntry=(await saved()).images[0];
+ assert.equal(bigEntry.title,'Big API');assert.equal(bigEntry.source.includes(String.fromCharCode(10)),false);assert.ok(bigEntry.source.length>5*1024*1024);
+ assert.notEqual(await page.locator('#save-status').getAttribute('data-state'),'error');
+
  assert.deepEqual(errors,[]);
  console.log('PASS OA-01..10 OpenAPI/Swagger cards: add, thumbnail, interactive docs beside the API client, Try it out via proxy');
 }finally{await browser.close();server.kill();target.close();await rm(work,{recursive:true,force:true});}
