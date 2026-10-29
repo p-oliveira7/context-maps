@@ -49,7 +49,7 @@ const call=async(method,route,body)=>{const r=await fetch(`${base}/api${route}`,
 const browser=await launch();
 try{
  const made=await call('POST','/presentations',{title:'Specs'});
- await call('PUT',`/presentations/${made.id}`,{title:'Specs',roots:[{id:'r',title:'Sistema',children:[{id:'c1',title:'Pets',children:[]}]}]});
+ await call('PUT',`/presentations/${made.id}`,{title:'Specs',roots:[{id:'r',title:'Sistema',children:[{id:'c1',title:'Pets',children:[]},{id:'c2',title:'Apagar pet',children:[]}]}]});
  const ctx=await browser.newContext({locale:'en-US',viewport:{width:1500,height:900},extraHTTPHeaders:{'x-context-maps':'1'}});
  const page=await ctx.newPage();page.setDefaultTimeout(process.env.CI?25000:12000);
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
@@ -138,10 +138,27 @@ try{
  assert.equal(await viewer.locator('.opblock.is-open').count(),1); // só ele aberto
  await page.locator('.oa-close').click();await viewer.waitFor({state:'detached'});
 
- // OA-09: especificação grande (mais de 5 MB) salva sem erro; JSON vai compacto para a apresentação
+ // OA-10: outro card reaproveita a especificação já carregada (sem colar de novo) e escolhe outro endpoint em foco
+ if(!(await page.locator('#edit-switch').getAttribute('aria-checked')==='true'))await page.locator('#edit-switch').click();
+ await page.locator('#fit').click();
+ await page.locator('[data-id="c2"]').hover();await page.locator('[data-id="c2"] .edit-fab').click();
+ await page.locator('#radial-menu [aria-label^="Add OpenAPI/Swagger"]').click();await dlg.waitFor();
+ const reuse=page.locator('.oa-reuse');
+ assert.deepEqual(await reuse.locator('option').allTextContents(),['Choose…','Pets API — card "Pets"']);
+ await reuse.selectOption({label:'Pets API — card "Pets"'});
+ await page.locator('.oa-status',{hasText:'Valid specification: 3 endpoint(s).'}).waitFor();
+ assert.equal(await page.locator('.oa-source').inputValue(),SPEC);
+ await page.locator('.oa-focus').selectOption('post /pets');
+ await dlg.getByRole('button',{name:'Add to card'}).click();await dlg.waitFor({state:'detached'});
+ const secondCard=async()=>JSON.parse(await readFile(path.join(work,'presentations',`${made.id}.json`),'utf8')).roots[0].children[1];
+ for(let i=0;i<60&&!(await secondCard()).images?.length;i++)await new Promise(r=>setTimeout(r,100));
+ const second=(await secondCard()).images[0];
+ assert.equal(second.source,SPEC);assert.deepEqual(second.focus,{method:'post',path:'/pets'});
+ assert.deepEqual((await saved()).images[0].focus,{method:'delete',path:'/pets/{id}'}); // o primeiro card continua com o foco dele
+
+ // OA-09: especificação grande (mais de 5 MB) salva sem erro; JSON vai compacto para a apresentação (o modo de edição já está ligado)
  const bigSpec=JSON.stringify({openapi:'3.0.3',info:{title:'Big API',version:'1'},'x-padding':'x'.repeat(5.5*1024*1024),paths:{'/a':{get:{summary:'A',responses:{'200':{description:'OK'}}}}}},null,2);
- await page.locator('#edit-switch').click();
- await page.locator('.image-tools button',{hasText:'Replace'}).click();await dlg.waitFor();
+ await page.locator('.image-tools button',{hasText:'Replace'}).first().click();await dlg.waitFor();
  await page.locator('.oa-source').evaluate((el,v)=>{el.value=v;el.dispatchEvent(new Event('input',{bubbles:true}));},bigSpec);
  await page.locator('.oa-status',{hasText:'Valid specification: 1 endpoint(s).'}).waitFor({timeout:60000});
  await dlg.getByRole('button',{name:'Replace'}).click();await dlg.waitFor({state:'detached'});
@@ -151,5 +168,5 @@ try{
  assert.notEqual(await page.locator('#save-status').getAttribute('data-state'),'error');
 
  assert.deepEqual(errors,[]);
- console.log('PASS OA-01..09 OpenAPI/Swagger cards: add, thumbnail, interactive docs beside the API client, Try it out via proxy');
+ console.log('PASS OA-01..10 OpenAPI/Swagger cards: add, thumbnail, interactive docs beside the API client, Try it out via proxy');
 }finally{await browser.close();server.kill();target.close();await rm(work,{recursive:true,force:true});}

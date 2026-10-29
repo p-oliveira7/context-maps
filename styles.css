@@ -894,6 +894,7 @@ body.api-open .oa-viewer{right:var(--api-w)}
 .oa-focus-field{display:flex;flex-direction:column;gap:.25rem;font-size:.78rem;color:#ffffffb3}
 .oa-focus{padding:.35rem .5rem;border-radius:8px;border:1px solid #ffffff2e;background:#0f0f0f;color:#eee;font:inherit}
 .oa-host .opblock[data-oa-focus]{box-shadow:0 0 0 3px #49cc9066}
+.oa-reuse{padding:.35rem .5rem;border-radius:8px;border:1px solid #49cc9066;background:#0f0f0f;color:#eee;font:inherit}
 
 /* ---------- tokens JWT ---------- */
 .jwt-chip{display:inline-flex;align-items:center;margin-left:.3rem;padding:0 .35rem;border-radius:4px;border:1px solid #d6336c88;background:#d6336c22;color:#ff8fb3;font:inherit;font-size:.62rem;font-weight:700;letter-spacing:.04em;line-height:1.5;cursor:pointer;vertical-align:middle}
