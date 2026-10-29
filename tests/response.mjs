@@ -172,7 +172,7 @@ try{
  await page.locator('.api-row-name',{hasText:/^Token$/}).click();await page.locator('.api-tab.is-active',{hasText:'Token'}).waitFor();
  await page.locator('.api-send').click();await page.locator('.api-status strong',{hasText:'200'}).waitFor();
  const chip=page.locator('.api-resp-body .jwt-chip');
- assert.equal(await chip.count(),1);assert.equal(await chip.getAttribute('aria-label'),'Open the JWT token: res.body.access_token');
+ assert.equal(await chip.count(),1);assert.equal(await chip.textContent(),'JWT'); // só o tokenassert.equal(await chip.getAttribute('aria-label'),'Open the JWT token: res.body.access_token');
  await chip.click();
  const card=page.locator('.jwt-card');await card.waitFor();
  assert.match(await card.locator('.jwt-status').textContent(),/^Valid · expires in (1 hour|60 minutes)/);
@@ -184,7 +184,11 @@ try{
  await page.locator('.api-resp-tabs button',{hasText:'Copy'}).click();assert.equal(JSON.parse(await clip()).access_token,JWT);
  // cabeçalho com "Bearer <token>"
  await page.locator('.api-resp-tabs button[role=tab]',{hasText:'Headers'}).click();
+ assert.equal(await page.locator('.api-resp-header .jwt-chip').textContent(),'Bearer JWT'); // com Bearer
  await page.locator('.api-resp-header .jwt-chip').click();await card.waitFor();
+ assert.equal(await card.locator('.jwt-form').textContent(),'with "Bearer"');
+ const sizes=await page.evaluate(()=>({o:document.querySelector('.jwt-overlay').getBoundingClientRect(),p:document.querySelector('#api-panel').getBoundingClientRect()}));
+ assert.ok(Math.abs(sizes.o.left-sizes.p.left)<2&&Math.abs(sizes.o.width-sizes.p.width)<2,'com o API client aberto, o token abre do tamanho do painel');
  assert.match(await card.locator('.jwt-source').textContent(),/x-auth-token/);
  await card.locator('.jwt-close').click();await card.waitFor({state:'detached'});
  await page.locator('.api-resp-tabs button',{hasText:'Copy'}).click();assert.ok((await clip()).includes(`x-auth-token: Bearer ${JWT}`)&&!(await clip()).includes('JWTx'));
@@ -199,6 +203,23 @@ try{
  await page.keyboard.press('Escape');await card.waitFor({state:'detached'});
  assert.equal(await page.locator('.api-modal').count(),1); // o Esc fechou só o token, o editor de ambientes continua
  await page.keyboard.press('Escape');
+
+ // RESP-11b: o Authorization da request (com {{token}}) e o campo Bearer da aba Auth também abrem o token
+ const envSel=page.locator('#api-panel select[aria-label="Environment"]');await envSel.selectOption('');await envSel.selectOption('local'); // recarrega o ambiente com a variável token
+ await page.locator('#api-tab-headers').click();
+ await page.locator('#api-tabpanel .api-add').click();
+ const hdr=page.locator('#api-tabpanel .api-kv-row').last();
+ await hdr.locator('input[type=text]').first().fill('Authorization');
+ await hdr.locator('.api-kv-value input').fill('Bearer {{token}}');
+ await hdr.locator('.jwt-chip').click();await card.waitFor();
+ assert.match(await card.locator('.jwt-claims').textContent(),/subana/);
+ await page.keyboard.press('Escape');await card.waitFor({state:'detached'});
+ await hdr.locator('.api-kv-value input').fill('Bearer nada-de-token');assert.equal(await hdr.locator('.jwt-chip').count(),0); // some quando deixa de ser token
+ await page.locator('#api-tab-auth').click();
+ await page.locator('#api-tabpanel select').first().selectOption('bearer');
+ await page.locator('#api-tabpanel .api-kv-value input').fill('{{token}}');
+ await page.locator('#api-tabpanel .api-kv-value .jwt-chip').click();await card.waitFor();
+ await card.locator('.jwt-close').click();await card.waitFor({state:'detached'});
 
  console.log('PASS RESP-01..11 response body viewer');
 }finally{await browser.close();server.kill();target.close();await rm(work,{recursive:true,force:true});}

@@ -33,3 +33,11 @@ test('jwtStatus: válido, expirado, ainda não vale e sem exp', () => {
  assert.equal(jwtStatus({nbf:new Date(now+5000),exp:new Date(now+60000)},now).state,'notYet');
  assert.equal(jwtStatus({},now).state,'noExp');
 });
+
+import {jwtPrefix} from '../jwt.js';
+test('com e sem prefixo: Bearer, JWT, Token (qualquer caixa) ou só o token', () => {
+ const tk=make({sub:'x'});
+ for(const v of [tk,`Bearer ${tk}`,`bearer ${tk}`,`JWT ${tk}`,`Token ${tk}`,`Bearer   ${tk} `])assert.equal(findJwt(v),tk,v);
+ assert.equal(jwtPrefix(`Bearer ${tk}`),'Bearer');assert.equal(jwtPrefix(`jwt ${tk}`),'jwt');assert.equal(jwtPrefix(tk),'');
+ assert.equal(findJwt(`Basic ${tk}`),null); // outro esquema não é token JWT
+});

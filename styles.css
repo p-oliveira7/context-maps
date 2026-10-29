@@ -921,3 +921,11 @@ body.api-open .oa-viewer{right:var(--api-w)}
 .jwt-foot{display:flex;gap:.5rem;justify-content:flex-end}
 .jwt-btn{padding:.35rem .7rem;border-radius:8px;border:1px solid #ffffff2e;background:#222;color:#eee;font:inherit;cursor:pointer}
 @media (max-width:700px){.jwt-cols{grid-template-columns:1fr}}
+.api-kv-value{display:flex;align-items:center;gap:.25rem;min-width:0}.api-kv-value>:first-child{flex:1;min-width:0}
+/* com o API client aberto, o token abre por cima dele (do tamanho do painel), sem cobrir o mapa */
+body.api-open .jwt-overlay{left:auto;width:var(--api-w);padding:.6rem}
+body.api-open .jwt-card{width:100%}
+body.api-open .jwt-cols{grid-template-columns:1fr}
+@media (max-width:900px){body.api-open .jwt-overlay{left:0;width:auto;top:auto;height:55vh}}
+.jwt-form{padding:.05rem .45rem;border-radius:999px;border:1px solid #ffffff2e;color:#ffffffb3;font-size:.72rem;white-space:nowrap}
+.jwt-form.is-prefixed{border-color:#d6336c88;color:#ff8fb3}

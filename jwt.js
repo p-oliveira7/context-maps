@@ -9,9 +9,10 @@ function decodePart(part){
   return JSON.parse(new TextDecoder().decode(bytes));
  }catch{return undefined;}
 }
-/** o token contido no valor (aceita "Bearer <token>"), ou null */
+const PREFIX=/^(Bearer|JWT|Token)\s+/i;
+/** o token contido no valor, com ou sem prefixo ("Bearer <token>", "JWT <token>", "Token <token>"), ou null */
 export function findJwt(text){
- const s=String(text??'').trim().replace(/^Bearer\s+/i,'');
+ const s=String(text??'').trim().replace(PREFIX,'').trim();
  if(s.length<20||s.length>16384)return null;
  const parts=s.split('.');
  if(parts.length!==3||!PART.test(parts[0])||!PART.test(parts[1])||(parts[2]&&!PART.test(parts[2])))return null;
@@ -20,6 +21,8 @@ export function findJwt(text){
  return s;
 }
 const TIME_CLAIMS=['exp','iat','nbf','auth_time'];
+/** prefixo usado antes do token ("Bearer", "JWT"…), ou '' quando o valor é só o token */
+export function jwtPrefix(text){const m=PREFIX.exec(String(text??'').trim());return m?m[1]:'';}
 /** {header,payload,signature,times:{exp,iat,nbf,auth_time:Date}} */
 export function decodeJwt(token){
  const [h,p,sig]=token.split('.'),header=decodePart(h),payload=decodePart(p),times={};
@@ -58,7 +61,7 @@ function jsonBlock(value){
  return pre;
 }
 /** abre o painel do token; `t` são os textos do app e `lang` o idioma das datas */
-export function openJwtViewer({token,t,lang='en',source=''}){
+export function openJwtViewer({token,t,lang='en',source='',prefix=''}){
  open?.close();
  const {header,payload,signature,times}=decodeJwt(token),status=jwtStatus(times);
  const fmt=d=>d.toLocaleString(lang,{dateStyle:'medium',timeStyle:'medium'});
@@ -72,7 +75,7 @@ export function openJwtViewer({token,t,lang='en',source=''}){
  const copyPayload=node('button',{type:'button',class:'jwt-btn'},t('jwtCopyPayload'));copyPayload.addEventListener('click',()=>copy(JSON.stringify(payload,null,2),copyPayload));
  const [p1,p2]=token.split('.');
  const card=node('div',{class:'jwt-card',role:'dialog','aria-modal':'true','aria-labelledby':'jwt-title'},
-  node('header',{class:'jwt-head'},node('h3',{id:'jwt-title'},t('jwtTitle')),source?node('span',{class:'jwt-source'},source):null,node('button',{type:'button',class:'jwt-close','aria-label':t('close'),onclick:close},'×')),
+  node('header',{class:'jwt-head'},node('h3',{id:'jwt-title'},t('jwtTitle')),node('span',{class:`jwt-form${prefix?' is-prefixed':''}`},prefix?t('jwtWithPrefix',prefix):t('jwtNoPrefix')),source?node('span',{class:'jwt-source'},source):null,node('button',{type:'button',class:'jwt-close','aria-label':t('close'),onclick:close},'×')),
   node('p',{class:`jwt-status is-${status.state}`,role:'status'},statusText),
   node('p',{class:'jwt-token'},node('span',{class:'jwt-t1'},p1),'.',node('span',{class:'jwt-t2'},p2),'.',node('span',{class:'jwt-t3'},signature)),
   claims.length?node('dl',{class:'jwt-claims'},...claims.flatMap(([k,v])=>[node('dt',{},k),node('dd',{},String(v))])):null,
@@ -90,8 +93,10 @@ export function openJwtViewer({token,t,lang='en',source=''}){
 /** botão "JWT" para ficar ao lado de um valor, ou null se o valor não for um token */
 export function jwtButton(value,{t,lang,source=''}){
  const token=findJwt(value);if(!token)return null;
+ const prefix=jwtPrefix(value);
  const b=document.createElement('button');b.type='button';b.className='jwt-chip';b.textContent='JWT';
  b.title=t('jwtOpen');b.setAttribute('aria-label',source?`${t('jwtOpen')}: ${source}`:t('jwtOpen'));
- b.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();openJwtViewer({token,t,lang,source});});
+ b.textContent=prefix?`${prefix} JWT`:'JWT';
+ b.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();openJwtViewer({token,t,lang,source,prefix});});
  return b;
 }
