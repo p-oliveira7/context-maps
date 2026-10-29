@@ -167,6 +167,18 @@ try{
  assert.equal(bigEntry.title,'Big API');assert.equal(bigEntry.source.includes(String.fromCharCode(10)),false);assert.ok(bigEntry.source.length>5*1024*1024);
  assert.notEqual(await page.locator('#save-status').getAttribute('data-state'),'error');
 
+ // OA-11: corpo com $ref para components/schemas (YAML) mostra o objeto inteiro, não só "string"
+ const refSpec=["openapi: 3.0.3","info:","  title: Ref API","  version: \"1\"","paths:","  /orders:","    post:","      summary: Cria","      requestBody:","        required: true","        content:","          application/json:","            schema:","              $ref: '#/components/schemas/Order'","      responses:","        '201':","          description: ok","components:","  schemas:","    Order:","      type: object","      properties:","        id: {type: integer, example: 7}","        customer: {$ref: '#/components/schemas/Customer'}","    Customer:","      type: object","      properties:","        name: {type: string, example: Ana}",""].join(String.fromCharCode(10));
+ const refEntry=(await saved());refEntry.images[0]={...refEntry.images[0],source:refSpec,title:'Ref API',focus:{method:'post',path:'/orders'}};
+ const docNow=JSON.parse(await readFile(path.join(work,'presentations',`${made.id}.json`),'utf8'));docNow.roots[0].children[0]=refEntry;
+ await call('PUT',`/presentations/${made.id}`,docNow);
+ await page.goto(`${base}/?p=${made.id}`);await page.locator('.node').first().waitFor();await page.locator('#expand').click();await page.locator('#fit').click();
+ await page.locator('[data-id="c1"] .image-button.is-openapi').click();
+ const example=viewer.locator('.opblock-post .body-param__example, .opblock-post textarea.body-param__text, .opblock-post .highlight-code pre').first();await example.waitFor();
+ const exampleText=JSON.stringify(JSON.parse(await example.evaluate(e=>e.value||e.textContent)));
+ assert.equal(exampleText,'{"id":7,"customer":{"name":"Ana"}}');
+ await page.locator('.oa-close').click();await viewer.waitFor({state:'detached'});
+
  assert.deepEqual(errors,[]);
- console.log('PASS OA-01..10 OpenAPI/Swagger cards: add, thumbnail, interactive docs beside the API client, Try it out via proxy');
+ console.log('PASS OA-01..11 OpenAPI/Swagger cards: add, thumbnail, interactive docs beside the API client, Try it out via proxy');
 }finally{await browser.close();server.kill();target.close();await rm(work,{recursive:true,force:true});}

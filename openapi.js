@@ -124,21 +124,29 @@ function responseInterceptor(res){
 /** desenha o Swagger UI em `el` a partir do texto da especificação; resolve com a especificação interpretada (objeto) */
 export async function mountSwagger(el,source,{tryItOut=true,focus=null}={}){
  const SwaggerUIBundle=await loadSwaggerUi();
- const blob=URL.createObjectURL(new Blob([source],{type:/^\s*[{[]/.test(source)?'application/json':'text/yaml'}));
+ // o texto vai direto para o Swagger UI (updateSpec lê YAML e JSON). Carregar de um endereço blob: deixava os $ref
+ // (#/components/schemas/…) sem resolver, e o corpo aparecia só como "string".
  return new Promise((resolve,reject)=>{
-  let done=false;
+  let done=false,tries=0;
+  const finish=(fn,arg)=>{if(done)return;done=true;fn(arg);};
+  const wait=()=>{
+   if(done)return;
+   const spec=ui.specSelectors.specJson().toJS(),errs=ui.errSelectors?.allErrors?.().toJS?.()||[];
+   if(spec&&(spec.openapi||spec.swagger)){
+    // espera o Swagger UI terminar de resolver as referências e desenhar as operações
+    if(ui.specSelectors.isOAS3?.()||ui.specSelectors.isSwagger2?.()){
+     if(el.querySelector('.opblock')||!endpointsOf(spec).length||++tries>200){if(focus&&findEndpoint(spec,focus))revealEndpoint(el,focus);finish(resolve,{ui,spec});return;}
+    }
+   }else if((spec&&Object.keys(spec).length)||errs.length||++tries>60){finish(reject,Object.assign(new Error('notOpenApi'),{errors:errs}));return;}
+   setTimeout(wait,50);
+  };
   const ui=SwaggerUIBundle({
-   domNode:el,url:blob,deepLinking:false,tryItOutEnabled:tryItOut,displayRequestDuration:true,defaultModelsExpandDepth:1,
+   domNode:el,spec:{},deepLinking:false,tryItOutEnabled:tryItOut,displayRequestDuration:true,defaultModelsExpandDepth:1,
    docExpansion:'list',filter:true,showMutatedRequest:false,requestInterceptor,responseInterceptor,
-   presets:[SwaggerUIBundle.presets.apis],layout:'BaseLayout',validatorUrl:null,
-   onComplete:()=>{
-    if(done)return;done=true;URL.revokeObjectURL(blob);
-    const spec=ui.specSelectors.specJson().toJS(),errs=ui.errSelectors?.allErrors?.().toJS?.()||[];
-    if(!spec||(!spec.openapi&&!spec.swagger))reject(Object.assign(new Error('notOpenApi'),{errors:errs}));
-    else{if(focus&&findEndpoint(spec,focus))revealEndpoint(el,focus);resolve({ui,spec});}
-   }
+   presets:[SwaggerUIBundle.presets.apis],layout:'BaseLayout',validatorUrl:null
   });
-  setTimeout(()=>{if(!done){done=true;URL.revokeObjectURL(blob);reject(new Error('timeout'));}},20000);
+  ui.specActions.updateSpec(source);setTimeout(wait,30);
+  setTimeout(()=>finish(reject,new Error('timeout')),20000);
  });
 }
 
