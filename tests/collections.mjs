@@ -159,10 +159,18 @@ try{
  assert.deepEqual(await json('PUT','/minha-api/settings',{verifyTls:true}),{verifyTls:true});
  assert.equal('contextMaps' in JSON.parse(await readFile(path.join(collections,'minha-api','bruno.json'),'utf8')),false); // ligado de novo: a chave some
  assert.equal((await call('PUT','/nao-existe/settings',{verifyTls:false})).status>=400,true);
+ // COLL-10: request criada com query/caminho na URL já grava params:query e params:path (como o Bruno)
+ const withQs=await json('POST','/minha-api/items',{type:'request',name:'Busca',method:'get',url:'{{host}}/users/:id/posts?status=ativo&limit=10'});
+ const qsModel=await json('GET',`/minha-api/request?path=${encodeURIComponent(withQs.path)}`);
+ assert.deepEqual(qsModel.query.map(q=>[q.name,q.value]),[['status','ativo'],['limit','10']]);
+ assert.deepEqual(qsModel.pathParams.map(p=>p.name),['id']);
+ const qsBru=await readFile(path.join(collections,'minha-api',withQs.path),'utf8');
+ assert.ok(qsBru.includes('params:query {')&&qsBru.includes('status: ativo')&&qsBru.includes('params:path {'));
+ await call('DELETE',`/minha-api/items?path=${withQs.path}`);
  // excluir
  assert.equal((await call('DELETE','/minha-api/items?path=usuarios')).status,200);
  assert.equal((await json('GET','/minha-api')).tree.length,1);
  for(const id of ['minha-api','minha-api-2',evilRes.id])assert.equal((await call('DELETE',`/${id}`)).status,200);
  assert.deepEqual(await json('GET',''),[]);assert.equal(existsSync(path.join(collections,'.secrets','minha-api.json')),false);
- console.log('PASS COLL-01..09 collections API');
+ console.log('PASS COLL-01..10 collections API');
 }finally{server.kill();await rm(work,{recursive:true,force:true});}
