@@ -3,7 +3,7 @@ import {cancelMotion,snapshot,animateLayout,hoverEdge,updateEdges,onEdges} from 
 import * as store from './store.js?v=17';
 import {t,applyStatic} from './i18n.js?v=1';
 import {VERSION} from './version.js?v=1';
-import {initApiClient,openApiPanel,closeApiPanel,isApiOpen,setAttachTarget,summarize,summarizeTree,API_DRAG_TYPE} from './api-client.js?v=17';
+import {initApiClient,openApiPanel,closeApiPanel,isApiOpen,setAttachTarget,summarize,summarizeTree,API_DRAG_TYPE} from './api-client.js?v=18';
 import {apiDropdown,closeApiDropdown} from './api-dropdown.js?v=1';
 import {isSequenceSource,renderSequence,FONT as SEQ_FONT} from './sequence.js?v=1';
 import {openSequenceEditor} from './sequence-editor.js?v=2';
