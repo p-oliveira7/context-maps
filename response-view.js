@@ -4,6 +4,7 @@ import {parseResponseBody} from './pipeline.js?v=1';
 import {getPath} from './assertions.js?v=1';
 
 const TREE_BUDGET=4000,PAGE=200,MAX_STR=1500,MAX_MATCHES=2000,MAX_HIGHLIGHT=300000;
+const OPEN_ALL=1500; // até este número de objetos/listas a árvore abre inteira; acima, só os dois primeiros níveis (para não travar)
 const ID=/^[A-Za-z_$][\w$]*$/;
 const parsedOf=new WeakMap(),uiOf=new WeakMap();
 
@@ -21,10 +22,16 @@ export function bodyKind(res){
  return 'text';
 }
 const pathKey=k=>ID.test(k)?`.${k}`:`[${JSON.stringify(k)}]`;
+/** quantos objetos/listas não vazios há no valor (pára de contar ao passar de `limit`) */
+function countContainers(value,limit){
+ let n=0;const stack=[value];
+ while(stack.length&&n<=limit){const v=stack.pop();if(v&&typeof v==='object'){const kids=Array.isArray(v)?v:Object.values(v);if(kids.length){n++;for(const k of kids)if(k&&typeof k==='object')stack.push(k);}}}
+ return n;
+}
 
 export function createBodyView({h,t,fmtSize}){
  /* ---------- JSON como árvore ---------- */
- function tree(value,rootPath,onCopyPath){
+ function tree(value,rootPath,onCopyPath,openDepth=2){ // ramos com profundidade >= openDepth começam recolhidos
   const ctx={count:0};
   const punct=s=>h('span',{class:'jv-punct'},s);
   const prim=v=>{
@@ -46,8 +53,8 @@ export function createBodyView({h,t,fmtSize}){
    const isArr=Array.isArray(v),entries=isArr?v.map((x,i)=>[i,x]):Object.entries(v),[open,close]=isArr?['[',']']:['{','}'];
    if(!entries.length)return h('div',{class:'jv-row'},...head,punct(open+close),comma);
    ctx.count++;
-   const box=h('div',{class:`jv-node${depth>=2?' is-collapsed':''}`}),summary=` ${isArr?t('apiBodyItems',entries.length):t('apiBodyKeys',entries.length)} ${close}${last?'':','}`;
-   const toggle=h('button',{type:'button',class:'jv-toggle','aria-expanded':String(depth<2),'aria-label':t('apiBodyToggle'),onClick:()=>{
+   const box=h('div',{class:`jv-node${depth>=openDepth?' is-collapsed':''}`}),summary=` ${isArr?t('apiBodyItems',entries.length):t('apiBodyKeys',entries.length)} ${close}${last?'':','}`;
+   const toggle=h('button',{type:'button',class:'jv-toggle','aria-expanded':String(depth<openDepth),'aria-label':t('apiBodyToggle'),onClick:()=>{
     const collapsed=box.classList.toggle('is-collapsed');toggle.setAttribute('aria-expanded',String(!collapsed));fill();
    }});
    const children=h('div',{class:'jv-children'});
@@ -60,7 +67,7 @@ export function createBodyView({h,t,fmtSize}){
     if(shown<entries.length)children.append(h('div',{class:'jv-more-row'},h('button',{type:'button',class:'jv-more',onClick:addPage},t('apiBodyMoreItems',entries.length-shown))));
    };
    // além do orçamento de nós, os filhos de ramos recolhidos só são criados quando o ramo abre
-   const lazy=ctx.count>TREE_BUDGET&&depth>=2;
+   const lazy=ctx.count>TREE_BUDGET&&depth>=openDepth;
    const fill=()=>{if(filled)return;filled=true;addPage();};
    if(!lazy)fill();
    box.append(h('div',{class:'jv-row',dataset:{summary}},toggle,...head,punct(open)),children,h('div',{class:'jv-close'},punct(close),comma));
@@ -165,12 +172,14 @@ export function createBodyView({h,t,fmtSize}){
    else if(ui.mode==='preview')content.replaceChildren(preview(res,kind));
    else if(kind==='json'&&ui.mode==='pretty'){
     if(filterError)content.replaceChildren(h('span',{class:'api-hint'},t('apiBodyNoValue')));
-    else content.replaceChildren(tree(filtered,basePath,copyPath));
+    else content.replaceChildren(tree(filtered,basePath,copyPath,openDepth()));
    }else if((kind==='xml'||kind==='html'||kind==='svg')&&ui.mode==='pretty'&&(res.bodyText||'').length<=MAX_HIGHLIGHT)content.replaceChildren(markup(res.bodyText||''));
    else content.replaceChildren(text());
    finder=ui.mode==='preview'?null:makeFinder(content);
    if(ui.find&&finder)updateFind();
   }
+  // por padrão tudo aberto (se não for grande demais); Expandir/Recolher tudo vale para esta resposta
+  function openDepth(){return ui.expand==='all'?Infinity:ui.expand==='collapsed'?1:countContainers(filtered,OPEN_ALL)<=OPEN_ALL?Infinity:2;}
   function updateFind(){const r=finder.run(ui.find);count.textContent=ui.find?(r.total?`${r.index}/${r.total}`:t('apiBodyNoMatches')):'';}
   function applyPath(){
    filterError=false;filtered=data;basePath='res.body';
@@ -183,6 +192,10 @@ export function createBodyView({h,t,fmtSize}){
 
   const modeBtns=modes.length>1?h('div',{class:'api-body-modes',role:'group','aria-label':t('apiBodyView')},...modes.map(m=>h('button',{type:'button',class:`api-btn${ui.mode===m?' is-active':''}`,'aria-pressed':String(ui.mode===m),onClick:()=>{ui.mode=m;modeBtns.querySelectorAll('button').forEach((b,i)=>{const on=modes[i]===m;b.classList.toggle('is-active',on);b.setAttribute('aria-pressed',String(on));});pathInput?.toggleAttribute('hidden',m!=='pretty');findBox.toggleAttribute('hidden',m==='preview');draw();}},t(`apiBodyMode_${m}`)))):null;
   const pathInput=kind==='json'?h('input',{type:'text',class:'api-filter api-body-path',value:ui.path,placeholder:t('apiBodyPath'),'aria-label':t('apiBodyPath'),spellcheck:'false',onInput:e=>{ui.path=e.target.value;applyPath();draw();}}):null;
+  const setExpand=v=>{ui.expand=v;draw();};
+  const expandBtns=kind==='json'?h('div',{class:'api-body-expand',role:'group','aria-label':t('apiBodyExpandGroup')},
+   h('button',{type:'button',class:'api-icon-btn',title:t('apiBodyExpandAll'),'aria-label':t('apiBodyExpandAll'),onClick:()=>setExpand('all')},'⊞'),
+   h('button',{type:'button',class:'api-icon-btn',title:t('apiBodyCollapseAll'),'aria-label':t('apiBodyCollapseAll'),onClick:()=>setExpand('collapsed')},'⊟')):null;
   const count=h('span',{class:'api-find-count','aria-live':'polite'});
   const status=h('span',{class:'api-find-count',role:'status'});
   const input=h('input',{type:'search',class:'api-filter api-body-find',value:ui.find,placeholder:t('apiBodyFind'),'aria-label':t('apiBodyFind'),spellcheck:'false',onInput:e=>{ui.find=e.target.value;if(finder)updateFind();}});
@@ -197,8 +210,9 @@ export function createBodyView({h,t,fmtSize}){
   root.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='f'&&ui.mode!=='preview'){e.preventDefault();e.stopPropagation();input.focus();input.select();}});
   if(ui.mode==='preview')findBox.hidden=true;
   if(pathInput&&ui.mode!=='pretty')pathInput.hidden=true;
+  if(expandBtns&&ui.mode!=='pretty')expandBtns.hidden=true;
   applyPath();
-  root.append(h('div',{class:'api-body-bar'},modeBtns,pathInput,kind==='binary'?null:findBox,status),content);
+  root.append(h('div',{class:'api-body-bar'},modeBtns,expandBtns,pathInput,kind==='binary'?null:findBox,status),content);
   draw();
   return {el:root,text};
  }

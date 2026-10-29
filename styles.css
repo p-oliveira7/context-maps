@@ -844,3 +844,4 @@ body.api-resizing-v{cursor:row-resize;user-select:none}
 .seq-stage{cursor:grab}.seq-stage.is-panning{cursor:grabbing;user-select:none}
 .seq-stage .seq-step,.seq-stage .seq-actor,.seq-stage .seq-hit{cursor:pointer}
 .seq-fit{padding:.2rem .5rem}
+.api-body-expand{display:flex;gap:.2rem}.api-body-expand[hidden]{display:none}
