@@ -50,28 +50,36 @@ try{
  const mode=name=>page.locator('.api-body-modes button',{hasText:name});
  const find=()=>page.locator('.api-body-find');
 
- // RESP-01: o JSON vira uma árvore (com o mesmo texto de antes), com cores e ramos fundos recolhidos
+ // RESP-01: o JSON vira uma árvore (com o mesmo texto de antes), com cores, e já vem toda aberta
  await send('Json');
  assert.equal(await page.locator('.api-resp-body.is-tree .jv').count(),1);
  assert.deepEqual(JSON.parse(await body().textContent()),JSON_BODY);
- assert.equal(await page.locator('.jv-node.is-collapsed').count(),3); // geo, e os dois itens de "items" (nível 2)
+ assert.equal(await page.locator('.jv-node.is-collapsed').count(),0); // nada recolhido: dá para mostrar a resposta inteira sem clicar
+ assert.equal(await page.locator('.jv-key',{hasText:'"lat"'}).isVisible(),true);assert.equal(await page.locator('.jv-key',{hasText:'"title"'}).last().isVisible(),true);
  const colour=sel=>page.locator(sel).first().evaluate(e=>getComputedStyle(e).color);
  const colours=new Set([await colour('.jv-str'),await colour('.jv-num'),await colour('.jv-bool'),await colour('.jv-null'),await colour('.jv-key')]);
  assert.equal(colours.size,5,'cada tipo de valor tem a sua cor');
  const geo=page.locator(`.jv-node:has(> .jv-row > .jv-key:text-is('"geo"'))`);
- assert.match(await geo.locator('>.jv-row').evaluate(e=>getComputedStyle(e,'::after').content),/2 keys/);
- assert.equal(await geo.locator('>.jv-children').isHidden(),true);
- await geo.locator('>.jv-row>.jv-toggle').click();
  assert.equal(await geo.locator('>.jv-children').isVisible(),true);assert.equal(await geo.locator('>.jv-row>.jv-toggle').getAttribute('aria-expanded'),'true');
- await geo.locator('>.jv-row>.jv-toggle').click();assert.equal(await geo.locator('>.jv-children').isHidden(),true);
+ await geo.locator('>.jv-row>.jv-toggle').click();
+ assert.equal(await geo.locator('>.jv-children').isHidden(),true);assert.equal(await geo.locator('>.jv-row>.jv-toggle').getAttribute('aria-expanded'),'false');
+ assert.match(await geo.locator('>.jv-row').evaluate(e=>getComputedStyle(e,'::after').content),/2 keys/); // recolhido mostra o resumo
+ await geo.locator('>.jv-row>.jv-toggle').click();assert.equal(await geo.locator('>.jv-children').isVisible(),true);
+ // Recolher tudo / Expandir tudo
+ const expandAll=page.locator('.api-body-expand button[aria-label="Expand all"]'),collapseAll=page.locator('.api-body-expand button[aria-label="Collapse all"]');
+ await collapseAll.click();
+ assert.equal(await page.locator('.jv-node.is-collapsed').count(),6); // tags, address, geo, items e os dois itens: só a raiz aberta
+ assert.equal(await page.locator('.jv-key',{hasText:'"city"'}).isVisible(),false);
+ await expandAll.click();assert.equal(await page.locator('.jv-node.is-collapsed').count(),0);
+ await collapseAll.click();await page.locator('.api-resp-tabs button[role=tab]',{hasText:'Headers'}).click();await page.locator('.api-resp-tabs button[role=tab]',{hasText:'Body'}).click();
+ assert.equal(await page.locator('.jv-node.is-collapsed').count(),6); // a escolha fica na resposta ao trocar de aba interna
+ await expandAll.click();
 
  // RESP-02: clicar numa chave copia o caminho (útil para asserts e variáveis)
  await page.locator('.jv-key',{hasText:'"city"'}).click();
  assert.equal(await clip(),'res.body.address.city');
  assert.match(await page.locator('.api-body-bar [role=status]').textContent(),/res\.body\.address\.city/);
- await geo.locator('>.jv-row>.jv-toggle').click();
  await page.locator('.jv-key',{hasText:'"lat"'}).click();assert.equal(await clip(),'res.body.address.geo.lat');
- await page.locator('.jv-node.is-collapsed > .jv-row > .jv-toggle').first().click(); // abre items[0]
  await page.locator('.jv-key',{hasText:'"title"'}).first().click();assert.equal(await clip(),'res.body.items[0].title');
 
  // RESP-03: filtrar por caminho mostra só aquele valor (e o Copiar leva o valor filtrado)
@@ -86,12 +94,14 @@ try{
  await path.fill('');assert.deepEqual(JSON.parse(await body().textContent()),JSON_BODY);
 
  // RESP-04: busca no corpo (Ctrl+F), contagem, próximo/anterior e ramos recolhidos abrem sozinhos
+ await page.locator('.api-body-expand button[aria-label="Collapse all"]').click();
  await body().click();await page.keyboard.press('Control+f');
  assert.equal(await page.evaluate(()=>document.activeElement.classList.contains('api-body-find')),true);
  await page.keyboard.type('lng');
  assert.equal(await page.locator('.api-find-count[aria-live]').textContent(),'1/1');
  assert.equal(await page.locator('.api-find-hit.is-current').count(),1);
- assert.equal(await page.locator('.jv-node.is-collapsed').count(),2); // o geo abriu para mostrar o resultado
+ assert.equal(await page.locator('.jv-node.is-collapsed').count(),4); // address e geo abriram para mostrar o resultado
+ assert.equal(await page.locator('.api-find-hit.is-current').isVisible(),true);
  await find().fill('i');
  const total=await page.locator('.api-find-hit').count();assert.ok(total>=4);
  assert.equal(await page.locator('.api-find-count[aria-live]').textContent(),`1/${total}`);
