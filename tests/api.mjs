@@ -493,6 +493,26 @@ try{
  assert.equal((await fetch(`${base}/api/send`,{headers:H})).status,405);
  assert.equal(seen.some(s=>s.url==='/x'),false);
  assert.equal(existsSync(path.join(collections,'.secrets')),true);
+ // API-14: o painel abre um pouco abaixo do topo (o topo da tela fica livre) e a altura se ajusta pela borda de CIMA: arrastar, teclado, Home, duplo clique volta ao padrão, e a escolha é lembrada
+ if(!(await page.locator('#api-panel').isVisible())){await page.locator('#api-btn').click();await page.locator('#api-panel').waitFor({state:'visible'});}
+ const vh=()=>page.evaluate(()=>{const r=document.querySelector('#api-panel').getBoundingClientRect();return {panel:r.height,top:r.top,bottom:r.bottom,win:innerHeight,short:document.body.classList.contains('api-short'),viewportRight:getComputedStyle(document.querySelector('#viewport')).right};});
+ let hv=await vh();assert.equal(hv.short,true);assert.ok(Math.abs(hv.top-56)<4,`abre com 56px livres no topo (${hv.top})`);assert.ok(hv.bottom>=hv.win-1,'ancorado embaixo');assert.notEqual(hv.viewportRight,'0px','o mapa continua ao lado');
+ const grip=await page.locator('.api-resizer-v').boundingBox();
+ await page.mouse.move(grip.x+grip.width/2,grip.y+grip.height/2);await page.mouse.down();await page.mouse.move(grip.x+grip.width/2,420,{steps:8});await page.mouse.up();
+ hv=await vh();assert.ok(Math.abs(hv.top-420)<12,`a borda de cima seguiu o arrasto (${hv.top})`);assert.ok(hv.bottom>=hv.win-1);
+ assert.equal(await page.locator('#api-panel .api-head').isVisible(),true);
+ await page.locator('.api-resizer-v').focus();await page.keyboard.press('End');
+ hv=await vh();assert.ok(hv.panel>=219&&hv.panel<=225,`altura mínima (${hv.panel})`);
+ await page.keyboard.press('ArrowUp');hv=await vh();assert.ok(hv.panel>255&&hv.panel<265,`seta para cima aumenta (${hv.panel})`);
+ await page.keyboard.press('ArrowDown');hv=await vh();assert.ok(hv.panel>=219&&hv.panel<=225,'seta para baixo diminui');
+ await page.keyboard.press('ArrowUp');
+ await page.reload();await page.locator('.node').first().waitFor();await page.locator('#api-btn').click();await page.locator('#api-panel').waitFor({state:'visible'});
+ hv=await vh();assert.ok(hv.panel>255&&hv.panel<265,`altura lembrada (${hv.panel})`);
+ await page.locator('.api-resizer-v').dblclick(); // duplo clique: padrão
+ hv=await vh();assert.ok(Math.abs(hv.top-56)<4,`duplo clique volta ao padrão (${hv.top})`);
+ await page.locator('.api-resizer-v').focus();await page.keyboard.press('Home'); // Home: altura toda
+ hv=await vh();assert.equal(hv.short,false);assert.ok(hv.panel>=hv.win-1);
+ await page.locator('.api-resizer-v').dblclick();
  assert.deepEqual(errors,[]);
- console.log('PASS API-01..13 API client panel');
+ console.log('PASS API-01..14 API client panel');
 }finally{await browser.close();server.kill();target.close();await rm(work,{recursive:true,force:true});}
