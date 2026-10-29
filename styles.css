@@ -860,3 +860,4 @@ body.api-resizing-v{cursor:row-resize;user-select:none}
 .api-tls-badge:hover{background:#e5737344}
 .api-tls-hint{margin:.5rem 0;padding:.5rem .7rem;border-radius:8px;background:#e0a45818;border:1px solid #e0a45855;color:#f3d29c;font-size:.78rem}
 .api-tls-hint p{margin:0 0 .4rem}
+.api-body-expand{display:flex;gap:.2rem}.api-body-expand[hidden]{display:none}

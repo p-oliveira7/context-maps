@@ -6,7 +6,7 @@ import {runScript,sandboxSupported} from './sandbox.js?v=1';
 import {createVarFields} from './var-field.js?v=1';
 import {collectRequests,runSequence,reportJson,reportText} from './runner.js?v=1';
 import {createRunReport} from './run-report.js?v=1';
-import {createBodyView} from './response-view.js?v=1';
+import {createBodyView} from './response-view.js?v=2';
 import {parseCurl,toCurl,toFetch} from './curl.js?v=1';
 import {normalizeMocks,emptyMocks,effectiveMock,mockBadge,mockCounts,scenarioResponse,scenarioFromPreset,newScenarioId,statusText,PRESETS} from './mocks.js?v=1';
 export {resolveVars,buildRequest};
