@@ -634,6 +634,12 @@ function openApiDialog(node,index=null){
  let spec=null,mountSeq=0;
  const el=(tag,props={},...kids)=>{const e=document.createElement(tag);for(const [k,v] of Object.entries(props)){if(k==='class')e.className=v;else if(k.startsWith('on'))e.addEventListener(k.slice(2),v);else if(v!==null&&v!==undefined&&v!==false)e.setAttribute(k,v===true?'':v);}e.append(...kids.filter(x=>x!==null&&x!==undefined));return e;};
  const ta=el('textarea',{class:'oa-source',spellcheck:'false','aria-label':t('openApiPaste'),placeholder:t('openApiPastePlaceholder')});
+ // especificações já carregadas em outros cards desta apresentação (uma por conteúdo): reaproveita sem colar de novo
+ const known=[],seen=new Set();
+ const collect=n=>{for(const im of imagesOf(n))if(im.kind==='openapi'&&im.source&&!seen.has(im.source)&&im!==current){seen.add(im.source);known.push({title:im.title||'OpenAPI',card:nameOf(n),source:im.source});}n.children.forEach(collect);};
+ roots.forEach(collect);
+ const reuseSel=known.length?el('select',{class:'oa-reuse','aria-label':t('openApiReuse')},el('option',{value:''},t('openApiReusePick')),...known.map((k,i)=>el('option',{value:String(i)},t('openApiReuseItem',k.title,k.card)))):null;
+ reuseSel?.addEventListener('change',()=>{const k=known[Number(reuseSel.value)];if(!k)return;ta.value=k.source;urlInput.value='';update();});
  const fileInput=el('input',{type:'file',accept:'.yaml,.yml,.json,application/json,text/yaml',hidden:true});
  const urlInput=el('input',{type:'url',class:'oa-url',placeholder:'https://…/openapi.json','aria-label':t('openApiUrl')});
  const status=el('p',{class:'oa-status',role:'status','aria-live':'polite'});
@@ -689,6 +695,7 @@ function openApiDialog(node,index=null){
    el('div',{class:'oa-dialog-body'},
     el('div',{class:'oa-inputs'},
      el('p',{class:'oa-hint'},t('openApiIntro')),
+     reuseSel?el('label',{class:'oa-focus-field'},el('span',{},t('openApiReuse')),reuseSel):null,
      el('div',{class:'oa-row'},urlInput,el('button',{type:'button',onclick:fetchUrl},t('openApiFetch'))),
      el('div',{class:'oa-row'},el('button',{type:'button',onclick:()=>fileInput.click()},t('openApiFile')),fileInput),
      ta,status,

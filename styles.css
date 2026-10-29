@@ -894,3 +894,4 @@ body.api-open .oa-viewer{right:var(--api-w)}
 .oa-focus-field{display:flex;flex-direction:column;gap:.25rem;font-size:.78rem;color:#ffffffb3}
 .oa-focus{padding:.35rem .5rem;border-radius:8px;border:1px solid #ffffff2e;background:#0f0f0f;color:#eee;font:inherit}
 .oa-host .opblock[data-oa-focus]{box-shadow:0 0 0 3px #49cc9066}
+.oa-reuse{padding:.35rem .5rem;border-radius:8px;border:1px solid #49cc9066;background:#0f0f0f;color:#eee;font:inherit}
