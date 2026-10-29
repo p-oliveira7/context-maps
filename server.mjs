@@ -141,7 +141,7 @@ async function collectionsApi(req,res,url,parts){
   return send(res,201,await collections.importFolder(body.files,body.into));
  }
  if(!sub){
-  if(method==='GET'){const root=collections.collDir(id);if(!existsSync(path.join(root,'bruno.json')))return fail(res,404,'Coleção inexistente');return send(res,200,{id,name:await collections.readName(id),tree:await collections.tree(id),environments:await collections.environments(id),defaults:await collections.defaults(id),mocks:await collections.readMocks(id)});}
+  if(method==='GET'){const root=collections.collDir(id);if(!existsSync(path.join(root,'bruno.json')))return fail(res,404,'Coleção inexistente');return send(res,200,{id,name:await collections.readName(id),tree:await collections.tree(id),environments:await collections.environments(id),defaults:await collections.defaults(id),mocks:await collections.readMocks(id),settings:await collections.readSettings(id)});}
   if(method==='DELETE'){await collections.removeCollection(id);return send(res,200,{ok:true});}
   return fail(res,405,'Método não permitido');
  }
@@ -159,6 +159,11 @@ async function collectionsApi(req,res,url,parts){
  if(sub==='reorder'){
   if(method!=='POST')return fail(res,405,'Método não permitido');
   const b=await jsonBody(req);await collections.reorder(id,String(b.parent||''),b.order);return send(res,200,{ok:true});
+ }
+ if(sub==='settings'){
+  if(method==='GET')return send(res,200,await collections.readSettings(id));
+  if(method==='PUT')return send(res,200,await collections.writeSettings(id,await jsonBody(req)));
+  return fail(res,405,'Método não permitido');
  }
  if(sub==='mocks'){
   if(method==='GET')return send(res,200,await collections.readMocks(id));

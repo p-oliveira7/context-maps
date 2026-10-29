@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
 import {createServer} from 'node:http';
 import {mkdtemp,readFile,rm} from 'node:fs/promises';
-import {existsSync} from 'node:fs';
+import {existsSync,readFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -513,6 +513,22 @@ try{
  await page.locator('.api-resizer-v').focus();await page.keyboard.press('Home'); // Home: altura toda
  hv=await vh();assert.equal(hv.short,false);assert.ok(hv.panel>=hv.win-1);
  await page.locator('.api-resizer-v').dblclick();
+ // API-15: desligar a verificação SSL/TLS da coleção pelo menu: pede confirmação, mostra o selo, grava no bruno.json e o selo religa
+ const collId=await page.locator('#api-panel select[aria-label="Coleção"]').inputValue();
+ const tlsItem=()=>page.locator('#api-panel .api-menu button',{hasText:'verificação de certificado SSL'});
+ await page.locator('#api-panel .api-head .api-menu-wrap button[aria-haspopup=menu]').click();
+ assert.equal(await tlsItem().textContent(),'Desligar a verificação de certificado SSL/TLS');
+ let asked='';page.once('dialog',d=>{asked=d.message();d.accept();});
+ await tlsItem().click();
+ await page.locator('.api-tls-badge').waitFor();
+ assert.match(asked,/aceitarão qualquer certificado/);
+ assert.equal(JSON.parse(readFileSync(path.join(collections,collId,'bruno.json'),'utf8')).contextMaps.verifyTls,false);
+ // a request enviada leva verifyTls:false
+ const tlsSent=page.waitForRequest(r=>r.url().endsWith('/api/send'));
+ const firstReq=page.locator('#api-panel .api-row-name').filter({hasNotText:'📁'}).first();
+ if(await firstReq.count()){await firstReq.click();await page.locator('.api-send').click();assert.equal(JSON.parse((await tlsSent).postData()).verifyTls,false);}
+ await page.locator('.api-tls-badge').click();await page.locator('.api-tls-badge').waitFor({state:'detached'});
+ assert.equal('contextMaps' in JSON.parse(readFileSync(path.join(collections,collId,'bruno.json'),'utf8')),false);
  assert.deepEqual(errors,[]);
- console.log('PASS API-01..14 API client panel');
+ console.log('PASS API-01..15 API client panel');
 }finally{await browser.close();server.kill();target.close();await rm(work,{recursive:true,force:true});}

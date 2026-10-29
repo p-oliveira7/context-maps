@@ -304,7 +304,7 @@ async function execute(model,signal,relPath=''){
    data=scenarioResponse(mock,text=>resolveVars(text,allVars(model)),{url:req.url});
    if(data.error)return {error:data.error,detail:data.detail,timeMs:took(),extra,sent,unresolved,mock:tag};
   }else{
-   const res=await fetch('api/send',{method:'POST',headers:{'x-context-maps':'1','x-lang':lang,'content-type':'application/json'},body:JSON.stringify({...req,timeoutMs:req.timeout}),signal});
+   const res=await fetch('api/send',{method:'POST',headers:{'x-context-maps':'1','x-lang':lang,'content-type':'application/json'},body:JSON.stringify({...req,timeoutMs:req.timeout,verifyTls:state.coll?.settings?.verifyTls!==false}),signal});
    data=await res.json();
    if(!res.ok)return {error:'request',detail:data.error||String(res.status),timeMs:took(),extra,sent,unresolved};
   }
@@ -385,6 +385,15 @@ function treeRows(items,depth,q){
  });
 }
 async function reloadTree(){const keep=state.reqPath;await loadCollection(state.coll.id);if(keep)state.reqPath=keep;renderAll(false);}
+/* Verificação do certificado SSL/TLS por coleção (fica no bruno.json: vale em qualquer máquina que abrir a coleção) */
+const TLS_ERROR=/CERT|SELF_SIGNED|UNABLE_TO_VERIFY|UNABLE_TO_GET_ISSUER|DEPTH_ZERO|ERR_TLS|SSL/i;
+async function setVerifyTls(on){
+ if(!state.coll)return;
+ if(!on&&!window.confirm(t('apiTlsConfirmOff',state.coll.name)))return;
+ try{state.coll.settings=await api('PUT',`/collections/${state.coll.id}/settings`,{verifyTls:on});}catch(e){hooks.toast?.(e.message);return;}
+ hooks.toast?.(t(on?'apiTlsNowOn':'apiTlsNowOff',state.coll.name));
+ renderHeader();renderTree();if(state.view==='request')renderResponse();
+}
 function renderTree(){
  if(!els.tree)return;
  const q=state.filter.trim().toLowerCase();
@@ -392,6 +401,7 @@ function renderTree(){
  const head=h('li',{role:'presentation',class:'api-collection-row',draggable:'true'},
   h('span',{class:'api-collection-name'},`🗂 ${state.coll.name}`),
   mockToggle(),
+  state.coll.settings?.verifyTls===false?h('button',{type:'button',class:'api-tls-badge',title:t('apiTlsOffTitle'),'aria-label':t('apiTlsOffTitle'),onClick:()=>setVerifyTls(true)},t('apiTlsOffBadge')):null,
   h('button',{type:'button',class:'api-icon-btn api-run-btn',title:t('apiRunCollection'),'aria-label':`${t('apiRunCollection')}: ${state.coll.name}`,onClick:()=>startRun({path:'',recursive:true})},'▶▶'),
   hooks.attach?h('button',{type:'button',class:'api-icon-btn api-attach',title:t('apiAttach'),'aria-label':`${t('apiAttach')}: ${state.coll.name}`,onClick:()=>attachTo({path:'',name:state.coll.name,type:'collection'})},'⤓'):null);
  head.addEventListener('dragstart',dragData({path:'',name:state.coll.name,type:'collection'}));
@@ -565,7 +575,9 @@ function renderResponse(){
  const summary=extraSummary(extra);
  if(r.error){
   const text=r.error==='timeout'?t('apiTimeout',r.detail):r.error==='cancelled'?t('apiCancelled'):`${t('apiFailed')}: ${r.detail||r.error}`;
-  box.replaceChildren(...[unresolvedBanner(r.unresolved)].filter(Boolean),h('div',{class:'api-status is-error',role:'alert'},text,r.mock?mockResponsePill(r.mock):null,h('span',{},`${r.timeMs} ms`)),...(extra.errors.length?[consoleView(extra)]:[]));return;
+  const certError=r.error==='network'&&TLS_ERROR.test(String(r.detail||''));
+  const certHint=certError?h('div',{class:'api-tls-hint',role:'note'},h('p',{},t('apiTlsErrorHint')),state.coll?.settings?.verifyTls!==false?h('button',{type:'button',class:'api-btn',onClick:()=>setVerifyTls(false)},t('apiTlsTurnOff')):null):null;
+  box.replaceChildren(...[unresolvedBanner(r.unresolved)].filter(Boolean),h('div',{class:'api-status is-error',role:'alert'},text,r.mock?mockResponsePill(r.mock):null,h('span',{},`${r.timeMs} ms`)),certHint,...(extra.errors.length?[consoleView(extra)]:[]));return;
  }
  const kind=r.status>=500?'is-error':r.status>=400?'is-warn':r.status>=300?'is-redirect':'is-ok';
  const tabs=[['body',t('apiRespBody')],['headers',t('apiRespHeaders')]];
@@ -769,7 +781,7 @@ function renderHeader(){
  const collSel=h('select',{class:'api-select','aria-label':t('apiCollection'),onChange:async e=>{if((await selectCollection(e.target.value))===false)renderHeader();}},...(state.collections.length?state.collections.map(c=>h('option',{value:c.id,selected:c.id===state.coll?.id},c.name)):[h('option',{value:''},t('apiNoCollectionsShort'))]));
  const envSel=h('select',{class:'api-select','aria-label':t('apiEnvironment'),disabled:state.coll?null:true,onChange:async e=>{state.env=e.target.value||null;store.set(`cm-api-env:${state.coll.id}`,state.env||'');await loadEnv();if(state.tab==='vars')renderTab();}},h('option',{value:''},t('apiNoEnv')),...(state.coll?.environments||[]).map(n=>h('option',{value:n,selected:n===state.env},n)));
  const menu=h('div',{class:'api-menu',role:'menu',hidden:true},
-  ...[[t('apiNewCollection'),createCollection],[t('apiRunCollection'),()=>startRun({path:'',recursive:true})],[t('apiImport'),()=>els.importInput.click()],[t('apiImportFolder'),()=>els.folderInput.click()],[t('apiExport'),()=>{if(state.coll)location.href=`api/collections/${state.coll.id}/export`;}],[t('apiDeleteCollection'),deleteCollection,true]].map(([label,fn,danger])=>h('button',{type:'button',role:'menuitem',class:danger?'danger':'',onClick:()=>{menu.hidden=true;fn();}},label)));
+  ...[[t('apiNewCollection'),createCollection],[t('apiRunCollection'),()=>startRun({path:'',recursive:true})],[t('apiImport'),()=>els.importInput.click()],[t('apiImportFolder'),()=>els.folderInput.click()],[t('apiExport'),()=>{if(state.coll)location.href=`api/collections/${state.coll.id}/export`;}],...(state.coll?[[state.coll.settings?.verifyTls===false?t('apiTlsMenuOn'):t('apiTlsMenuOff'),()=>setVerifyTls(state.coll.settings?.verifyTls===false)]]:[]),[t('apiDeleteCollection'),deleteCollection,true]].map(([label,fn,danger])=>h('button',{type:'button',role:'menuitem',class:danger?'danger':'',onClick:()=>{menu.hidden=true;fn();}},label)));
  els.menu=menu;
  els.head.replaceChildren(treeToggle(),h('strong',{class:'api-title'},t('apiTitle')),collSel,envSel,
   h('button',{type:'button',class:'api-icon-btn',title:t('apiEditEnv'),'aria-label':t('apiEditEnv'),disabled:state.coll?null:true,onClick:openEnvEditor},'⚙'),
@@ -892,7 +904,7 @@ function itemMenu(it){
  if(it.type==='folder')return [[t('apiRunFolder'),()=>startRun({path:it.path,recursive:false})],[t('apiRunFolderAll'),()=>startRun({path:it.path,recursive:true})],[t('apiNewRequest'),()=>newItem('request',it.path)],[t('apiNewFolder'),()=>newItem('folder',it.path)],attach,[t('apiRename'),()=>renameItem(it)],[t('apiDelete'),()=>deleteItem(it),true]];
  return [[t('apiCtxOpen'),()=>openRequest(it.path)],[t('apiDuplicate'),()=>duplicateItem(it)],[`${t('apiCopyAs')} ${t('apiCopyCurl')}`,()=>copyRowAs('curl',it)],[`${t('apiCopyAs')} ${t('apiCopyFetch')}`,()=>copyRowAs('fetch',it)],attach,[t('apiRename'),()=>renameItem(it)],[t('apiDelete'),()=>deleteItem(it),true]];
 }
-const collectionMenu=()=>[[t('apiRunCollection'),()=>startRun({path:'',recursive:true})],[t('apiNewRequest'),()=>newItem('request','')],[t('apiNewFolder'),()=>newItem('folder','')],hooks.attach?[t('apiAttach'),()=>attachTo({path:'',name:state.coll.name,type:'collection'})]:null,[t('apiExport'),()=>{location.href=`api/collections/${state.coll.id}/export`;}]];
+const collectionMenu=()=>[[t('apiRunCollection'),()=>startRun({path:'',recursive:true})],[t('apiNewRequest'),()=>newItem('request','')],[t('apiNewFolder'),()=>newItem('folder','')],hooks.attach?[t('apiAttach'),()=>attachTo({path:'',name:state.coll.name,type:'collection'})]:null,[t('apiExport'),()=>{location.href=`api/collections/${state.coll.id}/export`;}],[state.coll?.settings?.verifyTls===false?t('apiTlsMenuOn'):t('apiTlsMenuOff'),()=>setVerifyTls(state.coll?.settings?.verifyTls===false)]];
 
 /* variáveis de sessão: o que os scripts e as "Vars post-response" guardaram, num lugar só */
 function syncVarsUi(){
