@@ -8,7 +8,6 @@ How to cut a release: [`docs/releasing.md`](docs/releasing.md).
 ## [Unreleased]
 
 ### Added
-- **Request body sized to its content**: in the API client the JSON/text/XML body (and a mock scenario's body) grows to show the whole payload as you open or type it, up to 70% of the window height, then scrolls inside.
 - **OpenAPI documentation at half the screen**: opened on its own (API client closed), the Swagger documentation now takes the right half of the screen instead of all of it, so the map stays visible; drag its left edge (or use ←/→ on it) to change the width, which is remembered, and double-click it to go back to half. Beside the API client it still fills the space left of the panel.
 - **Reuse an OpenAPI specification on another card**: the OpenAPI window lists the specifications already loaded in this presentation ("Use a specification from this presentation"); pick one and choose another endpoint in focus, no need to paste or fetch it again.
 - **Open JWT tokens**: values that are JWTs, with or without a `Bearer`/`JWT`/`Token` prefix, in the response body, response headers, environment variables, session variables, request headers (`Authorization: Bearer {{token}}` is resolved first) and the Bearer field of the Auth tab get a **JWT** button (`Bearer JWT` when prefixed); with the API client open the token opens over the panel, the same size that shows the decoded header and payload, the main claims and the expiry in plain words, with copy buttons. Decoding only; the signature is not verified.
