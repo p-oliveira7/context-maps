@@ -250,6 +250,38 @@ try{
  assert.ok((await page.locator('.seq-stage').evaluate(e=>e.scrollLeft))>scrollBefore,'arrastar o fundo rola para a direita');
  page.once('dialog',d=>d.accept());await edZ.getByRole('button',{name:'Cancel',exact:true}).click();await edZ.waitFor({state:'hidden'});
  await page.locator('#diagram-editor .modal-card [aria-label="Close"], #diagram-editor button:has-text("Cancel")').first().click().catch(()=>{});
+ // SEQ-11: com o API client aberto, o diagrama aberto fica ao lado dele (sem bloquear) e tem zoom e arrasto; sem o painel continua modal
+ await page.goto(`${base}/?p=${made.id}`);await page.locator('.node').first().waitFor();await page.locator('#expand').click();await page.locator('#fit').click();
+ const lightbox=page.locator('dialog');
+ await page.locator('.image-button.is-diagram').first().click();await lightbox.waitFor();
+ assert.equal(await lightbox.evaluate(d=>d.matches(':modal')),true); // sem API client: modal, como sempre
+ await page.keyboard.press('Escape');await lightbox.waitFor({state:'hidden'});
+ await page.evaluate(()=>document.querySelector('#api-btn').click());await page.locator('#api-panel').waitFor({state:'visible'});
+ await page.locator('.image-button.is-diagram').first().click();await lightbox.waitFor();
+ assert.equal(await lightbox.evaluate(d=>d.matches(':modal')),false); // com API client: ao lado
+ const lbGeo=await page.evaluate(()=>({img:document.querySelector('dialog').getBoundingClientRect().right,panel:document.querySelector('#api-panel').getBoundingClientRect().left}));
+ assert.ok(lbGeo.img<=lbGeo.panel+1,`a imagem fica ao lado do painel (${JSON.stringify(lbGeo)})`);
+ await page.locator('#api-panel .api-menu-wrap button[aria-haspopup=menu]').first().click(); // o painel segue utilizável com a imagem aberta
+ assert.equal(await page.locator('#api-panel .api-menu').first().isVisible(),true);assert.equal(await lightbox.isVisible(),true);
+ await page.locator('#api-panel .api-menu-wrap button[aria-haspopup=menu]').first().click();
+ // zoom: botões, roda (no cursor), atalhos e reset
+ const zoomOf=async()=>Number((await page.locator('.lightbox-zoom-label').textContent()).replace('%',''));
+ assert.equal(await zoomOf(),100);
+ await page.locator('.lightbox-zoom').getByRole('button',{name:'Zoom in'}).click();assert.equal(await zoomOf(),140);
+ const lbBox=await lightbox.boundingBox();
+ await page.mouse.move(lbBox.x+lbBox.width/2,lbBox.y+lbBox.height/2);await page.mouse.wheel(0,-400);
+ await page.waitForFunction(()=>Number(document.querySelector('.lightbox-zoom-label').textContent.replace('%',''))>140);
+ const zoomed=await zoomOf();
+ const tf0=await lightbox.locator('img').evaluate(i=>i.style.transform);
+ await page.mouse.down();await page.mouse.move(lbBox.x+lbBox.width/2-120,lbBox.y+lbBox.height/2-60,{steps:6});await page.mouse.up(); // arrastar move a imagem e não fecha
+ assert.equal(await lightbox.isVisible(),true);assert.notEqual(await lightbox.locator('img').evaluate(i=>i.style.transform),tf0);
+ await page.locator('.lightbox-zoom').getByRole('button',{name:'Fit to window'}).click();assert.equal(await zoomOf(),100);assert.equal(await lightbox.locator('img').evaluate(i=>i.style.transform),'');
+ await page.locator('.lightbox-zoom').getByRole('button',{name:'Zoom in'}).click();await lightbox.click({position:{x:300,y:300}}); // ampliada: clique não fecha
+ assert.equal(await lightbox.isVisible(),true);
+ await page.keyboard.press('Escape'); // Esc fecha a imagem ao lado
+ await lightbox.waitFor({state:'hidden'});
+ assert.ok(zoomed>140);
+ await page.evaluate(()=>document.querySelector('#api-btn').click());
 
  const pt=await browser.newContext({locale:'pt-BR',viewport:{width:1400,height:900},extraHTTPHeaders:{'x-context-maps':'1'}});
  const p2=await pt.newPage();p2.setDefaultTimeout(process.env.CI?20000:8000);
@@ -263,5 +295,5 @@ try{
  await p2.locator('#diagram-error').filter({hasText:'Linha 2: Uma mensagem precisa de dois-pontos'}).waitFor();
 
  assert.deepEqual(errors,[]);
- console.log('PASS SEQ-01..10 native sequence diagrams and visual editor');
+ console.log('PASS SEQ-01..11 native sequence diagrams and visual editor');
 }finally{await browser.close();server.kill();await rm(work,{recursive:true,force:true});}
