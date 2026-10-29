@@ -26,7 +26,13 @@ export function endpointsOf(spec){
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const COLORS={get:'#61affe',post:'#49cc90',put:'#fca130',patch:'#50e3c2',delete:'#f93e3e',head:'#9012fe',options:'#0d5aa7',trace:'#555'};
 /** miniatura do card: título, versão, quantidade e as primeiras rotas, nas cores do Swagger */
-export function thumbnailSvg(spec,{more=n=>`+${n}`,endpointsLabel=n=>`${n} endpoints`}={}){
+export const sameEndpoint=(a,b)=>!!a&&!!b&&a.method===b.method&&a.path===b.path;
+/** o endpoint escolhido ainda existe na especificação? */
+export function findEndpoint(spec,focus){return focus?endpointsOf(spec).find(e=>sameEndpoint(e,focus))||null:null;}
+const wrapText=(text,max,lines)=>{const words=String(text).split(/\s+/).filter(Boolean),out=[];let cur='';for(const w of words){if((cur+' '+w).trim().length>max){if(cur)out.push(cur);cur=w;if(out.length>=lines)break;}else cur=(cur+' '+w).trim();}if(cur&&out.length<lines)out.push(cur);if(words.join(' ').length>out.join(' ').length&&out.length)out[out.length-1]=out[out.length-1].replace(/.?$/,'…');return out;};
+export function thumbnailSvg(spec,{more=n=>`+${n}`,endpointsLabel=n=>`${n} endpoints`,focus=null,othersLabel=n=>`+${n}`}={}){
+ const target=findEndpoint(spec,focus);
+ if(target)return focusedSvg(spec,target,{endpointsLabel,othersLabel});
  const info=spec?.info||{},list=endpointsOf(spec),shown=list.slice(0,9),W=440,rowH=26,top=84,H=top+Math.max(1,shown.length)*rowH+(list.length>shown.length?30:14);
  const title=String(info.title||'API').slice(0,46),version=info.version?`v${String(info.version).slice(0,16)}`:'',kind=spec?.openapi?`OpenAPI ${String(spec.openapi).slice(0,8)}`:spec?.swagger?`Swagger ${String(spec.swagger).slice(0,8)}`:'OpenAPI';
  const rows=shown.map((e,i)=>{
@@ -42,6 +48,48 @@ export function thumbnailSvg(spec,{more=n=>`+${n}`,endpointsLabel=n=>`${n} endpo
   `<text x="52" y="28" font-size="16" font-weight="700" fill="#f5f7f8">${esc(title)}</text>`+
   `<text x="52" y="45" font-size="11.5" fill="#9aa4ad">${esc([kind,version,endpointsLabel(list.length)].filter(Boolean).join(' · '))}</text>`+
   `<line x1="16" x2="${W-16}" y1="62" y2="62" stroke="#ffffff1f"/>`+rows+extra+empty+`</svg>`;
+}
+
+/* miniatura com um endpoint em destaque: método e caminho grandes, resumo, e a API como contexto */
+function focusedSvg(spec,e,{endpointsLabel,othersLabel}){
+ const info=spec?.info||{},list=endpointsOf(spec),op=spec.paths?.[e.path]?.[e.method]||{},W=440,c=COLORS[e.method]||'#888';
+ const summary=String(op.summary||op.operationId||''),desc=wrapText(op.description||'',58,2);
+ const params=(op.parameters||[]).map(p=>p?.name).filter(Boolean).slice(0,6);
+ const codes=Object.keys(op.responses||{}).slice(0,6);
+ const pathLines=wrapText(e.path.replace(/\//g,' /').trim(),30,2).map(s=>s.replace(/ \//g,'/'));
+ let y=78;const parts=[];
+ parts.push(`<rect x="16" y="${y}" width="${W-32}" height="${44+pathLines.length*22}" rx="10" fill="${c}1f" stroke="${c}"/>`);
+ parts.push(`<rect x="28" y="${y+12}" width="78" height="26" rx="6" fill="${c}"/><text x="67" y="${y+30}" text-anchor="middle" font-size="13" font-weight="800" fill="#fff">${e.method.toUpperCase()}</text>`);
+ pathLines.forEach((l,i)=>parts.push(`<text x="118" y="${y+31+i*22}" font-size="17" font-weight="700" fill="#f5f7f8" font-family="ui-monospace,Consolas,monospace">${esc(l)}</text>`));
+ y+=56+pathLines.length*22;
+ if(summary){parts.push(`<text x="16" y="${y}" font-size="14" font-weight="600" fill="#e8ecef">${esc(summary.slice(0,60))}</text>`);y+=20;}
+ desc.forEach(l=>{parts.push(`<text x="16" y="${y}" font-size="12" fill="#9aa4ad">${esc(l)}</text>`);y+=17;});
+ if(params.length){y+=6;parts.push(`<text x="16" y="${y}" font-size="11.5" fill="#9aa4ad">params: <tspan fill="#d6dde3" font-family="ui-monospace,Consolas,monospace">${esc(params.join(', '))}</tspan></text>`);y+=18;}
+ if(codes.length){y+=4;let x=16;for(const code of codes){const cc=/^2/.test(code)?'#49cc90':/^3/.test(code)?'#61affe':/^4/.test(code)?'#fca130':/^5/.test(code)?'#f93e3e':'#9aa4ad';parts.push(`<rect x="${x}" y="${y-13}" width="40" height="18" rx="9" fill="none" stroke="${cc}"/><text x="${x+20}" y="${y}" text-anchor="middle" font-size="11" fill="${cc}">${esc(code.slice(0,7))}</text>`);x+=46;}y+=14;}
+ const others=list.length-1;
+ if(others>0){y+=10;parts.push(`<text x="16" y="${y}" font-size="11.5" fill="#9aa4ad">${esc(othersLabel(others))}</text>`);}
+ const H=y+18;
+ const title=String(info.title||'API').slice(0,46),version=info.version?`v${String(info.version).slice(0,16)}`:'';
+ return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="ui-sans-serif,system-ui,Segoe UI,Roboto,Arial,sans-serif">`+
+  `<rect width="${W}" height="${H}" rx="12" fill="#1b2027"/><rect x="0.5" y="0.5" width="${W-1}" height="${H-1}" rx="12" fill="none" stroke="${c}88"/>`+
+  `<rect x="16" y="16" width="26" height="26" rx="6" fill="#49cc90"/><text x="29" y="34" text-anchor="middle" font-size="14" font-weight="800" fill="#173647">{ }</text>`+
+  `<text x="52" y="28" font-size="15" font-weight="700" fill="#f5f7f8">${esc(title)}</text>`+
+  `<text x="52" y="45" font-size="11.5" fill="#9aa4ad">${esc([version,endpointsLabel(list.length)].filter(Boolean).join(' · '))}</text>`+
+  `<line x1="16" x2="${W-16}" y1="62" y2="62" stroke="#ffffff1f"/>`+parts.join('')+`</svg>`;
+}
+
+/* abre (expande) e rola até o endpoint em foco, depois que o Swagger UI desenhou */
+function revealEndpoint(el,focus){
+ const find=()=>[...el.querySelectorAll('.opblock')].find(b=>b.classList.contains(`opblock-${focus.method}`)&&(b.querySelector('.opblock-summary-path')?.getAttribute('data-path')||b.querySelector('.opblock-summary-path')?.textContent.replace(/\u200b/g,'').trim())===focus.path);
+ let tries=0;
+ const step=()=>{
+  const block=find();
+  if(!block){if(++tries<40)setTimeout(step,50);return;}
+  if(!block.classList.contains('is-open'))(block.querySelector('.opblock-summary-control')||block.querySelector('.opblock-summary'))?.click();
+  block.setAttribute('data-oa-focus',''); // atributo (o React refaz a className ao abrir)
+  setTimeout(()=>block.scrollIntoView({block:'start'}),60);
+ };
+ step();
 }
 
 /* Proxy do "Try it out": troca a chamada pelo POST em /api/send e devolve a resposta no formato que o Swagger UI espera. */
@@ -74,7 +122,7 @@ function responseInterceptor(res){
 }
 
 /** desenha o Swagger UI em `el` a partir do texto da especificação; resolve com a especificação interpretada (objeto) */
-export async function mountSwagger(el,source,{tryItOut=true}={}){
+export async function mountSwagger(el,source,{tryItOut=true,focus=null}={}){
  const SwaggerUIBundle=await loadSwaggerUi();
  const blob=URL.createObjectURL(new Blob([source],{type:/^\s*[{[]/.test(source)?'application/json':'text/yaml'}));
  return new Promise((resolve,reject)=>{
@@ -86,7 +134,8 @@ export async function mountSwagger(el,source,{tryItOut=true}={}){
    onComplete:()=>{
     if(done)return;done=true;URL.revokeObjectURL(blob);
     const spec=ui.specSelectors.specJson().toJS(),errs=ui.errSelectors?.allErrors?.().toJS?.()||[];
-    if(!spec||(!spec.openapi&&!spec.swagger))reject(Object.assign(new Error('notOpenApi'),{errors:errs}));else resolve({ui,spec});
+    if(!spec||(!spec.openapi&&!spec.swagger))reject(Object.assign(new Error('notOpenApi'),{errors:errs}));
+    else{if(focus&&findEndpoint(spec,focus))revealEndpoint(el,focus);resolve({ui,spec});}
    }
   });
   setTimeout(()=>{if(!done){done=true;URL.revokeObjectURL(blob);reject(new Error('timeout'));}},20000);
@@ -95,7 +144,7 @@ export async function mountSwagger(el,source,{tryItOut=true}={}){
 
 /* Visualizador: janela sem bloqueio (fica ao lado do API client quando ele está aberto, como as imagens) */
 let current=null;
-export function openApiViewer({source,title,t,onClose}){
+export function openApiViewer({source,title,t,onClose,focus=null}){
  current?.close();
  const host=document.createElement('div');host.className='oa-host swagger-ui-host';
  const status=document.createElement('p');status.className='oa-status';status.textContent=t('openApiLoading');
@@ -109,7 +158,7 @@ export function openApiViewer({source,title,t,onClose}){
  const onKey=e=>{if(e.key==='Escape'&&!e.target.closest?.('#api-panel')&&!e.target.closest?.('.oa-host input,.oa-host textarea,.oa-host select')){e.stopPropagation();close();}};
  document.addEventListener('keydown',onKey,true);
  document.body.append(win);x.focus();
- mountSwagger(host,source).then(()=>{status.hidden=true;},e=>{status.textContent=e.message==='notOpenApi'?t('openApiInvalid'):t('openApiLoadError');status.classList.add('is-error');});
+ mountSwagger(host,source,{focus}).then(()=>{status.hidden=true;},e=>{status.textContent=e.message==='notOpenApi'?t('openApiInvalid'):t('openApiLoadError');status.classList.add('is-error');});
  const handle={close,el:win};current=handle;
  return handle;
 }

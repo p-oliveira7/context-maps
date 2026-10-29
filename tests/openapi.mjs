@@ -113,6 +113,31 @@ try{
  await page.locator('.oa-status',{hasText:'Valid specification'}).waitFor();
  await dlg.getByRole('button',{name:'Cancel'}).click();await dlg.waitFor({state:'detached'});
 
+ // OA-08: escolher um endpoint em foco: o card destaca esse endpoint e a documentação abre já nele, expandido
+ await page.locator('.image-tools button',{hasText:'Replace'}).click();await dlg.waitFor();
+ await page.locator('.oa-status',{hasText:'Valid specification'}).waitFor();
+ assert.deepEqual(await page.locator('.oa-focus option').allTextContents(),['None (whole API)','GET /pets — Lista pets','POST /pets — Cria pet','DELETE /pets/{id} — Apaga']);
+ await page.locator('.oa-focus').selectOption('delete /pets/{id}');
+ await dlg.getByRole('button',{name:'Replace'}).click();await dlg.waitFor({state:'detached'});
+ for(let i=0;i<60&&!(await saved()).images?.[0]?.focus;i++)await new Promise(r=>setTimeout(r,100));
+ const focused=(await saved()).images[0];
+ assert.deepEqual(focused.focus,{method:'delete',path:'/pets/{id}'});assert.ok(focused.alt.startsWith('DELETE /pets/{id} from Pets API'));
+ const fthumb=await (await fetch(`${base}/${focused.src}`)).text();
+ assert.match(fthumb,/>DELETE</);assert.match(fthumb,/>Apaga</);assert.match(fthumb,/204/);assert.ok(fthumb.includes('+ 2 other endpoint'));
+ assert.equal((fthumb.match(/>GET</g)||[]).length,0,'no foco, só o endpoint escolhido aparece em destaque');
+ // reabrir a janela mantém a escolha
+ await page.locator('.image-tools button',{hasText:'Replace'}).click();await dlg.waitFor();
+ await page.locator('.oa-status',{hasText:'Valid specification'}).waitFor();assert.equal(await page.locator('.oa-focus').inputValue(),'delete /pets/{id}');
+ await dlg.getByRole('button',{name:'Cancel'}).click();await dlg.waitFor({state:'detached'});
+ await page.locator('#edit-switch').click();
+ await page.locator('.image-button.is-openapi').click();
+ const block=viewer.locator('.opblock.opblock-delete[data-oa-focus]');await block.waitFor();
+ await viewer.locator('.opblock.opblock-delete.is-open').waitFor();
+ assert.ok((await viewer.locator('.oa-head strong').textContent()).includes('Pets API · DELETE /pets/{id}'));
+ await page.waitForFunction(()=>{const b=document.querySelector('.oa-host .opblock[data-oa-focus]'),h=document.querySelector('.oa-host');if(!b||!h)return false;const r=b.getBoundingClientRect(),hr=h.getBoundingClientRect();return r.top>=hr.top-2&&r.top<hr.bottom;});
+ assert.equal(await viewer.locator('.opblock.is-open').count(),1); // só ele aberto
+ await page.locator('.oa-close').click();await viewer.waitFor({state:'detached'});
+
  assert.deepEqual(errors,[]);
- console.log('PASS OA-01..07 OpenAPI/Swagger cards: add, thumbnail, interactive docs beside the API client, Try it out via proxy');
+ console.log('PASS OA-01..08 OpenAPI/Swagger cards: add, thumbnail, interactive docs beside the API client, Try it out via proxy');
 }finally{await browser.close();server.kill();target.close();await rm(work,{recursive:true,force:true});}

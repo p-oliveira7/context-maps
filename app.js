@@ -7,7 +7,7 @@ import {initApiClient,openApiPanel,closeApiPanel,isApiOpen,setAttachTarget,summa
 import {apiDropdown,closeApiDropdown} from './api-dropdown.js?v=1';
 import {isSequenceSource,renderSequence,FONT as SEQ_FONT} from './sequence.js?v=1';
 import {openSequenceEditor} from './sequence-editor.js?v=2';
-import {openApiViewer,mountSwagger,thumbnailSvg,endpointsOf} from './openapi.js?v=1';
+import {openApiViewer,mountSwagger,thumbnailSvg,endpointsOf,findEndpoint} from './openapi.js?v=3';
 applyStatic();
 const $=s=>document.querySelector(s), viewport=$('#viewport'), world=$('#world');
 $('#doc-version').textContent=`Context Maps v${VERSION}`;
@@ -639,6 +639,15 @@ function openApiDialog(node,index=null){
  const status=el('p',{class:'oa-status',role:'status','aria-live':'polite'});
  const preview=el('div',{class:'oa-preview swagger-ui-host'});
  const add=el('button',{type:'button',class:'primary',disabled:true},t(current?'openApiReplace':'openApiAdd'));
+ // endpoint em foco: o card destaca esse endpoint e a documentação já abre nele
+ const focusSel=el('select',{class:'oa-focus','aria-label':t('openApiFocus'),disabled:true});
+ let focusPick=current?.focus?`${current.focus.method} ${current.focus.path}`:'';
+ focusSel.addEventListener('change',()=>{focusPick=focusSel.value;});
+ const fillFocus=()=>{
+  const list=spec?endpointsOf(spec):[];
+  focusSel.replaceChildren(el('option',{value:''},t('openApiFocusNone')),...list.map(e=>el('option',{value:`${e.method} ${e.path}`},`${e.method.toUpperCase()} ${e.path}${e.summary?` — ${e.summary}`:''}`)));
+  focusSel.value=list.some(e=>`${e.method} ${e.path}`===focusPick)?focusPick:'';focusSel.disabled=!list.length;
+ };
  const close=()=>{document.removeEventListener('keydown',onKey,true);modal.remove();};
  const onKey=e=>{if(e.key==='Escape'&&!e.target.closest?.('#api-panel')){e.stopPropagation();close();}};
  const update=async()=>{
@@ -646,8 +655,8 @@ function openApiDialog(node,index=null){
   if(!text){status.textContent='';return;}
   status.textContent=t('openApiLoading');status.classList.remove('is-error');
   const holder=el('div');preview.append(holder);
-  try{const out=await mountSwagger(holder,text,{tryItOut:false});if(mine!==mountSeq)return;spec=out.spec;add.disabled=false;status.textContent=t('openApiReady',endpointsOf(spec).length);}
-  catch(e){if(mine!==mountSeq)return;preview.replaceChildren();status.textContent=e.message==='notOpenApi'?t('openApiInvalid'):t('openApiLoadError');status.classList.add('is-error');}
+  try{const out=await mountSwagger(holder,text,{tryItOut:false});if(mine!==mountSeq)return;spec=out.spec;add.disabled=false;status.textContent=t('openApiReady',endpointsOf(spec).length);fillFocus();}
+  catch(e){if(mine!==mountSeq)return;preview.replaceChildren();status.textContent=e.message==='notOpenApi'?t('openApiInvalid'):t('openApiLoadError');status.classList.add('is-error');fillFocus();}
  };
  let timer=0;ta.addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(update,500);});
  fileInput.addEventListener('change',async()=>{const f=fileInput.files[0];fileInput.value='';if(!f)return;ta.value=await f.text();update();});
@@ -665,12 +674,13 @@ function openApiDialog(node,index=null){
  add.addEventListener('click',async()=>{
   if(!spec)return;add.disabled=true;
   try{
-   const svg=thumbnailSvg(spec,{more:n=>t('openApiMore',n),endpointsLabel:n=>t('openApiEndpoints',n)});
+   const [fm,...fp]=focusSel.value?focusSel.value.split(' '):[],focus=fm?{method:fm,path:fp.join(' ')}:null;
+   const svg=thumbnailSvg(spec,{more:n=>t('openApiMore',n),endpointsLabel:n=>t('openApiEndpoints',n),othersLabel:n=>t('openApiOthers',n),focus});
    const src=await store.upload(doc.id,new File([svg],'openapi.svg',{type:'image/svg+xml'}));
    const title=String(spec.info?.title||'OpenAPI');
-   const entry={src,alt:t('openApiAlt',title,nameOf(node)),kind:'openapi',source:ta.value,title};
+   const entry={src,alt:focus?t('openApiFocusAlt',`${focus.method.toUpperCase()} ${focus.path}`,title,nameOf(node)):t('openApiAlt',title,nameOf(node)),kind:'openapi',source:ta.value,title,...(focus?{focus}:{})};
    if(current)node.images[index]=entry;else(node.images||=[]).push(entry);
-   close();commit();render();showToast(t('openApiAdded',title),true);
+   close();commit();render();showToast(t(current?'openApiUpdated':'openApiAdded',title),true);
   }catch{status.textContent=t('openApiSaveError');status.classList.add('is-error');add.disabled=false;}
  });
  const modal=el('div',{class:'oa-modal',role:'dialog','aria-modal':'false','aria-labelledby':'oa-dialog-title'},
@@ -681,7 +691,9 @@ function openApiDialog(node,index=null){
      el('p',{class:'oa-hint'},t('openApiIntro')),
      el('div',{class:'oa-row'},urlInput,el('button',{type:'button',onclick:fetchUrl},t('openApiFetch'))),
      el('div',{class:'oa-row'},el('button',{type:'button',onclick:()=>fileInput.click()},t('openApiFile')),fileInput),
-     ta,status),
+     ta,status,
+     el('label',{class:'oa-focus-field'},el('span',{},t('openApiFocus')),focusSel),
+     el('p',{class:'oa-hint'},t('openApiFocusHint'))),
     preview),
    el('footer',{class:'oa-dialog-foot'},el('button',{type:'button',onclick:close},t('cancel')),add)));
  document.body.append(modal);document.addEventListener('keydown',onKey,true);
@@ -689,7 +701,7 @@ function openApiDialog(node,index=null){
  ta.focus();
 }
 function openApiImage(node,image){
- openApiViewer({source:image.source||'',title:image.title||nameOf(node),t});
+ openApiViewer({source:image.source||'',title:image.focus?`${image.title||nameOf(node)} · ${image.focus.method.toUpperCase()} ${image.focus.path}`:image.title||nameOf(node),t,focus:image.focus||null});
 }
 
 /* Diagramas (Mermaid carregado sob demanda; o SVG renderizado é salvo como imagem do nó) */
