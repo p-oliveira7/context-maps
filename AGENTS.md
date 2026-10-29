@@ -31,4 +31,4 @@ installed Chrome. CLI messages follow `RM_LANG=en|pt`.
 - Tests: `npm test` (model) and `npm run test:e2e` (all browser/skill/a11y suites with an isolated temp server;
   needs `playwright-core` installed or `PLAYWRIGHT_MODULE` set, and Chrome). CI runs both on Linux, macOS and Windows.
 - Every behaviour change adds a line under `## [Unreleased]` in `CHANGELOG.md`; releases follow `docs/releasing.md` (version in `package.json` + `version.js`).
-- Do not add runtime dependencies; Mermaid in `vendor/` is loaded on demand by the diagram editor only.
+- Do not add runtime dependencies; Mermaid and Swagger UI in `vendor/` are loaded on demand (diagram editor, OpenAPI cards) only.

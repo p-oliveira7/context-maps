@@ -7,6 +7,7 @@ import {initApiClient,openApiPanel,closeApiPanel,isApiOpen,setAttachTarget,summa
 import {apiDropdown,closeApiDropdown} from './api-dropdown.js?v=1';
 import {isSequenceSource,renderSequence,FONT as SEQ_FONT} from './sequence.js?v=1';
 import {openSequenceEditor} from './sequence-editor.js?v=2';
+import {openApiViewer,mountSwagger,thumbnailSvg,endpointsOf,findEndpoint} from './openapi.js?v=3';
 applyStatic();
 const $=s=>document.querySelector(s), viewport=$('#viewport'), world=$('#world');
 $('#doc-version').textContent=`Context Maps v${VERSION}`;
@@ -64,6 +65,8 @@ function lbZoom(factor,point){
  lbApply();
 }
 function openImage(node,index=0){
+ const image=imagesOf(node)[index];
+ if(image?.kind==='openapi'&&image.source){openApiImage(node,image);return;} // especificação: abre o Swagger UI interativo
  const d=$('dialog');
  gallery.images=imagesOf(node);gallery.index=index;showGalleryImage();
  if(isApiOpen()){d.classList.add('is-beside');d.show();} // API client aberto: a imagem fica ao lado e o painel segue utilizável
@@ -75,6 +78,7 @@ function imageButton(node,image,index){
  const many=imagesOf(node).length>1,suffix=many?` (${index+1})`:'';
  button.setAttribute('aria-label',node===roots[0]&&index===0?t('enlargeIllustration'):t('enlargeImage',nameOf(node),suffix));button.append(imageFor(image));
  if(image.kind==='diagram')button.classList.add('is-diagram');
+ if(image.kind==='openapi')button.classList.add('is-diagram','is-openapi');
  button.onclick=()=>openImage(node,index);return button;
 }
 function imageBadge(node){
@@ -88,6 +92,10 @@ function imageItem(node,image,index){
  if(!editing)return button;
  const item=document.createElement('div');item.className='image-item';item.append(button);
  const tools=document.createElement('div');tools.className='image-tools';
+ if(image.kind==='openapi'){
+  const edit=document.createElement('button');edit.type='button';edit.textContent=t('openApiReplaceShort');edit.setAttribute('aria-label',t('openApiReplaceFor',nameOf(node)));
+  edit.onclick=()=>openApiDialog(node,index);tools.append(edit);
+ }
  if(image.kind==='diagram'){
   const edit=document.createElement('button');edit.type='button';edit.textContent=t('edit');edit.setAttribute('aria-label',t('editDiagram',nameOf(node),imagesOf(node).length>1?` (${index+1})`:''));
   edit.onclick=()=>openDiagramEditor(node,index);tools.append(edit);
@@ -561,6 +569,7 @@ function radialItems(node,depth,picker,anchor){
  items.push(
   {icon:'▣',label:t('image'),aria:t('addImage'),run:()=>picker.click()},
   {icon:'◇',label:t('diagram'),aria:t('addDiagram'),run:()=>openDiagramEditor(node,null)},
+  {icon:'⧉',label:'OpenAPI',aria:t('openApiAddFor',nameOf(node)),run:()=>openApiDialog(node,null)},
   {icon:'{ }',label:t('apiButton'),aria:t('apiAttach'),run:()=>startAttach(node)},
   {icon:'↗',label:t('link'),aria:t('addLink'),run:()=>addLink(node)});
  items.push({icon:'⇄',label:t('relate'),aria:t('relateIdea'),run:()=>startRelate(node)},{icon:'⧉',label:t('duplicate'),aria:t('duplicateIdea'),run:()=>duplicateNode(node)},{icon:'⎘',label:t('copy'),aria:t('copyIdea'),run:()=>copyNode(node)});
@@ -616,6 +625,83 @@ function editControls(card,node,depth){
  fab.title=t('editWheel');fab.setAttribute('aria-label',t('editNode',nameOf(node)));fab.setAttribute('aria-haspopup','menu');fab.setAttribute('aria-expanded','false');
  fab.onclick=e=>{e.stopPropagation();if(radial&&radial.card===card)closeRadial();else openRadial(fab,card,node,depth,picker);};
  card.append(fab);
+}
+
+
+/* OpenAPI / Swagger: a especificação vira uma "imagem" do card (miniatura) e abre no Swagger UI interativo */
+function openApiDialog(node,index=null){
+ const current=index===null?null:node.images?.[index];
+ let spec=null,mountSeq=0;
+ const el=(tag,props={},...kids)=>{const e=document.createElement(tag);for(const [k,v] of Object.entries(props)){if(k==='class')e.className=v;else if(k.startsWith('on'))e.addEventListener(k.slice(2),v);else if(v!==null&&v!==undefined&&v!==false)e.setAttribute(k,v===true?'':v);}e.append(...kids.filter(x=>x!==null&&x!==undefined));return e;};
+ const ta=el('textarea',{class:'oa-source',spellcheck:'false','aria-label':t('openApiPaste'),placeholder:t('openApiPastePlaceholder')});
+ const fileInput=el('input',{type:'file',accept:'.yaml,.yml,.json,application/json,text/yaml',hidden:true});
+ const urlInput=el('input',{type:'url',class:'oa-url',placeholder:'https://…/openapi.json','aria-label':t('openApiUrl')});
+ const status=el('p',{class:'oa-status',role:'status','aria-live':'polite'});
+ const preview=el('div',{class:'oa-preview swagger-ui-host'});
+ const add=el('button',{type:'button',class:'primary',disabled:true},t(current?'openApiReplace':'openApiAdd'));
+ // endpoint em foco: o card destaca esse endpoint e a documentação já abre nele
+ const focusSel=el('select',{class:'oa-focus','aria-label':t('openApiFocus'),disabled:true});
+ let focusPick=current?.focus?`${current.focus.method} ${current.focus.path}`:'';
+ focusSel.addEventListener('change',()=>{focusPick=focusSel.value;});
+ const fillFocus=()=>{
+  const list=spec?endpointsOf(spec):[];
+  focusSel.replaceChildren(el('option',{value:''},t('openApiFocusNone')),...list.map(e=>el('option',{value:`${e.method} ${e.path}`},`${e.method.toUpperCase()} ${e.path}${e.summary?` — ${e.summary}`:''}`)));
+  focusSel.value=list.some(e=>`${e.method} ${e.path}`===focusPick)?focusPick:'';focusSel.disabled=!list.length;
+ };
+ const close=()=>{document.removeEventListener('keydown',onKey,true);modal.remove();};
+ const onKey=e=>{if(e.key==='Escape'&&!e.target.closest?.('#api-panel')){e.stopPropagation();close();}};
+ const update=async()=>{
+  const mine=++mountSeq,text=ta.value.trim();spec=null;add.disabled=true;preview.replaceChildren();
+  if(!text){status.textContent='';return;}
+  status.textContent=t('openApiLoading');status.classList.remove('is-error');
+  const holder=el('div');preview.append(holder);
+  try{const out=await mountSwagger(holder,text,{tryItOut:false});if(mine!==mountSeq)return;spec=out.spec;add.disabled=false;status.textContent=t('openApiReady',endpointsOf(spec).length);fillFocus();}
+  catch(e){if(mine!==mountSeq)return;preview.replaceChildren();status.textContent=e.message==='notOpenApi'?t('openApiInvalid'):t('openApiLoadError');status.classList.add('is-error');fillFocus();}
+ };
+ let timer=0;ta.addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(update,500);});
+ fileInput.addEventListener('change',async()=>{const f=fileInput.files[0];fileInput.value='';if(!f)return;ta.value=await f.text();update();});
+ const fetchUrl=async()=>{
+  const url=urlInput.value.trim();if(!url)return;
+  status.textContent=t('openApiFetching');status.classList.remove('is-error');
+  try{
+   const res=await fetch('api/send',{method:'POST',headers:{'x-context-maps':'1','content-type':'application/json'},body:JSON.stringify({method:'GET',url,headers:[{name:'Accept',value:'application/json, application/yaml, text/yaml, */*'}]})});
+   const r=await res.json();
+   if(!res.ok||r.error||!(r.status>=200&&r.status<300)||!r.bodyText)throw new Error(r.error?`${r.error} ${r.detail||''}`:String(r.status||res.status));
+   ta.value=r.bodyText;update();
+  }catch(e){status.textContent=t('openApiFetchError',e.message);status.classList.add('is-error');}
+ };
+ urlInput.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();fetchUrl();}});
+ add.addEventListener('click',async()=>{
+  if(!spec)return;add.disabled=true;
+  try{
+   const [fm,...fp]=focusSel.value?focusSel.value.split(' '):[],focus=fm?{method:fm,path:fp.join(' ')}:null;
+   const svg=thumbnailSvg(spec,{more:n=>t('openApiMore',n),endpointsLabel:n=>t('openApiEndpoints',n),othersLabel:n=>t('openApiOthers',n),focus});
+   const src=await store.upload(doc.id,new File([svg],'openapi.svg',{type:'image/svg+xml'}));
+   const title=String(spec.info?.title||'OpenAPI');
+   const entry={src,alt:focus?t('openApiFocusAlt',`${focus.method.toUpperCase()} ${focus.path}`,title,nameOf(node)):t('openApiAlt',title,nameOf(node)),kind:'openapi',source:ta.value,title,...(focus?{focus}:{})};
+   if(current)node.images[index]=entry;else(node.images||=[]).push(entry);
+   close();commit();render();showToast(t(current?'openApiUpdated':'openApiAdded',title),true);
+  }catch{status.textContent=t('openApiSaveError');status.classList.add('is-error');add.disabled=false;}
+ });
+ const modal=el('div',{class:'oa-modal',role:'dialog','aria-modal':'false','aria-labelledby':'oa-dialog-title'},
+  el('div',{class:'oa-card'},
+   el('header',{class:'oa-dialog-head'},el('h2',{id:'oa-dialog-title'},t(current?'openApiReplaceTitle':'openApiAddTitle')),el('button',{type:'button','aria-label':t('close'),onclick:close},'×')),
+   el('div',{class:'oa-dialog-body'},
+    el('div',{class:'oa-inputs'},
+     el('p',{class:'oa-hint'},t('openApiIntro')),
+     el('div',{class:'oa-row'},urlInput,el('button',{type:'button',onclick:fetchUrl},t('openApiFetch'))),
+     el('div',{class:'oa-row'},el('button',{type:'button',onclick:()=>fileInput.click()},t('openApiFile')),fileInput),
+     ta,status,
+     el('label',{class:'oa-focus-field'},el('span',{},t('openApiFocus')),focusSel),
+     el('p',{class:'oa-hint'},t('openApiFocusHint'))),
+    preview),
+   el('footer',{class:'oa-dialog-foot'},el('button',{type:'button',onclick:close},t('cancel')),add)));
+ document.body.append(modal);document.addEventListener('keydown',onKey,true);
+ if(current?.source){ta.value=current.source;update();}
+ ta.focus();
+}
+function openApiImage(node,image){
+ openApiViewer({source:image.source||'',title:image.focus?`${image.title||nameOf(node)} · ${image.focus.method.toUpperCase()} ${image.focus.path}`:image.title||nameOf(node),t,focus:image.focus||null});
 }
 
 /* Diagramas (Mermaid carregado sob demanda; o SVG renderizado é salvo como imagem do nó) */
