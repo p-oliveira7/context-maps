@@ -80,6 +80,23 @@ try{
  assert.deepEqual(await page.locator('.api-run-group').allTextContents(),['🗂 Users','📁 admin','🗂 Users']); // agrupado por pasta
  assert.match(await page.locator('.api-run [role=status]').textContent(),/Finished: 2\/4 passed, 1 failed, 1 with errors/);
 
+ // RUN-13: depois do run, clicar numa request que rodou mostra a resposta dela no run (sem enviar de novo)
+ const before13=seen.length;
+ await page.locator('.api-row-name',{hasText:/^Login$/}).click();await page.locator('.api-tab.is-active',{hasText:'Login'}).waitFor();
+ await page.locator('.api-status strong',{hasText:'200'}).waitFor();
+ assert.match(await page.locator('.api-resp-body').textContent(),/"token": "abc"/);
+ await page.locator('.api-row-name',{hasText:/^Broken$/}).click();await page.locator('.api-tab.is-active',{hasText:'Broken'}).waitFor();
+ await page.locator('.api-status.is-error').waitFor(); // a que deu erro mostra o erro do run
+ assert.equal(seen.length,before13,'abrir não envia de novo');
+ // um envio manual substitui a resposta e é ela que fica ao reabrir
+ await page.locator('.api-row-name',{hasText:/^Me$/}).click();await page.locator('.api-tab.is-active',{hasText:'Me'}).waitFor();
+ await page.locator('.api-status strong',{hasText:'200'}).waitFor();
+ const sends=seen.length;await page.locator('.api-send').click();await page.waitForFunction(n=>document.querySelector('.api-status strong')&&true,null);await page.locator('.api-status strong',{hasText:'200'}).waitFor();
+ for(let k=0;k<50&&seen.length===sends;k++)await new Promise(r=>setTimeout(r,50));assert.equal(seen.length,sends+1);
+ await page.locator('.api-tab.is-active .api-tab-close').click();await page.locator('.api-tab',{hasText:/^Me/}).waitFor({state:'detached'});
+ await page.locator('.api-row-name',{hasText:/^Me$/}).click();await page.locator('.api-status strong',{hasText:'200'}).waitFor(); // fechou e reabriu: continua lá
+ await page.locator('.api-tab-report').click();await page.locator('.api-run').waitFor();
+
  // RUN-02: só esta pasta (sem subpastas)
  seen.length=0;
  await page.locator('.api-run-actions button[aria-label="Close the report"]').click();
@@ -249,5 +266,5 @@ try{
  await page.locator('#toast',{hasText:/No Bruno files/}).waitFor();
 
  assert.deepEqual(errors,[]);
- console.log('PASS RUN-01..12 folder runs, report and Bruno folder import');
+ console.log('PASS RUN-01..13 folder runs, report and Bruno folder import');
 }finally{await browser.close();server.kill();target.close();await rm(work,{recursive:true,force:true});}

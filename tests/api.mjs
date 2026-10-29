@@ -529,6 +529,21 @@ try{
  if(await firstReq.count()){await firstReq.click();await page.locator('.api-send').click();assert.equal(JSON.parse((await tlsSent).postData()).verifyTls,false);}
  await page.locator('.api-tls-badge').click();await page.locator('.api-tls-badge').waitFor({state:'detached'});
  assert.equal('contextMaps' in JSON.parse(readFileSync(path.join(collections,collId,'bruno.json'),'utf8')),false);
+ // API-16: abrir uma request cuja URL tem query (.bru escrito fora do app, sem params:query) mostra os parâmetros na aba Params
+ const collId16=await page.locator('#api-panel select[aria-label="Coleção"]').inputValue();
+ const bruDir=path.join(collections,collId16);
+ const {writeFile:wf}=await import('node:fs/promises');
+ await wf(path.join(bruDir,'externa.bru'),["meta {","  name: Externa","  type: http","  seq: 99","}","","get {","  url: https://api.exemplo.com/itens/:itemId?pagina=2&ordem=nome","  body: none","  auth: none","}",""].join(String.fromCharCode(10)));
+ await page.locator('#api-panel .api-head .api-menu-wrap button[aria-haspopup=menu]').click();await page.keyboard.press('Escape');
+ await page.reload();await page.locator('.node').first().waitFor();await page.locator('#api-btn').click();await page.locator('#api-panel').waitFor({state:'visible'});
+ await page.locator('#api-panel select[aria-label="Coleção"]').selectOption(collId16);
+ await page.locator('.api-row-name',{hasText:'Externa'}).click();await page.locator('.api-tab.is-active',{hasText:'Externa'}).waitFor();
+ await page.locator('#api-tab-params').click();
+ const kv=await page.locator('#api-tabpanel .api-kv-row input[type=text]').evaluateAll(els=>els.map(e=>e.value));
+ assert.ok(kv.includes('pagina')&&kv.includes('2')&&kv.includes('ordem')&&kv.includes('nome'),`query na aba Params (${kv})`);
+ assert.ok(kv.includes('itemId'),`parâmetro de caminho na aba Params (${kv})`);
+ assert.equal(await page.locator('.api-tab.is-active .api-tab-dirty').count(),0); // só ler não suja a aba
+ await wf(path.join(bruDir,'externa.bru'),'');const {rm:rmf}=await import('node:fs/promises');await rmf(path.join(bruDir,'externa.bru'),{force:true});
  assert.deepEqual(errors,[]);
- console.log('PASS API-01..15 API client panel');
+ console.log('PASS API-01..16 API client panel');
 }finally{await browser.close();server.kill();target.close();await rm(work,{recursive:true,force:true});}
