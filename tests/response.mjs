@@ -13,6 +13,8 @@ const port=4195,base=`http://127.0.0.1:${port}`;
 
 const PNG=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==','base64');
 const JSON_BODY={id:1,name:'Ana',tags:['a','b'],address:{city:'Rio',geo:{lat:1.5,lng:-2}},active:true,none:null,items:[{id:1,title:'x'},{id:2,title:'y'}]};
+const b64u=o=>Buffer.from(JSON.stringify(o)).toString('base64url');
+const JWT=`${b64u({alg:'HS256',typ:'JWT'})}.${b64u({sub:'ana',name:'Ana',exp:Math.floor(Date.now()/1000)+3600,iat:Math.floor(Date.now()/1000)})}.c2ln`;
 const routes={
  '/json':['application/json',JSON.stringify(JSON_BODY)],
  '/big':['application/json',JSON.stringify(Array.from({length:5000},(_,i)=>({id:i,label:`item ${i}`})))],
@@ -22,7 +24,7 @@ const routes={
  '/svg':['image/svg+xml','<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><rect width="20" height="20" fill="red"/></svg>'],
  '/text':['text/plain','hello world hello']
 };
-const target=createServer((req,res)=>{const r=routes[req.url];if(!r){res.writeHead(404);return res.end();}res.writeHead(200,{'content-type':r[0]});res.end(r[1]);});
+const target=createServer((req,res)=>{if(req.url==='/token'){res.writeHead(200,{'content-type':'application/json','x-auth-token':`Bearer ${JWT}`});return res.end(JSON.stringify({access_token:JWT,user:{id:1}}));}const r=routes[req.url];if(!r){res.writeHead(404);return res.end();}res.writeHead(200,{'content-type':r[0]});res.end(r[1]);});
 await new Promise(r=>target.listen(0,'127.0.0.1',r));
 const host=`http://127.0.0.1:${target.address().port}`;
 const server=spawn(process.execPath,['server.mjs'],{cwd:root,env:{...process.env,PORT:String(port),PRESENTATIONS_DIR:path.join(work,'presentations'),CONTEXT_MAPS_CONFIG:path.join(work,'config.json')},stdio:['ignore','pipe','inherit']});
@@ -33,7 +35,7 @@ const browser=await launch();
 try{
  await call('POST','/collections',{name:'Resp'});
  await call('PUT','/collections/resp/environments/local',{vars:[{name:'host',value:host,enabled:true}]});
- for(const [name,url] of [['Json','/json'],['Big','/big'],['Xml','/xml'],['Html','/html'],['Png','/png'],['Svg','/svg'],['Text','/text']])
+ for(const [name,url] of [['Token','/token'],['Json','/json'],['Big','/big'],['Xml','/xml'],['Html','/html'],['Png','/png'],['Svg','/svg'],['Text','/text']])
   await call('POST','/collections/resp/items',{type:'request',name,method:'get',url:`{{host}}${url}`});
 
  const ctx=await browser.newContext({locale:'en-US',viewport:{width:1500,height:900},permissions:['clipboard-read','clipboard-write'],extraHTTPHeaders:{'x-context-maps':'1'}});
@@ -166,5 +168,37 @@ try{
  await find().fill('hello');assert.equal(await page.locator('.api-find-count[aria-live]').textContent(),'1/2');
 
  assert.deepEqual(errors,[]);
- console.log('PASS RESP-01..10 response body viewer');
+ // RESP-11: tokens JWT: botão no corpo e no cabeçalho da resposta e nas variáveis de ambiente abre o token decodificado
+ await page.locator('.api-row-name',{hasText:/^Token$/}).click();await page.locator('.api-tab.is-active',{hasText:'Token'}).waitFor();
+ await page.locator('.api-send').click();await page.locator('.api-status strong',{hasText:'200'}).waitFor();
+ const chip=page.locator('.api-resp-body .jwt-chip');
+ assert.equal(await chip.count(),1);assert.equal(await chip.getAttribute('aria-label'),'Open the JWT token: res.body.access_token');
+ await chip.click();
+ const card=page.locator('.jwt-card');await card.waitFor();
+ assert.match(await card.locator('.jwt-status').textContent(),/^Valid · expires in (1 hour|60 minutes)/);
+ assert.match(await card.locator('.jwt-claims').textContent(),/subana/);
+ assert.match(await card.locator('.jwt-cols').textContent(),/"name": "Ana"/);
+ assert.match(await card.locator('.jwt-cols h4').first().textContent(),/HS256/);
+ await page.keyboard.press('Escape');await card.waitFor({state:'detached'});
+ // o Copiar do corpo continua sendo o JSON (sem o texto do botão)
+ await page.locator('.api-resp-tabs button',{hasText:'Copy'}).click();assert.equal(JSON.parse(await clip()).access_token,JWT);
+ // cabeçalho com "Bearer <token>"
+ await page.locator('.api-resp-tabs button[role=tab]',{hasText:'Headers'}).click();
+ await page.locator('.api-resp-header .jwt-chip').click();await card.waitFor();
+ assert.match(await card.locator('.jwt-source').textContent(),/x-auth-token/);
+ await card.locator('.jwt-close').click();await card.waitFor({state:'detached'});
+ await page.locator('.api-resp-tabs button',{hasText:'Copy'}).click();assert.ok((await clip()).includes(`x-auth-token: Bearer ${JWT}`)&&!(await clip()).includes('JWTx'));
+ await page.locator('.api-resp-tabs button[role=tab]',{hasText:'Body'}).click();
+ // variável de ambiente com token
+ await call('PUT','/collections/resp/environments/local',{vars:[{name:'host',value:host,enabled:true},{name:'token',value:JWT,enabled:true}]});
+ await page.locator('#api-panel button[aria-label="Edit environments"], #api-panel button[title="Edit environments"]').first().click();
+ await page.locator('.api-env-table .jwt-chip').waitFor();
+ assert.equal(await page.locator('.api-env-table .jwt-chip').count(),1);
+ await page.locator('.api-env-table .jwt-chip').click();await card.waitFor();
+ assert.match(await card.locator('.jwt-source').textContent(),/token/);
+ await page.keyboard.press('Escape');await card.waitFor({state:'detached'});
+ assert.equal(await page.locator('.api-modal').count(),1); // o Esc fechou só o token, o editor de ambientes continua
+ await page.keyboard.press('Escape');
+
+ console.log('PASS RESP-01..11 response body viewer');
 }finally{await browser.close();server.kill();target.close();await rm(work,{recursive:true,force:true});}

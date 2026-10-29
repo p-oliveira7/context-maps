@@ -1,12 +1,13 @@
 /* Cliente de API (estilo Postman/Bruno): painel à direita, coleções no formato Bruno, variáveis de ambiente e envio pelo servidor local. */
 import {t,lang} from './i18n.js?v=1';
+import {jwtButton} from './jwt.js?v=2';
 import {activeEntries,resolveVars,buildRaw,resolveRaw,buildRequest,toScriptReq,applyScriptReq,makeScope} from './pipeline.js?v=1';
 import {runAssertions,evalValueExpression} from './assertions.js?v=1';
 import {runScript,sandboxSupported} from './sandbox.js?v=1';
 import {createVarFields} from './var-field.js?v=1';
 import {collectRequests,runSequence,reportJson,reportText} from './runner.js?v=1';
 import {createRunReport} from './run-report.js?v=1';
-import {createBodyView} from './response-view.js?v=2';
+import {createBodyView} from './response-view.js?v=4';
 import {parseCurl,toCurl,toFetch} from './curl.js?v=1';
 import {normalizeMocks,emptyMocks,effectiveMock,mockBadge,mockCounts,scenarioResponse,scenarioFromPreset,newScenarioId,statusText,PRESETS} from './mocks.js?v=1';
 export {resolveVars,buildRequest};
@@ -585,14 +586,15 @@ function renderResponse(){
  if(extra.logs.length||extra.errors.length)tabs.push(['console',`${t('apiRespConsole')}${extra.errors.length?' !':''}`]);
  if(!tabs.some(([id])=>id===state.respTab))state.respTab='body';
  const view=state.respTab==='body'?(bodyUi||=createBodyView({h,t,fmtSize})).mount(r):null;
- const body=state.respTab==='tests'?testsView(extra):state.respTab==='console'?consoleView(extra):view?view.el:h('pre',{class:'api-pre api-resp-body',tabindex:'0'},r.headers.map(([k,v])=>`${k}: ${v}`).join('\n'));
+ const headersText=r.headers.map(([k,v])=>`${k}: ${v}`).join('\n');
+ const body=state.respTab==='tests'?testsView(extra):state.respTab==='console'?consoleView(extra):view?view.el:h('pre',{class:'api-pre api-resp-body',tabindex:'0'},...r.headers.map(([k,v])=>h('div',{class:'api-resp-header'},`${k}: ${v}`,jwtButton(v,{t,lang,source:k}))));
  box.replaceChildren(
   ...[unresolvedBanner(r.unresolved)].filter(Boolean),
   h('div',{class:`api-status ${kind}`},h('strong',{},`${r.status} ${r.statusText||''}`),r.mock?mockResponsePill(r.mock):null,h('span',{},`${r.timeMs} ms`),h('span',{},fmtSize(r.size)),r.truncated?h('span',{},t('apiTruncated')):null,
    summary.total?h('span',{class:summary.failed?'api-tests-bad':'api-tests-ok'},`${summary.failed?'✗':'✓'} ${t('apiTestsSummary',summary.passed,summary.total)}`):null),
   h('div',{class:'api-resp-tabs',role:'tablist'},
    ...tabs.map(([id,label])=>h('button',{type:'button',role:'tab','aria-selected':String(state.respTab===id),class:state.respTab===id?'is-active':'',onClick:()=>{state.respTab=id;renderResponse();}},label)),
-   h('button',{type:'button',class:'api-btn',onClick:async e=>{try{await navigator.clipboard.writeText(view?view.text():body.textContent);e.target.textContent=t('apiCopied');setTimeout(()=>{e.target.textContent=t('apiCopy');},1200);}catch{}}},t('apiCopy'))),
+   h('button',{type:'button',class:'api-btn',onClick:async e=>{try{await navigator.clipboard.writeText(view?view.text():state.respTab==='headers'?headersText:body.textContent);e.target.textContent=t('apiCopied');setTimeout(()=>{e.target.textContent=t('apiCopy');},1200);}catch{}}},t('apiCopy'))),
   body);
 }
 function extraSummary(extra){
@@ -625,10 +627,11 @@ async function openEnvEditor(){
   const sel=h('select',{'aria-label':t('apiEnvironment'),onChange:async e=>{current=e.target.value;await draw();}},...names.map(n=>h('option',{value:n,selected:n===current},n)));
   const table=h('div',{class:'api-kv api-env-table'},h('div',{class:'api-kv-row api-kv-head'},h('span',{}),h('span',{},t('apiName')),h('span',{},t('apiValue')),h('span',{},t('apiSecret')),h('span',{})));
   const rows=()=>vars.forEach((v,i)=>{
-   const value=h('input',{type:v.secret?'password':'text',value:v.value,spellcheck:'false','aria-label':t('apiValue'),onInput:e=>{v.value=e.target.value;}});
+   const chip=h('span',{class:'api-jwt-slot'},jwtButton(v.value,{t,lang,source:v.name}));
+   const value=h('input',{type:v.secret?'password':'text',value:v.value,spellcheck:'false','aria-label':t('apiValue'),onInput:e=>{v.value=e.target.value;chip.replaceChildren(...[jwtButton(v.value,{t,lang,source:v.name})].filter(Boolean));}});
    table.append(h('div',{class:'api-kv-row'},
     h('input',{type:'checkbox',checked:v.enabled!==false,'aria-label':t('apiEnabled'),onChange:e=>{v.enabled=e.target.checked;}}),
-    h('input',{type:'text',value:v.name,placeholder:t('apiName'),'aria-label':t('apiName'),spellcheck:'false',onInput:e=>{v.name=e.target.value;}}),value,
+    h('input',{type:'text',value:v.name,placeholder:t('apiName'),'aria-label':t('apiName'),spellcheck:'false',onInput:e=>{v.name=e.target.value;}}),h('span',{class:'api-env-value'},value,chip),
     h('input',{type:'checkbox',checked:!!v.secret,'aria-label':t('apiSecret'),onChange:e=>{v.secret=e.target.checked;value.type=v.secret?'password':'text';}}),
     h('button',{type:'button',class:'api-icon-btn','aria-label':t('apiRemove'),onClick:()=>{vars.splice(i,1);table.replaceChildren(table.firstChild);rows();}},'×')));
   });
@@ -921,6 +924,7 @@ function drawVarsPop(){
   h('p',{class:'api-hint'},t('apiSessionVarsNote')),
   ...[...state.runtime].map(([name,value])=>h('div',{class:'api-vars-row'},h('code',{},name),
    h('input',{type:'text',value,'aria-label':name,spellcheck:'false',onChange:e=>{state.runtime.set(name,e.target.value);refreshVars();if(state.view==='request'&&state.tab==='vars')renderTab();}}),
+   jwtButton(value,{t,lang,source:name}),
    h('button',{type:'button',class:'api-icon-btn','aria-label':`${t('apiRemove')}: ${name}`,title:t('apiRemove'),onClick:()=>{state.runtime.delete(name);refreshVars();if(state.view==='request'&&state.tab==='vars')renderTab();syncVarsUi();}},'×'))),
   h('button',{type:'button',class:'api-btn',onClick:()=>{state.runtime=new Map();refreshVars();if(state.view==='request'&&state.tab==='vars')renderTab();syncVarsUi();}},t('apiClearVars')));
 }
