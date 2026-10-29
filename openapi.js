@@ -162,7 +162,17 @@ export function openApiViewer({source,title,t,onClose,focus=null}){
  const x=document.createElement('button');x.type='button';x.className='oa-close';x.textContent='×';x.setAttribute('aria-label',t('openApiClose'));x.onclick=close;
  head.append(h,x);
  const win=document.createElement('section');win.className='oa-viewer';win.setAttribute('role','dialog');win.setAttribute('aria-labelledby','oa-title');
- win.append(head,status,host);
+ // sozinha, a documentação ocupa a metade direita da tela; a borda esquerda ajusta a largura (lembrada). Ao lado do API client, ocupa o resto.
+ const grip=document.createElement('div');grip.className='oa-resizer';grip.setAttribute('role','separator');grip.setAttribute('aria-orientation','vertical');grip.setAttribute('aria-label',t('openApiResize'));grip.title=t('openApiResizeHint');grip.tabIndex=0;
+ const setWidth=px=>{const w=Math.round(Math.min(Math.max(px,360),window.innerWidth-120));document.documentElement.style.setProperty('--oa-w',`${w}px`);try{localStorage.setItem('cm-oa-width',String(w));}catch{}};
+ grip.addEventListener('pointerdown',e=>{e.preventDefault();grip.setPointerCapture(e.pointerId);document.body.classList.add('oa-resizing');});
+ grip.addEventListener('pointermove',e=>{if(grip.hasPointerCapture(e.pointerId))setWidth(window.innerWidth-e.clientX);});
+ const endGrip=e=>{if(grip.hasPointerCapture?.(e.pointerId))grip.releasePointerCapture(e.pointerId);document.body.classList.remove('oa-resizing');};
+ grip.addEventListener('pointerup',endGrip);grip.addEventListener('pointercancel',endGrip);
+ grip.addEventListener('dblclick',()=>{document.documentElement.style.removeProperty('--oa-w');try{localStorage.removeItem('cm-oa-width');}catch{}});
+ grip.addEventListener('keydown',e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();setWidth(win.offsetWidth+(e.key==='ArrowLeft'?40:-40));}});
+ try{const saved=Number(localStorage.getItem('cm-oa-width'));if(saved)setWidth(saved);}catch{}
+ win.append(grip,head,status,host);
  const onKey=e=>{if(e.key==='Escape'&&!e.target.closest?.('#api-panel')&&!e.target.closest?.('.oa-host input,.oa-host textarea,.oa-host select')){e.stopPropagation();close();}};
  document.addEventListener('keydown',onKey,true);
  document.body.append(win);x.focus();
