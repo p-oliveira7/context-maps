@@ -24,6 +24,17 @@ export function createCollections({dir,writeJson}){
  const uniqueName=(parent,base,ext='')=>{let n=base||'item',i=2;while(existsSync(path.join(parent,n+ext)))n=`${base}-${i++}`;return n+ext;};
  const metaOf=async file=>{try{return toModel(parseBlocks(await readText(file)));}catch{return {};}};
 
+ /* configurações do Context Maps para a coleção, em bruno.json → "contextMaps" (o Bruno ignora a chave) */
+ async function readSettings(id){
+  try{const cfg=JSON.parse(await readText(path.join(collDir(id),'bruno.json'))).contextMaps||{};return {verifyTls:cfg.verifyTls!==false};}catch{return {verifyTls:true};}
+ }
+ async function writeSettings(id,data){
+  const file=path.join(collDir(id),'bruno.json');if(!existsSync(file))throw fail(404,'Coleção inexistente');
+  const cfg=JSON.parse(await readText(file)),next={...(cfg.contextMaps||{})};
+  if(typeof data?.verifyTls==='boolean'){if(data.verifyTls)delete next.verifyTls;else next.verifyTls=false;}
+  if(Object.keys(next).length)cfg.contextMaps=next;else delete cfg.contextMaps;
+  await writeJson(file,cfg);return readSettings(id);
+ }
  async function readName(id){try{return JSON.parse(await readText(path.join(collDir(id),'bruno.json'))).name||id;}catch{return id;}}
  async function list(){
   await mkdir(dir,{recursive:true});
@@ -247,5 +258,5 @@ export function createCollections({dir,writeJson}){
   }
   return {id,name:created?.name||await readName(id),files:count,...(folderPath?{folder:folderPath}:{})};
  }
- return {readMocks,writeMocks,list,tree,defaults,environments,readEnv,writeEnv,createCollection,createItem,readRequest,writeRequest,renameItem,removeItem,reorder,removeEnv,removeCollection,exportZip,importZip,importFolder,readName,collDir,secretsOf};
+ return {readSettings,writeSettings,readMocks,writeMocks,list,tree,defaults,environments,readEnv,writeEnv,createCollection,createItem,readRequest,writeRequest,renameItem,removeItem,reorder,removeEnv,removeCollection,exportZip,importZip,importFolder,readName,collDir,secretsOf};
 }

@@ -148,10 +148,21 @@ try{
  assert.deepEqual(await json('GET','/minha-api/mocks'),{version:1,requests:{}});
  await call('DELETE',`/${mockImp.id}`);
 
+ // COLL-09: configurações da coleção (verificação SSL/TLS) ficam no bruno.json e viajam no ZIP
+ assert.deepEqual(await json('GET','/minha-api/settings'),{verifyTls:true});
+ assert.deepEqual(await json('PUT','/minha-api/settings',{verifyTls:false}),{verifyTls:false});
+ const brunoCfg=JSON.parse(await readFile(path.join(collections,'minha-api','bruno.json'),'utf8'));
+ assert.deepEqual(brunoCfg.contextMaps,{verifyTls:false});assert.equal(brunoCfg.name,'Minha API'); // o resto do bruno.json fica igual
+ assert.deepEqual((await json('GET','/minha-api')).settings,{verifyTls:false});
+ const tlsZip=readZip(Buffer.from(await (await call('GET','/minha-api/export')).arrayBuffer()));
+ assert.deepEqual(JSON.parse(tlsZip.find(e=>e.name==='minha-api/bruno.json').data.toString()).contextMaps,{verifyTls:false});
+ assert.deepEqual(await json('PUT','/minha-api/settings',{verifyTls:true}),{verifyTls:true});
+ assert.equal('contextMaps' in JSON.parse(await readFile(path.join(collections,'minha-api','bruno.json'),'utf8')),false); // ligado de novo: a chave some
+ assert.equal((await call('PUT','/nao-existe/settings',{verifyTls:false})).status>=400,true);
  // excluir
  assert.equal((await call('DELETE','/minha-api/items?path=usuarios')).status,200);
  assert.equal((await json('GET','/minha-api')).tree.length,1);
  for(const id of ['minha-api','minha-api-2',evilRes.id])assert.equal((await call('DELETE',`/${id}`)).status,200);
  assert.deepEqual(await json('GET',''),[]);assert.equal(existsSync(path.join(collections,'.secrets','minha-api.json')),false);
- console.log('PASS COLL-01..08 collections API');
+ console.log('PASS COLL-01..09 collections API');
 }finally{server.kill();await rm(work,{recursive:true,force:true});}

@@ -844,3 +844,9 @@ body.api-resizing-v{cursor:row-resize;user-select:none}
 .seq-stage{cursor:grab}.seq-stage.is-panning{cursor:grabbing;user-select:none}
 .seq-stage .seq-step,.seq-stage .seq-actor,.seq-stage .seq-hit{cursor:pointer}
 .seq-fit{padding:.2rem .5rem}
+
+/* ---------- verificação SSL/TLS desligada ---------- */
+.api-tls-badge{flex:none;margin-left:.4rem;padding:.05rem .45rem;border-radius:999px;border:1px solid #e5737399;background:#e5737322;color:#ffb0b0;font:inherit;font-size:.65rem;font-weight:700;letter-spacing:.03em;cursor:pointer}
+.api-tls-badge:hover{background:#e5737344}
+.api-tls-hint{margin:.5rem 0;padding:.5rem .7rem;border-radius:8px;background:#e0a45818;border:1px solid #e0a45855;color:#f3d29c;font-size:.78rem}
+.api-tls-hint p{margin:0 0 .4rem}
