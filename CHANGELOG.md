@@ -43,6 +43,7 @@ How to cut a release: [`docs/releasing.md`](docs/releasing.md).
 - **Clean full screen**: in the browser's full-screen mode the presentation name, the button bar and the zoom controls disappear and only show when the mouse gets close to the top (name and menu) or the bottom (buttons and zoom) of the screen, or while a control has keyboard focus, the presentation menu is open or a save error is showing.
 
 ### Fixed
+- **Save error on bigger presentations (e.g. with an OpenAPI spec)**: saving used a `keepalive` request, which browsers refuse above 64 KB ("Failed to fetch"), so any presentation bigger than that showed "Save error". Bigger saves now go without it, the server accepts presentations up to 50 MB (was 5 MB), JSON specs are stored compact, and the status bar shows the reason when a save fails.
 - **Script time limit on slow machines**: the 5 s limit now starts when the script starts running, not when the sandbox is created, so a busy machine no longer reports a timeout for a trivial script. A script cannot extend its own deadline.
 
 ## [0.4.0] - 2026-10-17

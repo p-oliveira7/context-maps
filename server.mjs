@@ -20,7 +20,7 @@ const port=Number(process.env.PORT||4173);
 const MIME={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.webp':'image/webp','.gif':'image/gif'};
 const IMAGE_EXT=new Set(['.png','.jpg','.jpeg','.webp','.gif','.svg']);
 const SLUG=/^[a-z0-9][a-z0-9-]{0,60}$/;
-const MAX_JSON=5*1024*1024, MAX_IMAGE=15*1024*1024, MAX_IMPORT=150*1024*1024;
+const MAX_JSON=5*1024*1024, MAX_DOC=50*1024*1024, MAX_IMAGE=15*1024*1024, MAX_IMPORT=150*1024*1024; // MAX_DOC: a apresentação inteira (pode trazer especificações OpenAPI grandes)
 
 const slug=text=>text.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,50)||'apresentacao';
 const send=(res,status,body,type='application/json; charset=utf-8')=>{res.writeHead(status,{'content-type':type,'cache-control':'no-store'});res.end(typeof body==='string'||Buffer.isBuffer(body)?body:JSON.stringify(body));};
@@ -322,7 +322,7 @@ async function api(req,res,url){
  }
  if(req.method==='PUT'){
   if(!existsSync(file))return fail(res,404,'Apresentação inexistente');
-  const doc=JSON.parse((await readBody(req,MAX_JSON)).toString());
+  const doc=JSON.parse((await readBody(req,MAX_DOC)).toString());
   if(!validDoc(doc))return fail(res,400,'Estrutura inválida');
   const list=doc.roots!==undefined?doc.roots:[doc.tree];
   const stored=toStored({id,title:(typeof doc.title==='string'&&doc.title.trim())||list[0].title,roots:list},r);

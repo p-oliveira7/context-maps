@@ -1,6 +1,6 @@
 import {tree as seed,visibleNodes,allBranches,zoomAt,parentOf,findNode,newId,PALETTE} from './model.js?v=16';
 import {cancelMotion,snapshot,animateLayout,hoverEdge,updateEdges,onEdges} from './motion.js?v=17';
-import * as store from './store.js?v=17';
+import * as store from './store.js?v=18';
 import {t,applyStatic} from './i18n.js?v=1';
 import {VERSION} from './version.js?v=1';
 import {initApiClient,openApiPanel,closeApiPanel,isApiOpen,setAttachTarget,summarize,summarizeTree,API_DRAG_TYPE} from './api-client.js?v=17';
@@ -241,7 +241,7 @@ function flush(){
  clearTimeout(saveTimer);saveTimer=0;if(!doc.id)return saving;
  const snapshotDoc={id:doc.id,title:doc.title,roots:JSON.parse(JSON.stringify(roots))};
  setStatus(t('saving'),'saving');
- saving=saving.then(()=>store.save(snapshotDoc)).then(()=>{if(!saveTimer)setStatus(t('saved'),'saved');},()=>setStatus(t('saveError'),'error'));
+ saving=saving.then(()=>store.save(snapshotDoc)).then(()=>{if(!saveTimer)setStatus(t('saved'),'saved');},e=>{setStatus(e?.status===413?t('saveTooLarge'):e?.message&&!/^\d+$/.test(e.message)?`${t('saveError')}: ${e.message}`:t('saveError'),'error');});
  return saving;
 }
 
@@ -678,7 +678,7 @@ function openApiDialog(node,index=null){
    const svg=thumbnailSvg(spec,{more:n=>t('openApiMore',n),endpointsLabel:n=>t('openApiEndpoints',n),othersLabel:n=>t('openApiOthers',n),focus});
    const src=await store.upload(doc.id,new File([svg],'openapi.svg',{type:'image/svg+xml'}));
    const title=String(spec.info?.title||'OpenAPI');
-   const entry={src,alt:focus?t('openApiFocusAlt',`${focus.method.toUpperCase()} ${focus.path}`,title,nameOf(node)):t('openApiAlt',title,nameOf(node)),kind:'openapi',source:ta.value,title,...(focus?{focus}:{})};
+   const entry={src,alt:focus?t('openApiFocusAlt',`${focus.method.toUpperCase()} ${focus.path}`,title,nameOf(node)):t('openApiAlt',title,nameOf(node)),kind:'openapi',source:compactSpec(ta.value),title,...(focus?{focus}:{})};
    if(current)node.images[index]=entry;else(node.images||=[]).push(entry);
    close();commit();render();showToast(t(current?'openApiUpdated':'openApiAdded',title),true);
   }catch{status.textContent=t('openApiSaveError');status.classList.add('is-error');add.disabled=false;}
@@ -700,6 +700,8 @@ function openApiDialog(node,index=null){
  if(current?.source){ta.value=current.source;update();}
  ta.focus();
 }
+// especificação em JSON vai compacta para o arquivo da apresentação (YAML fica como está)
+function compactSpec(text){if(!/^\s*[{[]/.test(text))return text;try{return JSON.stringify(JSON.parse(text));}catch{return text;}}
 function openApiImage(node,image){
  openApiViewer({source:image.source||'',title:image.focus?`${image.title||nameOf(node)} · ${image.focus.method.toUpperCase()} ${image.focus.path}`:image.title||nameOf(node),t,focus:image.focus||null});
 }
