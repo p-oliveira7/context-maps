@@ -118,7 +118,7 @@ async function loadEnv(){
 /* ---------- abas de requests ----------
    state.request/reqPath/response/tab/respTab são os da aba ativa; cada aba guarda os seus em state.tabs. */
 const tabEntry=path=>state.tabs.find(x=>x.path===path);
-const newEntry=(path,request)=>({path,request:reconcileParams(request),dirty:false,response:null,tab:'params',respTab:'body',sending:false,abort:null});
+const newEntry=(path,request)=>({path,request:reconcileParams(request),dirty:false,response:state.coll?runResponses.get(runKey(state.coll.id,path))||null:null,tab:'params',respTab:'body',sending:false,abort:null});
 function stashActive(){const e=tabEntry(state.reqPath);if(e){e.request=state.request;e.response=state.response;e.tab=state.tab;e.respTab=state.respTab;}}
 function loadEntry(e){state.request=e.request;state.reqPath=e.path;state.response=e.response;state.tab=e.tab;state.respTab=e.respTab;state.sending=!!e.sending;state.abort=e.abort||null;}
 function clearActive(){state.request=null;state.reqPath='';state.response=null;state.sending=false;state.abort=null;}
@@ -331,10 +331,11 @@ async function execute(model,signal,relPath=''){
 async function send(){
  const entry=tabEntry(state.reqPath);
  if(!state.request||!entry||entry.sending)return;
- entry.sending=true;entry.abort=new AbortController();entry.response=null;
+ const collId=state.coll?.id;entry.sending=true;entry.abort=new AbortController();entry.response=null;
  state.sending=true;state.abort=entry.abort;state.response=null;renderResponse();
  const result=await execute(entry.request,entry.abort.signal,entry.path); // a aba pode mudar enquanto espera: a resposta fica na aba de origem
  entry.sending=false;entry.abort=null;entry.response=result;syncVarsUi();
+ if(collId&&result?.error!=='cancelled')runResponses.set(runKey(collId,entry.path),result); // a última resposta fica com a request
  if(state.reqPath===entry.path){state.sending=false;state.abort=null;state.response=result;renderResponse();if(state.tab==='vars')renderTab();}
 }
 
@@ -727,11 +728,24 @@ function drawReport(){ // vários resultados seguidos viram um redesenho só
  if(drawQueued)return;
  drawQueued=requestAnimationFrame(()=>{drawQueued=0;if(state.view==='run'&&state.run)state.report?.update();});
 }
+/* Respostas do run: ao clicar numa request que rodou, ela mostra a resposta do run (até ser enviada de novo ou a página recarregar) */
+const runResponses=new Map(); // "<coleção>|<caminho>" -> resposta
+const runKey=(collection,path)=>`${collection}|${path}`;
+function rememberRunResponse(collection,path,out){
+ if(!path||out?.error==='cancelled')return;
+ runResponses.set(runKey(collection,path),out);
+ if(state.coll?.id!==collection)return;
+ const entry=tabEntry(path);if(!entry||entry.sending)return;
+ entry.response=out;
+ if(state.reqPath===path&&state.view==='request'){state.response=out;renderResponse();}
+}
 async function runOne(item,run){
  let model;
  try{model=tabEntry(item.path)?.request||await api('GET',`/collections/${run.collection}/request?path=${encodeURIComponent(item.path)}`);}
  catch(e){return {error:'request',detail:e.message,timeMs:0,extra:{logs:[],tests:[],asserts:[],errors:[]}};}
- const out=await execute(model,run.abort.signal,item.path);
+ const full=await execute(model,run.abort.signal,item.path);
+ rememberRunResponse(run.collection,item.path,full); // a request guarda a resposta inteira do run
+ const out={...full}; // o relatório guarda uma cópia mais curta
  if(out.bodyText&&out.bodyText.length>BODY_KEEP)out.bodyText=out.bodyText.slice(0,BODY_KEEP);
  if(out.sent?.body&&out.sent.body.length>BODY_KEEP)out.sent={...out.sent,body:out.sent.body.slice(0,BODY_KEEP)};
  return out;
