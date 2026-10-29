@@ -861,3 +861,33 @@ body.api-resizing-v{cursor:row-resize;user-select:none}
 .api-tls-hint{margin:.5rem 0;padding:.5rem .7rem;border-radius:8px;background:#e0a45818;border:1px solid #e0a45855;color:#f3d29c;font-size:.78rem}
 .api-tls-hint p{margin:0 0 .4rem}
 .api-body-expand{display:flex;gap:.2rem}.api-body-expand[hidden]{display:none}
+
+/* ---------- OpenAPI / Swagger nos cards ---------- */
+.oa-modal{position:fixed;inset:0;z-index:520;display:flex;align-items:center;justify-content:center;padding:1rem;background:#000b}
+body.api-open .oa-modal{right:var(--api-w)}
+.oa-card{width:min(1200px,100%);height:min(820px,100%);display:flex;flex-direction:column;background:#161616;border:1px solid #ffffff26;border-radius:14px;overflow:hidden;color:#e6e6e6;font-size:.84rem}
+.oa-dialog-head,.oa-dialog-foot{display:flex;align-items:center;gap:.5rem;padding:.6rem .9rem;background:#1a1a1a}
+.oa-dialog-head{border-bottom:1px solid #ffffff1a}.oa-dialog-foot{justify-content:flex-end;border-top:1px solid #ffffff1a}
+.oa-dialog-head h2{flex:1;margin:0;font-size:1rem}
+.oa-dialog-body{flex:1;min-height:0;display:grid;grid-template-columns:minmax(260px,360px) minmax(0,1fr)}
+.oa-inputs{display:flex;flex-direction:column;gap:.5rem;padding:.8rem;border-right:1px solid #ffffff1a;min-height:0}
+.oa-hint{margin:0;color:#ffffffa6;font-size:.78rem;line-height:1.4}
+.oa-row{display:flex;gap:.4rem}.oa-row input{flex:1;min-width:0}
+.oa-source{flex:1;min-height:8rem;resize:none;font:12px ui-monospace,Consolas,monospace;background:#0f0f0f;color:#e6e6e6;border:1px solid #ffffff26;border-radius:8px;padding:.5rem}
+.oa-modal input,.oa-modal button{font:inherit}
+.oa-modal button{padding:.35rem .7rem;border-radius:8px;border:1px solid #ffffff2e;background:#222;color:#eee;cursor:pointer}
+.oa-modal button.primary{background:#2f7d5b;border-color:#4f9d7a}.oa-modal button:disabled{opacity:.5;cursor:default}
+.oa-url{padding:.35rem .5rem;border-radius:8px;border:1px solid #ffffff2e;background:#0f0f0f;color:#eee}
+.oa-status{margin:0;font-size:.78rem;color:#8fd1b3}.oa-status.is-error{color:#ff9a9a}
+.oa-preview,.oa-host{overflow:auto;background:#fafafa;color:#3b4151}
+.oa-preview .swagger-ui .wrapper,.oa-host .swagger-ui .wrapper{padding:0 16px}
+.oa-viewer{position:fixed;inset:0;z-index:510;display:flex;flex-direction:column;background:#161616}
+body.api-open .oa-viewer{right:var(--api-w)}
+@media (max-width:900px){body.api-open .oa-viewer,body.api-open .oa-modal{right:0;bottom:55vh}.oa-dialog-body{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr)}.oa-source{min-height:6rem}}
+.oa-head{display:flex;align-items:center;gap:.5rem;padding:.5rem .9rem;background:#1a1a1a;border-bottom:1px solid #ffffff1a;color:#eee}
+.oa-head strong{flex:1}
+.oa-close{width:2rem;height:2rem;border-radius:8px;border:1px solid #ffffff2e;background:#222;color:#fff;font-size:1.1rem;cursor:pointer}
+.oa-viewer .oa-status{padding:.6rem .9rem}
+.oa-viewer .oa-host{flex:1;min-height:0}
+.image-button.is-openapi img{background:#1b2027}
+.oa-preview .swagger-ui .info hgroup.main>a,.oa-host .swagger-ui .info hgroup.main>a{display:none} /* o endereço blob: interno não interessa */
