@@ -94,6 +94,14 @@ try{
  await page.locator('#api-panel .api-method-select').selectOption('post');
  await page.locator('.api-url').fill('{{host}}/echo');
  await page.locator('#api-tab-body').click();await page.locator('#api-tabpanel select').selectOption('json');
+ // o corpo cresce até mostrar o JSON inteiro e para em 70% da altura da janela
+ const bodyBox=async()=>page.locator('.api-textarea').evaluate(ta=>({h:ta.offsetHeight,scroll:ta.scrollHeight,client:ta.clientHeight,max:innerHeight*.7}));
+ const lines=n=>JSON.stringify(Object.fromEntries(Array.from({length:n},(_,i)=>[`k${i}`,i])),null,2);
+ const small=await bodyBox();
+ await page.locator('.api-textarea').fill(lines(20));const mid=await bodyBox();
+ assert.ok(mid.h>small.h&&mid.scroll<=mid.client+1,JSON.stringify({small,mid}));
+ await page.locator('.api-textarea').fill(lines(300));const big=await bodyBox();
+ assert.ok(Math.abs(big.h-big.max)<=2&&big.scroll>big.client,JSON.stringify(big));
  await page.locator('.api-textarea').fill('{"id": {{id}}, "when": "{{$isoTimestamp}}"}');
  await page.locator('#api-tab-vars').click();await page.locator('.api-add').first().click();
  const inputs=page.locator('.api-kv-row input[type=text]');await inputs.nth(0).fill('id');await inputs.nth(1).fill('7');

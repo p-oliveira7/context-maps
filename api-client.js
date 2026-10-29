@@ -523,9 +523,16 @@ function splitHandle(){
  });
  return handle;
 }
-function textArea(value,onInput,placeholder,{readonly=false,rows=8}={}){
+// cresce até mostrar o texto inteiro; passando de 70% da altura da janela, para ali e rola por dentro
+function fitHeight(ta,minRows){
+ const fit=()=>{if(!ta.isConnected)return;const cs=getComputedStyle(ta),line=parseFloat(cs.lineHeight)||16,pad=parseFloat(cs.paddingTop)+parseFloat(cs.paddingBottom)+parseFloat(cs.borderTopWidth)+parseFloat(cs.borderBottomWidth);
+  ta.style.height='auto';const want=Math.max(ta.scrollHeight+parseFloat(cs.borderTopWidth)+parseFloat(cs.borderBottomWidth),minRows*line+pad);ta.style.height=`${Math.min(want,Math.max(window.innerHeight*.7,minRows*line+pad))}px`;};
+ ta.addEventListener('input',fit);requestAnimationFrame(fit);
+ return fit;
+}
+function textArea(value,onInput,placeholder,{readonly=false,rows=8,grow=false}={}){
  const ta=h('textarea',{class:'api-textarea',spellcheck:'false',placeholder,rows,readonly:readonly||null,'aria-label':placeholder||''});
- ta.value=value||'';if(!readonly)ta.addEventListener('input',()=>onInput(ta.value));return ta;
+ ta.value=value||'';if(!readonly)ta.addEventListener('input',()=>onInput(ta.value));if(grow)fitHeight(ta,rows);return ta;
 }
 function renderTab(){
  const m=state.request,box=els.tabpanel;if(!m||!box)return;
@@ -543,7 +550,7 @@ function renderTab(){
   const sel=h('select',{'aria-label':t('apiTab_body'),onChange:e=>{m.bodyMode=e.target.value;changed();renderTab();}},...modes.map(([v,l])=>h('option',{value:v,selected:v===(m.bodyMode||'none')},l)));
   const mode=m.bodyMode||'none';
   box.replaceChildren(h('div',{class:'api-field-row'},sel));
-  if(mode==='json'||mode==='text'||mode==='xml'){m.body||={};box.append(vf.varField(textArea(m.body[mode],v=>{m.body[mode]=v;changed();},mode==='json'?'{ "key": "value" }':'',{rows:12})));
+  if(mode==='json'||mode==='text'||mode==='xml'){m.body||={};box.append(vf.varField(textArea(m.body[mode],v=>{m.body[mode]=v;changed();},mode==='json'?'{ "key": "value" }':'',{rows:12,grow:true})));
    if(mode==='json')box.append(h('button',{type:'button',class:'api-btn',onClick:()=>{try{m.body.json=JSON.stringify(JSON.parse(resolveVars(m.body.json||'',new Map())),null,2);changed();renderTab();}catch{toast(t('apiInvalidJson'));}}},t('apiPrettify')));}
   else if(mode==='formUrlEncoded'){m.formUrlEncoded||=[];box.append(kvTable(m.formUrlEncoded,{onChange:changed}));}
   else if(mode==='multipartForm')box.append(h('p',{class:'api-hint'},t('apiMultipartNote')));
@@ -1215,7 +1222,7 @@ function renderMockTab(box){
   ...(cur.kind==='response'?[
    h('h4',{},t('apiRespHeaders')),kvTable(cur.headers,{onChange:()=>mockChanged(),toggle:false}),
    h('h4',{},t('apiRespBody')),h('p',{class:'api-hint'},t('apiMockBodyNote')),
-   vf.varField(textArea(cur.body,v=>{cur.body=v;mockChanged();},'{ "ok": true }',{rows:9}))]:[h('p',{class:'api-hint'},t(cur.kind==='timeout'?'apiMockTimeoutNote':'apiMockNetworkNote'))])
+   vf.varField(textArea(cur.body,v=>{cur.body=v;mockChanged();},'{ "ok": true }',{rows:9,grow:true}))]:[h('p',{class:'api-hint'},t(cur.kind==='timeout'?'apiMockTimeoutNote':'apiMockNetworkNote'))])
  ):null;
  const hint=editor?.querySelector('.api-mock-status-text')||h('span');
  const capture=state.response&&!state.response.mock&&!state.response.error&&state.response.status?h('button',{type:'button',class:'api-btn',title:t('apiMockCaptureTitle'),onClick:()=>{
