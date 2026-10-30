@@ -156,7 +156,7 @@ export function openApiViewer({source,title,t,onClose,focus=null}){
  current?.close();
  const host=document.createElement('div');host.className='oa-host swagger-ui-host';
  const status=document.createElement('p');status.className='oa-status';status.textContent=t('openApiLoading');
- const close=()=>{document.removeEventListener('keydown',onKey,true);win.remove();if(current===handle)current=null;onClose?.();};
+ const close=()=>{document.removeEventListener('keydown',onKey,true);win.remove();if(current===handle){current=null;document.body.classList.remove('oa-open');}onClose?.();};
  const head=document.createElement('header');head.className='oa-head';
  const h=document.createElement('strong');h.id='oa-title';h.textContent=title||'OpenAPI';
  const x=document.createElement('button');x.type='button';x.className='oa-close';x.textContent='×';x.setAttribute('aria-label',t('openApiClose'));x.onclick=close;
@@ -166,17 +166,19 @@ export function openApiViewer({source,title,t,onClose,focus=null}){
  const grip=document.createElement('div');grip.className='oa-resizer';grip.setAttribute('role','separator');grip.setAttribute('aria-orientation','vertical');grip.setAttribute('aria-label',t('openApiResize'));grip.title=t('openApiResizeHint');grip.tabIndex=0;
  const setWidth=px=>{const w=Math.round(Math.min(Math.max(px,360),window.innerWidth-120));document.documentElement.style.setProperty('--oa-w',`${w}px`);try{localStorage.setItem('cm-oa-width',String(w));}catch{}};
  grip.addEventListener('pointerdown',e=>{e.preventDefault();grip.setPointerCapture(e.pointerId);document.body.classList.add('oa-resizing');});
- grip.addEventListener('pointermove',e=>{if(grip.hasPointerCapture(e.pointerId))setWidth(window.innerWidth-e.clientX);});
+ const swapped=()=>document.body.classList.contains('sides-swapped'); // à esquerda (lados trocados): a borda que ajusta é a direita
+ grip.addEventListener('pointermove',e=>{if(grip.hasPointerCapture(e.pointerId))setWidth(swapped()?e.clientX:window.innerWidth-e.clientX);});
  const endGrip=e=>{if(grip.hasPointerCapture?.(e.pointerId))grip.releasePointerCapture(e.pointerId);document.body.classList.remove('oa-resizing');};
  grip.addEventListener('pointerup',endGrip);grip.addEventListener('pointercancel',endGrip);
  grip.addEventListener('dblclick',()=>{document.documentElement.style.removeProperty('--oa-w');try{localStorage.removeItem('cm-oa-width');}catch{}});
- grip.addEventListener('keydown',e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();setWidth(win.offsetWidth+(e.key==='ArrowLeft'?40:-40));}});
+ grip.addEventListener('keydown',e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();setWidth(win.offsetWidth+((e.key==='ArrowLeft')!==swapped()?40:-40));}});
  try{const saved=Number(localStorage.getItem('cm-oa-width'));if(saved)setWidth(saved);}catch{}
  win.append(grip,head,status,host);
- const onKey=e=>{if(e.key==='Escape'&&!e.target.closest?.('#api-panel')&&!e.target.closest?.('.oa-host input,.oa-host textarea,.oa-host select')){e.stopPropagation();close();}};
+ // o Esc fecha a documentação, a não ser que o foco esteja no API client, na imagem ao lado ou num campo do Swagger
+ const onKey=e=>{if(e.key==='Escape'&&!e.target.closest?.('#api-panel,dialog')&&!e.target.closest?.('.oa-host input,.oa-host textarea,.oa-host select')){e.stopPropagation();close();}};
  document.addEventListener('keydown',onKey,true);
  document.body.append(win);x.focus();
  mountSwagger(host,source,{focus}).then(()=>{status.hidden=true;},e=>{status.textContent=e.message==='notOpenApi'?t('openApiInvalid'):t('openApiLoadError');status.classList.add('is-error');});
- const handle={close,el:win};current=handle;
+ const handle={close,el:win};current=handle;document.body.classList.add('oa-open');
  return handle;
 }

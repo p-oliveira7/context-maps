@@ -181,6 +181,7 @@ try{
  const refSpec=["openapi: 3.0.3","info:","  title: Ref API","  version: \"1\"","paths:","  /orders:","    post:","      summary: Cria","      requestBody:","        required: true","        content:","          application/json:","            schema:","              $ref: '#/components/schemas/Order'","      responses:","        '201':","          description: ok","components:","  schemas:","    Order:","      type: object","      properties:","        id: {type: integer, example: 7}","        customer: {$ref: '#/components/schemas/Customer'}","    Customer:","      type: object","      properties:","        name: {type: string, example: Ana}",""].join(String.fromCharCode(10));
  const refEntry=(await saved());refEntry.images[0]={...refEntry.images[0],source:refSpec,title:'Ref API',focus:{method:'post',path:'/orders'}};
  const docNow=JSON.parse(await readFile(path.join(work,'presentations',`${made.id}.json`),'utf8'));docNow.roots[0].children[0]=refEntry;
+ docNow.roots[0].children.push({id:'c3',title:'Fluxo',children:[],images:[{src:refEntry.images[0].src,alt:'Fluxo'}]}); // uma imagem comum, para o OA-12
  await call('PUT',`/presentations/${made.id}`,docNow);
  await page.goto(`${base}/?p=${made.id}`);await page.locator('.node').first().waitFor();await page.locator('#expand').click();await page.locator('#fit').click();
  await page.locator('[data-id="c1"] .image-button.is-openapi').click();
@@ -189,6 +190,51 @@ try{
  assert.equal(exampleText,'{"id":7,"customer":{"name":"Ana"}}');
  await page.locator('.oa-close').click();await viewer.waitFor({state:'detached'});
 
+ // OA-12: no máximo duas janelas lado a lado. Documentação sozinha + imagem: a imagem abre à esquerda dela
+ const rect=sel=>page.evaluate(s=>{const r=document.querySelector(s).getBoundingClientRect();return {left:r.left,right:r.right,width:r.width};},sel);
+ const lightbox=page.locator('dialog[open].is-beside');
+ await page.locator('[data-id="c1"] .image-button.is-openapi').click();await viewer.locator('.opblock').first().waitFor();
+ await page.evaluate(()=>document.querySelector('[data-id="c3"] .image-button').click());await lightbox.waitFor();
+ const [im,oa]=[await rect('dialog[open]'),await rect('.oa-viewer')];
+ assert.ok(im.left<=1&&Math.abs(im.right-oa.left)<=2,`imagem à esquerda da documentação (${JSON.stringify({im,oa})})`);
+ await page.keyboard.press('Escape');await lightbox.waitFor({state:'detached'}); // o Esc com o foco na imagem fecha só ela
+ assert.equal(await viewer.count(),1);
+ // o API client abre com as duas abertas: a imagem fecha e a documentação fica ao lado dele
+ await page.evaluate(()=>document.querySelector('[data-id="c3"] .image-button').click());await lightbox.waitFor();
+ await page.evaluate(()=>document.querySelector('#api-btn').click());await page.locator('#api-panel').waitFor({state:'visible'});
+ await lightbox.waitFor({state:'detached'});assert.equal(await viewer.count(),1);
+ // API client + documentação e abre uma imagem: ela toma o lugar da documentação
+ await page.evaluate(()=>document.querySelector('[data-id="c3"] .image-button').click());await lightbox.waitFor();
+ await viewer.waitFor({state:'detached'});
+ const [im2,api]=[await rect('dialog[open]'),await rect('#api-panel')];assert.ok(Math.abs(im2.right-(1500-api.width))<=2,JSON.stringify({im2,api})); // ao lado do painel (que ainda pode estar deslizando)
+ await page.locator('dialog[open]').focus();await page.keyboard.press('Escape');await lightbox.waitFor({state:'detached'});
+
+ // OA-13: com duas janelas lado a lado, o botão ⇄ na divisa troca os lados (e a escolha é lembrada); com uma só, ele some
+ const swap=page.locator('.swap-sides');
+ assert.equal(await swap.isVisible(),false);
+ await page.evaluate(()=>document.querySelector('#api-btn').click());await page.locator('#api-panel').waitFor({state:'hidden'});
+ assert.equal(await swap.isVisible(),false);
+ await page.locator('[data-id="c1"] .image-button.is-openapi').click();await viewer.locator('.opblock').first().waitFor();
+ assert.equal(await swap.isVisible(),false);
+ await page.evaluate(()=>document.querySelector('[data-id="c3"] .image-button').click());await lightbox.waitFor();
+ await swap.waitFor();await swap.click();
+ let [s1,s2]=[await rect('.oa-viewer'),await rect('dialog[open]')];
+ assert.ok(s1.left<=1&&Math.abs(s2.left-s1.right)<=2,`documentação à esquerda, imagem à direita (${JSON.stringify({s1,s2})})`);
+ assert.equal(await swap.getAttribute('aria-pressed'),'true');
+ await swap.click();[s1,s2]=[await rect('.oa-viewer'),await rect('dialog[open]')];
+ assert.ok(s2.left<=1&&Math.abs(s2.right-s1.left)<=2,'de volta: imagem à esquerda');
+ await swap.click(); // fica trocado e vale para o próximo par
+ await page.locator('dialog[open]').focus();await page.keyboard.press('Escape');await lightbox.waitFor({state:'detached'});
+ assert.equal(await swap.isVisible(),false);
+ await page.evaluate(()=>document.querySelector('#api-btn').click());await page.locator('#api-panel').waitFor({state:'visible'});
+ await page.waitForFunction(()=>{const r=document.querySelector('#api-panel').getBoundingClientRect();return r.left<=1;});
+ [s1,s2]=[await rect('#api-panel'),await rect('.oa-viewer')];
+ assert.ok(Math.abs(s2.left-s1.right)<=2&&s2.right>=1499,`API client à esquerda, documentação à direita (${JSON.stringify({s1,s2})})`);
+ await swap.click();await page.waitForFunction(()=>document.querySelector('#api-panel').getBoundingClientRect().right>=1499);
+ assert.equal(await page.evaluate(()=>document.body.classList.contains('sides-swapped')),false);
+ await page.locator('.oa-close').click();await viewer.waitFor({state:'detached'});
+ await page.evaluate(()=>document.querySelector('#api-btn').click());await page.locator('#api-panel').waitFor({state:'hidden'});
+
  assert.deepEqual(errors,[]);
- console.log('PASS OA-01..11 OpenAPI/Swagger cards: add, thumbnail, interactive docs beside the API client, Try it out via proxy');
+ console.log('PASS OA-01..13 OpenAPI/Swagger cards: add, thumbnail, interactive docs beside the API client, Try it out via proxy');
 }finally{await browser.close();server.kill();target.close();await rm(work,{recursive:true,force:true});}

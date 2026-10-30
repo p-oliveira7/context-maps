@@ -3,11 +3,11 @@ import {cancelMotion,snapshot,animateLayout,hoverEdge,updateEdges,onEdges} from 
 import * as store from './store.js?v=18';
 import {t,applyStatic} from './i18n.js?v=1';
 import {VERSION} from './version.js?v=1';
-import {initApiClient,openApiPanel,closeApiPanel,isApiOpen,setAttachTarget,summarize,summarizeTree,API_DRAG_TYPE} from './api-client.js?v=26';
+import {initApiClient,openApiPanel,closeApiPanel,isApiOpen,setAttachTarget,summarize,summarizeTree,API_DRAG_TYPE} from './api-client.js?v=27';
 import {apiDropdown,closeApiDropdown} from './api-dropdown.js?v=1';
 import {isSequenceSource,renderSequence,FONT as SEQ_FONT} from './sequence.js?v=1';
 import {openSequenceEditor} from './sequence-editor.js?v=2';
-import {openApiViewer,mountSwagger,thumbnailSvg,endpointsOf,findEndpoint} from './openapi.js?v=5';
+import {openApiViewer,mountSwagger,thumbnailSvg,endpointsOf,findEndpoint} from './openapi.js?v=6';
 applyStatic();
 const $=s=>document.querySelector(s), viewport=$('#viewport'), world=$('#world');
 $('#doc-version').textContent=`Context Maps v${VERSION}`;
@@ -69,7 +69,11 @@ function openImage(node,index=0){
  if(image?.kind==='openapi'&&image.source){openApiImage(node,image);return;} // especificação: abre o Swagger UI interativo
  const d=$('dialog');
  gallery.images=imagesOf(node);gallery.index=index;showGalleryImage();
- if(isApiOpen()){d.classList.add('is-beside');d.show();} // API client aberto: a imagem fica ao lado e o painel segue utilizável
+ // API client ou documentação abertos: a imagem fica ao lado (no lugar do mapa) e eles seguem utilizáveis.
+ // No máximo duas janelas lado a lado: com o API client aberto, a imagem toma o lugar da documentação.
+ const docs=document.body.classList.contains('oa-open');
+ if(isApiOpen()&&docs)document.querySelector('.oa-viewer .oa-close')?.click();
+ if(isApiOpen()||(docs&&window.innerWidth>900)){d.classList.add('is-beside');d.show();}
  else{d.classList.remove('is-beside');d.showModal();}
 }
 function stepGallery(delta){const n=gallery.images.length;if(n<2)return;gallery.index=(gallery.index+delta+n)%n;showGalleryImage();}
@@ -1479,8 +1483,23 @@ $('dialog').addEventListener('close',()=>{lbReset();$('dialog').classList.remove
  });
  const endPan=()=>{lb.drag=null;d.classList.remove('is-panning');};
  d.addEventListener('pointerup',endPan);d.addEventListener('pointercancel',endPan);
- // ao lado do API client a janela não é modal: o Esc precisa ser tratado aqui (e não quando o foco está no painel)
- document.addEventListener('keydown',e=>{if(e.key==='Escape'&&d.open&&d.classList.contains('is-beside')&&!e.target.closest?.('#api-panel'))d.close();});
+ // ao lado do API client ou da documentação a janela não é modal: o Esc precisa ser tratado aqui (e não quando o foco está neles)
+ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&d.open&&d.classList.contains('is-beside')&&!e.target.closest?.('#api-panel,.oa-viewer'))d.close();});
+ // documentação + imagem abertas e o API client abre: a imagem fecha (no máximo duas janelas lado a lado)
+ new MutationObserver(()=>{if(d.open&&d.classList.contains('is-beside')&&document.body.classList.contains('api-open')&&document.body.classList.contains('oa-open'))d.close();}).observe(document.body,{attributes:true,attributeFilter:['class']});
+ // duas janelas lado a lado: o botão ⇄ na divisa entre elas troca os lados (a escolha é lembrada)
+ const swapBtn=document.createElement('button');swapBtn.type='button';swapBtn.className='swap-sides';swapBtn.textContent='⇄';swapBtn.hidden=true;
+ swapBtn.setAttribute('aria-label',t('swapSides'));swapBtn.title=t('swapSides');document.body.append(swapBtn);
+ let swapOn=false;try{swapOn=localStorage.getItem('cm-swap-sides')==='1';}catch{}
+ const syncSwap=()=>{
+  const b=document.body.classList,api=b.contains('api-open'),docs=b.contains('oa-open'),img=d.open&&d.classList.contains('is-beside');
+  const pair=window.innerWidth>900&&((api&&(docs||img))||(docs&&img));
+  swapBtn.hidden=!pair;swapBtn.setAttribute('aria-pressed',String(pair&&swapOn));b.toggle('sides-swapped',pair&&swapOn);
+ };
+ swapBtn.addEventListener('click',()=>{swapOn=!swapOn;try{localStorage.setItem('cm-swap-sides',swapOn?'1':'0');}catch{}syncSwap();});
+ new MutationObserver(syncSwap).observe(document.body,{attributes:true,attributeFilter:['class']});
+ new MutationObserver(syncSwap).observe(d,{attributes:true,attributeFilter:['open','class']});
+ window.addEventListener('resize',syncSwap);
 }
 $('#lightbox-prev').onclick=e=>{e.stopPropagation();stepGallery(-1);};
 $('#lightbox-next').onclick=e=>{e.stopPropagation();stepGallery(1);};

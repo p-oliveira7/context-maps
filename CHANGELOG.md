@@ -8,6 +8,7 @@ How to cut a release: [`docs/releasing.md`](docs/releasing.md).
 ## [Unreleased]
 
 ### Added
+- **Image or diagram beside the OpenAPI docs**: with the Swagger documentation open on its own, an image or diagram opens in the space to its left instead of on top, and both stay usable; Esc closes only the window that has the focus. At most two windows sit side by side: opening the API client closes the image, and opening an image while the API client and the docs are open takes the docs' place. With two windows side by side, a **⇄ button** on the boundary between them swaps their sides (e.g. API client on the left); the choice is remembered and the resize edges follow.
 - **Requests open on the Body tab**: clicking a request in the API client opens it with the Body tab selected instead of Params; the tab you pick is still kept per open request.
 - **OpenAPI documentation at half the screen**: opened on its own (API client closed), the Swagger documentation now takes the right half of the screen instead of all of it, so the map stays visible; drag its left edge (or use ←/→ on it) to change the width, which is remembered, and double-click it to go back to half. Beside the API client it still fills the space left of the panel.
 - **Reuse an OpenAPI specification on another card**: the OpenAPI window lists the specifications already loaded in this presentation ("Use a specification from this presentation"); pick one and choose another endpoint in focus, no need to paste or fetch it again.
