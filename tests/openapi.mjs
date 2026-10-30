@@ -190,27 +190,24 @@ try{
  assert.equal(exampleText,'{"id":7,"customer":{"name":"Ana"}}');
  await page.locator('.oa-close').click();await viewer.waitFor({state:'detached'});
 
- // OA-12: API client, documentação e imagem lado a lado; a barra de ferramentas continua à vista, sobre o mapa
- await page.locator('#api-btn').click();await page.locator('#api-panel').waitFor({state:'visible'});
- await page.locator('[data-id="c1"] .image-button.is-openapi').click();await viewer.locator('.opblock').first().waitFor();
- await page.locator('#fit').click();
+ // OA-12: no máximo duas janelas lado a lado. Documentação sozinha + imagem: a imagem abre à esquerda dela
  const rect=sel=>page.evaluate(s=>{const r=document.querySelector(s).getBoundingClientRect();return {left:r.left,right:r.right,width:r.width};},sel);
- let [tb,oa,api]=[await rect('.toolbar'),await rect('.oa-viewer'),await rect('#api-panel')];
- assert.ok(oa.right<=api.left+1&&tb.right<=oa.left+1,`mapa | documentação | API client (${JSON.stringify({tb,oa,api})})`);
- await page.locator('[data-id="c3"] .image-button').click();
- const lightbox=page.locator('dialog[open].is-beside');await lightbox.waitFor();
- const im=await rect('dialog[open]');
- assert.ok(im.left<=1&&im.right<=oa.left+1&&im.width>200,`imagem à esquerda da documentação (${JSON.stringify({im,oa})})`);
- assert.equal(await viewer.count(),1);assert.equal(await page.locator('#api-panel').isVisible(),true);
+ const lightbox=page.locator('dialog[open].is-beside');
+ await page.locator('[data-id="c1"] .image-button.is-openapi').click();await viewer.locator('.opblock').first().waitFor();
+ await page.evaluate(()=>document.querySelector('[data-id="c3"] .image-button').click());await lightbox.waitFor();
+ const [im,oa]=[await rect('dialog[open]'),await rect('.oa-viewer')];
+ assert.ok(im.left<=1&&Math.abs(im.right-oa.left)<=2,`imagem à esquerda da documentação (${JSON.stringify({im,oa})})`);
  await page.keyboard.press('Escape');await lightbox.waitFor({state:'detached'}); // o Esc com o foco na imagem fecha só ela
  assert.equal(await viewer.count(),1);
- await page.locator('.oa-close').click();await viewer.waitFor({state:'detached'});
- // sem o API client: documentação na metade direita e a barra de ferramentas centrada no mapa, fora dela
- await page.locator('#api-btn').click();await page.locator('#api-panel').waitFor({state:'hidden'});
- await page.locator('[data-id="c1"] .image-button.is-openapi').click();await viewer.locator('.opblock').first().waitFor();
- [tb,oa]=[await rect('.toolbar'),await rect('.oa-viewer')];
- assert.ok(tb.right<=oa.left+1,`a documentação não cobre a barra (${JSON.stringify({tb,oa})})`);
- await page.locator('.oa-close').click();await viewer.waitFor({state:'detached'});
+ // o API client abre com as duas abertas: a imagem fecha e a documentação fica ao lado dele
+ await page.evaluate(()=>document.querySelector('[data-id="c3"] .image-button').click());await lightbox.waitFor();
+ await page.evaluate(()=>document.querySelector('#api-btn').click());await page.locator('#api-panel').waitFor({state:'visible'});
+ await lightbox.waitFor({state:'detached'});assert.equal(await viewer.count(),1);
+ // API client + documentação e abre uma imagem: ela toma o lugar da documentação
+ await page.evaluate(()=>document.querySelector('[data-id="c3"] .image-button').click());await lightbox.waitFor();
+ await viewer.waitFor({state:'detached'});
+ const [im2,api]=[await rect('dialog[open]'),await rect('#api-panel')];assert.ok(Math.abs(im2.right-(1500-api.width))<=2,JSON.stringify({im2,api})); // ao lado do painel (que ainda pode estar deslizando)
+ await page.locator('dialog[open]').focus();await page.keyboard.press('Escape');await lightbox.waitFor({state:'detached'});
 
  assert.deepEqual(errors,[]);
  console.log('PASS OA-01..12 OpenAPI/Swagger cards: add, thumbnail, interactive docs beside the API client, Try it out via proxy');

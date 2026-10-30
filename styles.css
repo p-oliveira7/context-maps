@@ -884,18 +884,14 @@ body.api-open .oa-modal{right:var(--api-w)}
 .oa-preview .swagger-ui,.oa-host .swagger-ui{filter:invert(.9) hue-rotate(180deg)}
 .oa-preview .swagger-ui :is(.microlight,.highlight-code,img,.opblock-summary-method,.btn.execute,.info .title small),.oa-host .swagger-ui :is(.microlight,.highlight-code,img,.opblock-summary-method,.btn.execute,.info .title small){filter:invert(1) hue-rotate(180deg)}
 .oa-preview .swagger-ui .wrapper,.oa-host .swagger-ui .wrapper{padding:0 16px}
-.oa-viewer{position:fixed;top:0;right:0;bottom:0;left:auto;width:var(--oa-cw,50vw);z-index:510;display:flex;flex-direction:column;background:#161616;border-left:1px solid #ffffff26;box-shadow:-12px 0 40px #0008}
+.oa-viewer{position:fixed;top:0;right:0;bottom:0;left:auto;width:var(--oa-w,50vw);z-index:510;display:flex;flex-direction:column;background:#161616;border-left:1px solid #ffffff26;box-shadow:-12px 0 40px #0008}
 .oa-resizer{position:absolute;left:-4px;top:0;bottom:0;width:8px;cursor:col-resize;z-index:3}
 .oa-resizer:hover,.oa-resizer:focus-visible,body.oa-resizing .oa-resizer{background:#49cc9066;outline:none}
 body.oa-resizing{cursor:col-resize;user-select:none}
-body.api-open .oa-viewer{right:var(--api-w)}
-/* documentação aberta: o mapa (e a imagem ao lado) ocupa o que sobra à esquerda, com a barra de ferramentas centrada nele */
-@media (min-width:901px){
- body.oa-open #viewport,body.oa-open dialog.is-beside{right:var(--side-r)}
- body.oa-open .toolbar{left:calc((100vw - var(--side-r))/2);max-width:calc(100vw - var(--side-r) - 1.2rem);flex-wrap:wrap;justify-content:center}
- body.oa-open .zoom-controls{right:calc(var(--side-r) + 1.4rem)}
- body.oa-open #reading{display:none}
-}
+body.api-open .oa-viewer{right:var(--api-w);left:0;width:auto;box-shadow:none}
+body.api-open .oa-resizer{display:none}
+/* documentação sozinha (sem o API client): a imagem/diagrama abre no espaço à esquerda dela — no máximo duas janelas lado a lado */
+@media (min-width:901px){body.oa-open:not(.api-open) dialog.is-beside{right:var(--oa-w,50vw)}}
 @media (max-width:900px){.oa-viewer{width:auto;left:0}.oa-resizer{display:none}}
 @media (max-width:900px){body.api-open .oa-viewer,body.api-open .oa-modal{right:0;bottom:55vh}.oa-dialog-body{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr)}.oa-source{min-height:6rem}}
 .oa-head{display:flex;align-items:center;gap:.5rem;padding:.5rem .9rem;background:#1a1a1a;border-bottom:1px solid #ffffff1a;color:#eee}

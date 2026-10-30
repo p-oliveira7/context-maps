@@ -69,8 +69,11 @@ function openImage(node,index=0){
  if(image?.kind==='openapi'&&image.source){openApiImage(node,image);return;} // especificação: abre o Swagger UI interativo
  const d=$('dialog');
  gallery.images=imagesOf(node);gallery.index=index;showGalleryImage();
- // API client ou documentação abertos: a imagem fica ao lado (no lugar do mapa) e eles seguem utilizáveis
- if(isApiOpen()||document.body.classList.contains('oa-open')){d.classList.add('is-beside');d.show();}
+ // API client ou documentação abertos: a imagem fica ao lado (no lugar do mapa) e eles seguem utilizáveis.
+ // No máximo duas janelas lado a lado: com o API client aberto, a imagem toma o lugar da documentação.
+ const docs=document.body.classList.contains('oa-open');
+ if(isApiOpen()&&docs)document.querySelector('.oa-viewer .oa-close')?.click();
+ if(isApiOpen()||(docs&&window.innerWidth>900)){d.classList.add('is-beside');d.show();}
  else{d.classList.remove('is-beside');d.showModal();}
 }
 function stepGallery(delta){const n=gallery.images.length;if(n<2)return;gallery.index=(gallery.index+delta+n)%n;showGalleryImage();}
@@ -1482,6 +1485,8 @@ $('dialog').addEventListener('close',()=>{lbReset();$('dialog').classList.remove
  d.addEventListener('pointerup',endPan);d.addEventListener('pointercancel',endPan);
  // ao lado do API client ou da documentação a janela não é modal: o Esc precisa ser tratado aqui (e não quando o foco está neles)
  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&d.open&&d.classList.contains('is-beside')&&!e.target.closest?.('#api-panel,.oa-viewer'))d.close();});
+ // documentação + imagem abertas e o API client abre: a imagem fecha (no máximo duas janelas lado a lado)
+ new MutationObserver(()=>{if(d.open&&d.classList.contains('is-beside')&&document.body.classList.contains('api-open')&&document.body.classList.contains('oa-open'))d.close();}).observe(document.body,{attributes:true,attributeFilter:['class']});
 }
 $('#lightbox-prev').onclick=e=>{e.stopPropagation();stepGallery(-1);};
 $('#lightbox-next').onclick=e=>{e.stopPropagation();stepGallery(1);};
