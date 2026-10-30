@@ -209,6 +209,32 @@ try{
  const [im2,api]=[await rect('dialog[open]'),await rect('#api-panel')];assert.ok(Math.abs(im2.right-(1500-api.width))<=2,JSON.stringify({im2,api})); // ao lado do painel (que ainda pode estar deslizando)
  await page.locator('dialog[open]').focus();await page.keyboard.press('Escape');await lightbox.waitFor({state:'detached'});
 
+ // OA-13: com duas janelas lado a lado, o botão ⇄ na divisa troca os lados (e a escolha é lembrada); com uma só, ele some
+ const swap=page.locator('.swap-sides');
+ assert.equal(await swap.isVisible(),false);
+ await page.evaluate(()=>document.querySelector('#api-btn').click());await page.locator('#api-panel').waitFor({state:'hidden'});
+ assert.equal(await swap.isVisible(),false);
+ await page.locator('[data-id="c1"] .image-button.is-openapi').click();await viewer.locator('.opblock').first().waitFor();
+ assert.equal(await swap.isVisible(),false);
+ await page.evaluate(()=>document.querySelector('[data-id="c3"] .image-button').click());await lightbox.waitFor();
+ await swap.waitFor();await swap.click();
+ let [s1,s2]=[await rect('.oa-viewer'),await rect('dialog[open]')];
+ assert.ok(s1.left<=1&&Math.abs(s2.left-s1.right)<=2,`documentação à esquerda, imagem à direita (${JSON.stringify({s1,s2})})`);
+ assert.equal(await swap.getAttribute('aria-pressed'),'true');
+ await swap.click();[s1,s2]=[await rect('.oa-viewer'),await rect('dialog[open]')];
+ assert.ok(s2.left<=1&&Math.abs(s2.right-s1.left)<=2,'de volta: imagem à esquerda');
+ await swap.click(); // fica trocado e vale para o próximo par
+ await page.locator('dialog[open]').focus();await page.keyboard.press('Escape');await lightbox.waitFor({state:'detached'});
+ assert.equal(await swap.isVisible(),false);
+ await page.evaluate(()=>document.querySelector('#api-btn').click());await page.locator('#api-panel').waitFor({state:'visible'});
+ await page.waitForFunction(()=>{const r=document.querySelector('#api-panel').getBoundingClientRect();return r.left<=1;});
+ [s1,s2]=[await rect('#api-panel'),await rect('.oa-viewer')];
+ assert.ok(Math.abs(s2.left-s1.right)<=2&&s2.right>=1499,`API client à esquerda, documentação à direita (${JSON.stringify({s1,s2})})`);
+ await swap.click();await page.waitForFunction(()=>document.querySelector('#api-panel').getBoundingClientRect().right>=1499);
+ assert.equal(await page.evaluate(()=>document.body.classList.contains('sides-swapped')),false);
+ await page.locator('.oa-close').click();await viewer.waitFor({state:'detached'});
+ await page.evaluate(()=>document.querySelector('#api-btn').click());await page.locator('#api-panel').waitFor({state:'hidden'});
+
  assert.deepEqual(errors,[]);
- console.log('PASS OA-01..12 OpenAPI/Swagger cards: add, thumbnail, interactive docs beside the API client, Try it out via proxy');
+ console.log('PASS OA-01..13 OpenAPI/Swagger cards: add, thumbnail, interactive docs beside the API client, Try it out via proxy');
 }finally{await browser.close();server.kill();target.close();await rm(work,{recursive:true,force:true});}

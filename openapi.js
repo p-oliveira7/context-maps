@@ -166,11 +166,12 @@ export function openApiViewer({source,title,t,onClose,focus=null}){
  const grip=document.createElement('div');grip.className='oa-resizer';grip.setAttribute('role','separator');grip.setAttribute('aria-orientation','vertical');grip.setAttribute('aria-label',t('openApiResize'));grip.title=t('openApiResizeHint');grip.tabIndex=0;
  const setWidth=px=>{const w=Math.round(Math.min(Math.max(px,360),window.innerWidth-120));document.documentElement.style.setProperty('--oa-w',`${w}px`);try{localStorage.setItem('cm-oa-width',String(w));}catch{}};
  grip.addEventListener('pointerdown',e=>{e.preventDefault();grip.setPointerCapture(e.pointerId);document.body.classList.add('oa-resizing');});
- grip.addEventListener('pointermove',e=>{if(grip.hasPointerCapture(e.pointerId))setWidth(window.innerWidth-e.clientX);});
+ const swapped=()=>document.body.classList.contains('sides-swapped'); // à esquerda (lados trocados): a borda que ajusta é a direita
+ grip.addEventListener('pointermove',e=>{if(grip.hasPointerCapture(e.pointerId))setWidth(swapped()?e.clientX:window.innerWidth-e.clientX);});
  const endGrip=e=>{if(grip.hasPointerCapture?.(e.pointerId))grip.releasePointerCapture(e.pointerId);document.body.classList.remove('oa-resizing');};
  grip.addEventListener('pointerup',endGrip);grip.addEventListener('pointercancel',endGrip);
  grip.addEventListener('dblclick',()=>{document.documentElement.style.removeProperty('--oa-w');try{localStorage.removeItem('cm-oa-width');}catch{}});
- grip.addEventListener('keydown',e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();setWidth(win.offsetWidth+(e.key==='ArrowLeft'?40:-40));}});
+ grip.addEventListener('keydown',e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();setWidth(win.offsetWidth+((e.key==='ArrowLeft')!==swapped()?40:-40));}});
  try{const saved=Number(localStorage.getItem('cm-oa-width'));if(saved)setWidth(saved);}catch{}
  win.append(grip,head,status,host);
  // o Esc fecha a documentação, a não ser que o foco esteja no API client, na imagem ao lado ou num campo do Swagger

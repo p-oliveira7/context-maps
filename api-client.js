@@ -1300,10 +1300,11 @@ function build(){
  // largura: arrastar a borda ou usar as setas
  const setWidth=px=>{const w=Math.min(Math.max(px,420),window.innerWidth-260);document.documentElement.style.setProperty('--api-w',`${w}px`);store.set('cm-api-width',String(Math.round(w)));};
  resizer.addEventListener('pointerdown',e=>{e.preventDefault();resizer.setPointerCapture(e.pointerId);document.body.classList.add('api-resizing');});
- resizer.addEventListener('pointermove',e=>{if(resizer.hasPointerCapture(e.pointerId))setWidth(window.innerWidth-e.clientX);});
+ const swapped=()=>document.body.classList.contains('sides-swapped'); // painel à esquerda (lados trocados): a borda que ajusta é a direita
+ resizer.addEventListener('pointermove',e=>{if(resizer.hasPointerCapture(e.pointerId))setWidth(swapped()?e.clientX:window.innerWidth-e.clientX);});
  const endResize=e=>{if(resizer.hasPointerCapture?.(e.pointerId))resizer.releasePointerCapture(e.pointerId);document.body.classList.remove('api-resizing');hooks.layout?.();};
  resizer.addEventListener('pointerup',endResize);resizer.addEventListener('pointercancel',endResize);
- resizer.addEventListener('keydown',e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();setWidth(panel.offsetWidth+(e.key==='ArrowLeft'?40:-40));hooks.layout?.();}});
+ resizer.addEventListener('keydown',e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();setWidth(panel.offsetWidth+((e.key==='ArrowLeft')!==swapped()?40:-40));hooks.layout?.();}});
  // altura: arrastar a borda de CIMA (a barra de cima da tela fica livre, ex.: o menu de compartilhamento do Teams); duplo clique volta à altura toda; mais baixo que a janela, o painel fica ancorado embaixo e o mapa ocupa a largura toda
  // por padrão o painel abre um pouco abaixo do topo (TOP_GAP livres: o menu de compartilhamento do Teams fica ali)
  const MIN_H=220,TOP_GAP=56;
