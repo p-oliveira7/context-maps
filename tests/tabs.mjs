@@ -61,7 +61,7 @@ try{
  await page.locator('.api-send').click();await page.locator('.api-status strong',{hasText:'200'}).waitFor();
  await page.locator('#api-tab-headers').click();
  await go('Beta');
- assert.equal(await page.locator('.api-status').count(),0);assert.equal(await page.locator('#api-tab-params').getAttribute('aria-selected'),'true');
+ assert.equal(await page.locator('.api-status').count(),0);assert.equal(await page.locator('#api-tab-body').getAttribute('aria-selected'),'true');
  await go('Alpha');
  await page.locator('.api-status strong',{hasText:'200'}).waitFor();assert.equal(await page.locator('#api-tab-headers').getAttribute('aria-selected'),'true');
 

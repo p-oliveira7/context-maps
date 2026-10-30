@@ -91,6 +91,7 @@ try{
  await page.locator('#api-newreq-name').fill('Criar item');await page.keyboard.press('Enter'); // a janela de nova request
  await page.locator('.api-row-name',{hasText:'Criar item'}).waitFor();
  await page.locator('.api-req-title strong',{hasText:'Criar item'}).waitFor(); // a request nova abre no editor
+ assert.equal(await page.locator('#api-tab-body').getAttribute('aria-selected'),'true'); // já na aba Body
  await page.locator('#api-panel .api-method-select').selectOption('post');
  await page.locator('.api-url').fill('{{host}}/echo');
  await page.locator('#api-tab-body').click();await page.locator('#api-tabpanel select').selectOption('json');
