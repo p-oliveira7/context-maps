@@ -61,7 +61,7 @@ export function syncUrlFromParams(model){
 }
 
 /* ---------- estado ---------- */
-const state={open:false,collections:[],coll:null,env:null,envVars:new Map(),envMeta:new Map(),runtime:new Map(),scripts:store.get('cm-api-scripts')!=='0',request:null,reqPath:'',saveTimer:0,saving:Promise.resolve(),response:null,sending:false,abort:null,tab:'params',respTab:'body',pretty:true,expanded:new Set(),filter:'',attach:null,run:null,view:'request',report:null,tabs:[],layout:'',split:0,maxResp:false,mocks:emptyMocks(),mockMode:false,mocksDirty:false,mockSel:{}};
+const state={open:false,collections:[],coll:null,env:null,envVars:new Map(),envMeta:new Map(),runtime:new Map(),scripts:store.get('cm-api-scripts')!=='0',request:null,reqPath:'',saveTimer:0,saving:Promise.resolve(),response:null,sending:false,abort:null,tab:'body',respTab:'body',pretty:true,expanded:new Set(),filter:'',attach:null,run:null,view:'request',report:null,tabs:[],layout:'',split:0,maxResp:false,mocks:emptyMocks(),mockMode:false,mocksDirty:false,mockSel:{}};
 let panel,els={},hooks={};
 
 /* ---------- variáveis {{nome}}: de onde vêm, como salvar, e os campos que as destacam ---------- */
@@ -119,7 +119,7 @@ async function loadEnv(){
 /* ---------- abas de requests ----------
    state.request/reqPath/response/tab/respTab são os da aba ativa; cada aba guarda os seus em state.tabs. */
 const tabEntry=path=>state.tabs.find(x=>x.path===path);
-const newEntry=(path,request)=>({path,request:reconcileParams(request),dirty:false,response:state.coll?runResponses.get(runKey(state.coll.id,path))||null:null,tab:'params',respTab:'body',sending:false,abort:null});
+const newEntry=(path,request)=>({path,request:reconcileParams(request),dirty:false,response:state.coll?runResponses.get(runKey(state.coll.id,path))||null:null,tab:'body',respTab:'body',sending:false,abort:null});
 function stashActive(){const e=tabEntry(state.reqPath);if(e){e.request=state.request;e.response=state.response;e.tab=state.tab;e.respTab=state.respTab;}}
 function loadEntry(e){state.request=e.request;state.reqPath=e.path;state.response=e.response;state.tab=e.tab;state.respTab=e.respTab;state.sending=!!e.sending;state.abort=e.abort||null;}
 function clearActive(){state.request=null;state.reqPath='';state.response=null;state.sending=false;state.abort=null;}
