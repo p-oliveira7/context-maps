@@ -7,7 +7,7 @@ import {initApiClient,openApiPanel,closeApiPanel,isApiOpen,setAttachTarget,summa
 import {apiDropdown,closeApiDropdown} from './api-dropdown.js?v=1';
 import {isSequenceSource,renderSequence,FONT as SEQ_FONT} from './sequence.js?v=1';
 import {openSequenceEditor} from './sequence-editor.js?v=2';
-import {openApiViewer,mountSwagger,thumbnailSvg,endpointsOf,findEndpoint} from './openapi.js?v=5';
+import {openApiViewer,mountSwagger,thumbnailSvg,endpointsOf,findEndpoint} from './openapi.js?v=6';
 applyStatic();
 const $=s=>document.querySelector(s), viewport=$('#viewport'), world=$('#world');
 $('#doc-version').textContent=`Context Maps v${VERSION}`;
@@ -69,7 +69,8 @@ function openImage(node,index=0){
  if(image?.kind==='openapi'&&image.source){openApiImage(node,image);return;} // especificação: abre o Swagger UI interativo
  const d=$('dialog');
  gallery.images=imagesOf(node);gallery.index=index;showGalleryImage();
- if(isApiOpen()){d.classList.add('is-beside');d.show();} // API client aberto: a imagem fica ao lado e o painel segue utilizável
+ // API client ou documentação abertos: a imagem fica ao lado (no lugar do mapa) e eles seguem utilizáveis
+ if(isApiOpen()||document.body.classList.contains('oa-open')){d.classList.add('is-beside');d.show();}
  else{d.classList.remove('is-beside');d.showModal();}
 }
 function stepGallery(delta){const n=gallery.images.length;if(n<2)return;gallery.index=(gallery.index+delta+n)%n;showGalleryImage();}
@@ -1479,8 +1480,8 @@ $('dialog').addEventListener('close',()=>{lbReset();$('dialog').classList.remove
  });
  const endPan=()=>{lb.drag=null;d.classList.remove('is-panning');};
  d.addEventListener('pointerup',endPan);d.addEventListener('pointercancel',endPan);
- // ao lado do API client a janela não é modal: o Esc precisa ser tratado aqui (e não quando o foco está no painel)
- document.addEventListener('keydown',e=>{if(e.key==='Escape'&&d.open&&d.classList.contains('is-beside')&&!e.target.closest?.('#api-panel'))d.close();});
+ // ao lado do API client ou da documentação a janela não é modal: o Esc precisa ser tratado aqui (e não quando o foco está neles)
+ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&d.open&&d.classList.contains('is-beside')&&!e.target.closest?.('#api-panel,.oa-viewer'))d.close();});
 }
 $('#lightbox-prev').onclick=e=>{e.stopPropagation();stepGallery(-1);};
 $('#lightbox-next').onclick=e=>{e.stopPropagation();stepGallery(1);};

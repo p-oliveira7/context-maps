@@ -181,6 +181,7 @@ try{
  const refSpec=["openapi: 3.0.3","info:","  title: Ref API","  version: \"1\"","paths:","  /orders:","    post:","      summary: Cria","      requestBody:","        required: true","        content:","          application/json:","            schema:","              $ref: '#/components/schemas/Order'","      responses:","        '201':","          description: ok","components:","  schemas:","    Order:","      type: object","      properties:","        id: {type: integer, example: 7}","        customer: {$ref: '#/components/schemas/Customer'}","    Customer:","      type: object","      properties:","        name: {type: string, example: Ana}",""].join(String.fromCharCode(10));
  const refEntry=(await saved());refEntry.images[0]={...refEntry.images[0],source:refSpec,title:'Ref API',focus:{method:'post',path:'/orders'}};
  const docNow=JSON.parse(await readFile(path.join(work,'presentations',`${made.id}.json`),'utf8'));docNow.roots[0].children[0]=refEntry;
+ docNow.roots[0].children.push({id:'c3',title:'Fluxo',children:[],images:[{src:refEntry.images[0].src,alt:'Fluxo'}]}); // uma imagem comum, para o OA-12
  await call('PUT',`/presentations/${made.id}`,docNow);
  await page.goto(`${base}/?p=${made.id}`);await page.locator('.node').first().waitFor();await page.locator('#expand').click();await page.locator('#fit').click();
  await page.locator('[data-id="c1"] .image-button.is-openapi').click();
@@ -189,6 +190,28 @@ try{
  assert.equal(exampleText,'{"id":7,"customer":{"name":"Ana"}}');
  await page.locator('.oa-close').click();await viewer.waitFor({state:'detached'});
 
+ // OA-12: API client, documentação e imagem lado a lado; a barra de ferramentas continua à vista, sobre o mapa
+ await page.locator('#api-btn').click();await page.locator('#api-panel').waitFor({state:'visible'});
+ await page.locator('[data-id="c1"] .image-button.is-openapi').click();await viewer.locator('.opblock').first().waitFor();
+ await page.locator('#fit').click();
+ const rect=sel=>page.evaluate(s=>{const r=document.querySelector(s).getBoundingClientRect();return {left:r.left,right:r.right,width:r.width};},sel);
+ let [tb,oa,api]=[await rect('.toolbar'),await rect('.oa-viewer'),await rect('#api-panel')];
+ assert.ok(oa.right<=api.left+1&&tb.right<=oa.left+1,`mapa | documentação | API client (${JSON.stringify({tb,oa,api})})`);
+ await page.locator('[data-id="c3"] .image-button').click();
+ const lightbox=page.locator('dialog[open].is-beside');await lightbox.waitFor();
+ const im=await rect('dialog[open]');
+ assert.ok(im.left<=1&&im.right<=oa.left+1&&im.width>200,`imagem à esquerda da documentação (${JSON.stringify({im,oa})})`);
+ assert.equal(await viewer.count(),1);assert.equal(await page.locator('#api-panel').isVisible(),true);
+ await page.keyboard.press('Escape');await lightbox.waitFor({state:'detached'}); // o Esc com o foco na imagem fecha só ela
+ assert.equal(await viewer.count(),1);
+ await page.locator('.oa-close').click();await viewer.waitFor({state:'detached'});
+ // sem o API client: documentação na metade direita e a barra de ferramentas centrada no mapa, fora dela
+ await page.locator('#api-btn').click();await page.locator('#api-panel').waitFor({state:'hidden'});
+ await page.locator('[data-id="c1"] .image-button.is-openapi').click();await viewer.locator('.opblock').first().waitFor();
+ [tb,oa]=[await rect('.toolbar'),await rect('.oa-viewer')];
+ assert.ok(tb.right<=oa.left+1,`a documentação não cobre a barra (${JSON.stringify({tb,oa})})`);
+ await page.locator('.oa-close').click();await viewer.waitFor({state:'detached'});
+
  assert.deepEqual(errors,[]);
- console.log('PASS OA-01..11 OpenAPI/Swagger cards: add, thumbnail, interactive docs beside the API client, Try it out via proxy');
+ console.log('PASS OA-01..12 OpenAPI/Swagger cards: add, thumbnail, interactive docs beside the API client, Try it out via proxy');
 }finally{await browser.close();server.kill();target.close();await rm(work,{recursive:true,force:true});}

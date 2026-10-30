@@ -156,27 +156,44 @@ export function openApiViewer({source,title,t,onClose,focus=null}){
  current?.close();
  const host=document.createElement('div');host.className='oa-host swagger-ui-host';
  const status=document.createElement('p');status.className='oa-status';status.textContent=t('openApiLoading');
- const close=()=>{document.removeEventListener('keydown',onKey,true);win.remove();if(current===handle)current=null;onClose?.();};
+ const close=()=>{document.removeEventListener('keydown',onKey,true);win.remove();if(current===handle)current=null;sideLayout();onClose?.();};
  const head=document.createElement('header');head.className='oa-head';
  const h=document.createElement('strong');h.id='oa-title';h.textContent=title||'OpenAPI';
  const x=document.createElement('button');x.type='button';x.className='oa-close';x.textContent='×';x.setAttribute('aria-label',t('openApiClose'));x.onclick=close;
  head.append(h,x);
  const win=document.createElement('section');win.className='oa-viewer';win.setAttribute('role','dialog');win.setAttribute('aria-labelledby','oa-title');
- // sozinha, a documentação ocupa a metade direita da tela; a borda esquerda ajusta a largura (lembrada). Ao lado do API client, ocupa o resto.
+ // a borda esquerda ajusta a largura (lembrada); o duplo clique volta ao padrão (metade do espaço livre)
  const grip=document.createElement('div');grip.className='oa-resizer';grip.setAttribute('role','separator');grip.setAttribute('aria-orientation','vertical');grip.setAttribute('aria-label',t('openApiResize'));grip.title=t('openApiResizeHint');grip.tabIndex=0;
- const setWidth=px=>{const w=Math.round(Math.min(Math.max(px,360),window.innerWidth-120));document.documentElement.style.setProperty('--oa-w',`${w}px`);try{localStorage.setItem('cm-oa-width',String(w));}catch{}};
+ const setWidth=px=>{try{localStorage.setItem('cm-oa-width',String(Math.round(px)));}catch{}sideLayout();};
  grip.addEventListener('pointerdown',e=>{e.preventDefault();grip.setPointerCapture(e.pointerId);document.body.classList.add('oa-resizing');});
- grip.addEventListener('pointermove',e=>{if(grip.hasPointerCapture(e.pointerId))setWidth(window.innerWidth-e.clientX);});
+ grip.addEventListener('pointermove',e=>{if(grip.hasPointerCapture(e.pointerId))setWidth(win.getBoundingClientRect().right-e.clientX);});
  const endGrip=e=>{if(grip.hasPointerCapture?.(e.pointerId))grip.releasePointerCapture(e.pointerId);document.body.classList.remove('oa-resizing');};
  grip.addEventListener('pointerup',endGrip);grip.addEventListener('pointercancel',endGrip);
- grip.addEventListener('dblclick',()=>{document.documentElement.style.removeProperty('--oa-w');try{localStorage.removeItem('cm-oa-width');}catch{}});
+ grip.addEventListener('dblclick',()=>{try{localStorage.removeItem('cm-oa-width');}catch{}sideLayout();});
  grip.addEventListener('keydown',e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();setWidth(win.offsetWidth+(e.key==='ArrowLeft'?40:-40));}});
- try{const saved=Number(localStorage.getItem('cm-oa-width'));if(saved)setWidth(saved);}catch{}
  win.append(grip,head,status,host);
- const onKey=e=>{if(e.key==='Escape'&&!e.target.closest?.('#api-panel')&&!e.target.closest?.('.oa-host input,.oa-host textarea,.oa-host select')){e.stopPropagation();close();}};
+ // o Esc fecha a documentação, a não ser que o foco esteja no API client, na imagem ao lado ou num campo do Swagger
+ const onKey=e=>{if(e.key==='Escape'&&!e.target.closest?.('#api-panel,dialog')&&!e.target.closest?.('.oa-host input,.oa-host textarea,.oa-host select')){e.stopPropagation();close();}};
  document.addEventListener('keydown',onKey,true);
  document.body.append(win);x.focus();
  mountSwagger(host,source,{focus}).then(()=>{status.hidden=true;},e=>{status.textContent=e.message==='notOpenApi'?t('openApiInvalid'):t('openApiLoadError');status.classList.add('is-error');});
- const handle={close,el:win};current=handle;
+ const handle={close,el:win};current=handle;sideLayout();
  return handle;
+}
+
+/* Colunas lado a lado, da direita para a esquerda: API client, documentação e, no espaço que sobra, o mapa
+   (ou a imagem/diagrama aberta ao lado). A documentação tem largura própria — metade do espaço livre, ou a
+   que a pessoa escolheu — e nunca cobre a barra de ferramentas, que fica centrada no mapa. */
+let watching=false;
+export function sideLayout(){
+ const root=document.documentElement,win=current?.el;
+ if(!watching){watching=true;window.addEventListener('resize',()=>sideLayout());const panel=document.getElementById('api-panel');if(panel&&window.ResizeObserver)new ResizeObserver(()=>sideLayout()).observe(panel);}
+ if(!win){root.style.removeProperty('--oa-cw');root.style.removeProperty('--side-r');document.body.classList.remove('oa-open');return;}
+ const W=window.innerWidth,api=document.body.classList.contains('api-open')&&W>900?document.getElementById('api-panel')?.offsetWidth||0:0,free=W-api;
+ let saved=0;try{saved=Number(localStorage.getItem('cm-oa-width'))||0;}catch{}
+ const w=Math.round(Math.max(Math.min(saved||free/2,free-240),Math.min(320,free)));
+ const cw=`${w}px`,side=`${api+w}px`;
+ if(root.style.getPropertyValue('--oa-cw')!==cw)root.style.setProperty('--oa-cw',cw);
+ if(root.style.getPropertyValue('--side-r')!==side)root.style.setProperty('--side-r',side);
+ document.body.classList.add('oa-open');
 }
