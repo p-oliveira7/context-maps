@@ -10,6 +10,8 @@
 //   auth -> ok: sim
 //
 // Linha "id: Rótulo [forma] {color=#hex}" declara um quadro (forma: box, diamond, ellipse; padrão box).
+// No quadro, {end} marca um fim clicável (havendo algum, só eles acendem o caminho) e {highlight=#hex} a cor do destaque até ele.
+// Destaque do desenho: "highlight: off", "speed: instant|fast|normal", "highlight-color: #hex".
 // Linha "a -> b: rótulo" liga dois quadros (o rótulo é opcional; quadros não declarados são criados com o id como rótulo).
 // "\n" no rótulo quebra a linha. Linhas vazias e "//" são ignoradas.
 
@@ -18,24 +20,29 @@ const RE_EDGE=/^(.+?)\s*-+>\s*([^:]+?)\s*(?::\s*(.*))?$/;
 const RE_NODE=/^([\w.-]+)\s*:\s*(.+)$/;
 const RE_COLOR=/\{color=(#[0-9a-fA-F]{6})\}/;
 const RE_SHAPE=/\[(\w+)\]/;
+const RE_END=/\{end\}/;
+const RE_HL=/\{highlight=(#[0-9a-fA-F]{6})\}/;
 
-/** texto → {title, direction, nodes:[{id,label,shape,color}], edges:[{from,to,label}], warnings} */
+/** texto → {title, direction, highlight:{enabled?,speed?,color?}, nodes:[{id,label,shape,color,end?,highlight?}], edges:[{from,to,label}], warnings} */
 export function parseFlow(text){
- const out={title:'',direction:'right',nodes:[],edges:[],warnings:[]},byId=new Map();
+ const out={title:'',direction:'right',highlight:{},nodes:[],edges:[],warnings:[]},byId=new Map();
  const node=(id,props={})=>{let n=byId.get(id);if(!n){n={id,label:id,shape:'rectangle',color:null};byId.set(id,n);out.nodes.push(n);}Object.assign(n,props);return n;};
  String(text).split(/\r?\n/).forEach((raw,i)=>{
   const line=raw.trim();if(!line||line.startsWith('//'))return;
   if(line.startsWith('#')){if(!out.title)out.title=line.replace(/^#+\s*/,'');return;}
   const dir=/^direction\s*:\s*(right|down|lr|td)\s*$/i.exec(line);
   if(dir){out.direction=/^(down|td)$/i.test(dir[1])?'down':'right';return;}
+  const hl=/^highlight\s*:\s*(on|off)\s*$/i.exec(line);if(hl){out.highlight.enabled=hl[1].toLowerCase()==='on';return;}
+  const sp=/^speed\s*:\s*(instant|fast|normal)\s*$/i.exec(line);if(sp){out.highlight.speed=sp[1].toLowerCase();return;}
+  const hc=/^highlight-color\s*:\s*(#[0-9a-fA-F]{6})\s*$/i.exec(line);if(hc){out.highlight.color=hc[1];return;}
   const e=RE_EDGE.exec(line);
   if(e){const from=e[1].trim(),to=e[2].trim();if(!/^[\w.-]+$/.test(from)||!/^[\w.-]+$/.test(to)){out.warnings.push(`line ${i+1}: invalid id in "${line}"`);return;}node(from);node(to);out.edges.push({from,to,label:(e[3]||'').trim().replace(/\\n/g,'\n')});return;}
   const m=RE_NODE.exec(line);
   if(m){
-   let label=m[2];const color=RE_COLOR.exec(label)?.[1]||null,shapeKey=RE_SHAPE.exec(label)?.[1]?.toLowerCase();
-   label=label.replace(RE_COLOR,'').replace(RE_SHAPE,'').trim().replace(/\\n/g,'\n');
+   let label=m[2];const color=RE_COLOR.exec(label)?.[1]||null,shapeKey=RE_SHAPE.exec(label)?.[1]?.toLowerCase(),end=RE_END.test(label),hlColor=RE_HL.exec(label)?.[1]||null;
+   label=label.replace(RE_COLOR,'').replace(RE_SHAPE,'').replace(RE_END,'').replace(RE_HL,'').trim().replace(/\\n/g,'\n');
    if(shapeKey&&!SHAPES[shapeKey])out.warnings.push(`line ${i+1}: unknown shape [${shapeKey}] (use box, diamond or ellipse)`);
-   node(m[1],{label:label||m[1],shape:SHAPES[shapeKey]||'rectangle',...(color?{color}:{})});return;
+   node(m[1],{label:label||m[1],shape:SHAPES[shapeKey]||'rectangle',...(color?{color}:{}),...(end?{end:true}:{}),...(hlColor?{highlight:hlColor}:{})});return;
   }
   out.warnings.push(`line ${i+1}: not understood: "${line}"`);
  });
@@ -86,7 +93,7 @@ export function flowToScene(flow){
  const {box,right}=layoutFlow(flow),els=[],idOf=new Map();
  for(const n of flow.nodes){
   const b=box.get(n.id),id=rid('n');idOf.set(n.id,id);
-  const shape=common({id,type:n.shape,x:b.x,y:b.y,width:b.w,height:b.h,roundness:n.shape==='rectangle'?{type:3}:n.shape==='diamond'?{type:2}:null,customData:{flowId:n.id},...(n.color?{strokeColor:n.color}:{})});
+  const shape=common({id,type:n.shape,x:b.x,y:b.y,width:b.w,height:b.h,roundness:n.shape==='rectangle'?{type:3}:n.shape==='diamond'?{type:2}:null,customData:{flowId:n.id,...(n.end?{cmEnd:true}:{}),...(n.highlight?{cmColor:n.highlight}:{})},...(n.color?{strokeColor:n.color}:{})});
   const lines=n.label.split('\n'),th=lines.length*25,tw=Math.max(...lines.map(l=>l.length))*11;
   const text=textEl(n.label,id,b.x+(b.w-tw)/2,b.y+(b.h-th)/2,tw,th,n.color);
   shape.boundElements.push({type:'text',id:text.id});els.push(shape,text);

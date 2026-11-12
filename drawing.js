@@ -72,12 +72,25 @@ export function overlaySvg(elements,path,step,{zoom,scrollX,scrollY}){
  return parts.join('');
 }
 
+/* ---------- configuração do destaque ----------
+   No desenho (images[].highlight): {enabled, speed: instant|fast|normal, color}. Em cada quadro (customData):
+   cmEnd = fim clicável (havendo algum marcado, só os marcados reagem ao clique), cmColor = cor do destaque até ele. */
+export const SPEEDS={instant:0,fast:25,normal:60};
+export const highlightSettings=h=>({enabled:h?.enabled!==false,speed:SPEEDS[h?.speed]!==undefined?h.speed:'normal',color:/^#[0-9a-f]{6}$/i.test(h?.color||'')?h.color:HIGHLIGHT});
+/** o quadro clicado acende? (com fins marcados, só eles) */
+export function clickTarget(elements,hit){
+ if(!hit)return null;
+ return live(elements).some(e=>e.customData?.cmEnd)&&!hit.customData?.cmEnd?null:hit;
+}
+export const endColor=(hit,settings)=>hit?.customData?.cmColor||settings.color;
+
 /* ---------- janela do desenho ---------- */
 /**
  * Abre o desenho na janela lateral. scene = {elements, files}. editable: começa editando (desenho novo).
  * onSave({elements,files}) a cada mudança (com pausa); onClose({changed, svg}) com a miniatura nova se mudou.
  */
-export async function openDrawing({scene,title,t,lang,editable=false,onSave,onClose}){
+export async function openDrawing({scene,title,t,lang,editable=false,highlight,onSave,onSettings,onClose}){
+ let settings=highlightSettings(highlight);
  const lib=await loadExcalidraw();
  const {React,ReactDOM}=window;
  const host=document.createElement('div');host.className='dw-host';
@@ -86,6 +99,32 @@ export async function openDrawing({scene,title,t,lang,editable=false,onSave,onCl
  host.append(mount,layer);
  const hint=document.createElement('p');hint.className='dw-hint';
  const toggle=document.createElement('button');toggle.type='button';toggle.className='dw-toggle';
+ // configurações do destaque (desenho inteiro) e barra do quadro selecionado (modo de edição)
+ const h=(tag,props={},...kids)=>{const e=document.createElement(tag);for(const [k,v] of Object.entries(props)){if(k==='class')e.className=v;else if(k.startsWith('on'))e.addEventListener(k.slice(2),v);else if(v!==null&&v!==undefined&&v!==false)e.setAttribute(k,v===true?'':v);}e.append(...kids);return e;};
+ const gear=h('button',{type:'button',class:'dw-gear','aria-expanded':'false','aria-controls':'dw-settings'},t('drawingHl'));
+ const hlOn=h('input',{type:'checkbox'}),hlSpeed=h('select',{},...Object.keys(SPEEDS).map(k=>h('option',{value:k},t(`drawingSpeed_${k}`)))),hlColor=h('input',{type:'color'});
+ const box=h('div',{class:'dw-settings',id:'dw-settings',hidden:true},
+  h('label',{},hlOn,t('drawingHlOn')),
+  h('label',{},t('drawingHlSpeed'),hlSpeed),
+  h('label',{},t('drawingHlColor'),hlColor,h('button',{type:'button',class:'dw-mini',onclick:()=>setSettings({color:HIGHLIGHT})},t('drawingHlDefault'))));
+ const syncSettings=()=>{hlOn.checked=settings.enabled;hlSpeed.value=settings.speed;hlColor.value=settings.color;hlSpeed.disabled=hlColor.disabled=!settings.enabled;};
+ const setSettings=patch=>{settings=highlightSettings({...settings,...patch});syncSettings();onSettings?.(settings);if(!settings.enabled)clearHighlight();paintHint();};
+ hlOn.addEventListener('change',()=>setSettings({enabled:hlOn.checked}));hlSpeed.addEventListener('change',()=>setSettings({speed:hlSpeed.value}));hlColor.addEventListener('input',()=>setSettings({color:hlColor.value}));
+ gear.addEventListener('click',()=>{box.hidden=!box.hidden;gear.setAttribute('aria-expanded',String(!box.hidden));});
+ const endBox=h('input',{type:'checkbox'}),endColorIn=h('input',{type:'color'});
+ const bar=h('div',{class:'dw-boxbar',hidden:true},h('span',{},t('drawingBox')),h('label',{},endBox,t('drawingBoxEnd')),h('label',{},t('drawingBoxColor'),endColorIn),h('button',{type:'button',class:'dw-mini',onclick:()=>setCustom({cmColor:undefined})},t('drawingHlDefault')));
+ let barFor=null;
+ const setCustom=patch=>{
+  if(!api||!barFor)return;
+  api.updateScene({elements:api.getSceneElementsIncludingDeleted().map(e=>{if(e.id!==barFor)return e;const cd={...(e.customData||{}),...patch};for(const k of Object.keys(cd))if(cd[k]===undefined||cd[k]===false)delete cd[k];return {...e,customData:cd,version:(e.version||1)+1,versionNonce:Math.floor(Math.random()*2**31)};})});
+ };
+ endBox.addEventListener('change',()=>setCustom({cmEnd:endBox.checked}));endColorIn.addEventListener('input',()=>setCustom({cmColor:endColorIn.value}));
+ const syncBar=st=>{
+  const ids=Object.keys(st?.selectedElementIds||{}).filter(k=>st.selectedElementIds[k]),el=ids.length===1?api.getSceneElements().find(e=>e.id===ids[0]):null;
+  const ok=editing&&settings.enabled&&el&&SHAPES.has(el.type)&&!el.containerId;
+  bar.hidden=!ok;barFor=ok?el.id:null;
+  if(ok){endBox.checked=!!el.customData?.cmEnd;endColorIn.value=el.customData?.cmColor||settings.color;}
+ };
  let api=null,root=null,editing=editable,changed=false,lastVersion=-1,timer=0,base=null,anim=0,selected=null,lit=null;
  const elementsNow=()=>api?api.getSceneElementsIncludingDeleted().filter(e=>!e.isDeleted):[];
  const snapshot=()=>({elements:JSON.parse(JSON.stringify(elementsNow())),files:usedFiles()});
@@ -96,6 +135,7 @@ export async function openDrawing({scene,title,t,lang,editable=false,onSave,onCl
  const flush=()=>{if(timer)save();};
  const drawLayer=()=>{
   if(!lit||!api){layer.innerHTML='';return;}
+  layer.style.setProperty('--hl',lit.color);
   const st=api.getAppState(),r=host.getBoundingClientRect();
   layer.innerHTML=`<g transform="translate(${st.offsetLeft-r.left} ${st.offsetTop-r.top})">${overlaySvg(base,lit.path,lit.step,{zoom:st.zoom.value,scrollX:st.scrollX,scrollY:st.scrollY})}</g>`;
  };
@@ -107,11 +147,12 @@ export async function openDrawing({scene,title,t,lang,editable=false,onSave,onCl
    try{root?.unmount();}catch{}
    onClose?.({changed,svg});
   }});
- panel.head.insertBefore(toggle,panel.head.querySelector('.oa-close'));
- panel.el.append(hint,host);
+ panel.head.insertBefore(gear,panel.head.querySelector('.oa-close'));panel.head.insertBefore(toggle,gear);
+ panel.el.append(box,hint,bar,host);syncSettings();
+ const paintHint=()=>{hint.textContent=editing?t('drawingEditHint'):!settings.enabled?t('drawingHlOffHint'):api&&elementsNow().some(e=>e.customData?.cmEnd)?t('drawingViewHintEnds'):t('drawingViewHint');};
  const paint=()=>{
   toggle.textContent=editing?t('drawingDone'):t('drawingEdit');toggle.setAttribute('aria-pressed',String(editing));
-  hint.textContent=editing?t('drawingEditHint'):t('drawingViewHint');panel.el.classList.toggle('is-editing',editing);
+  paintHint();panel.el.classList.toggle('is-editing',editing);if(!editing)bar.hidden=true;
   root.render(React.createElement(lib.Excalidraw,props()));
  };
  const props=()=>({
@@ -119,9 +160,10 @@ export async function openDrawing({scene,title,t,lang,editable=false,onSave,onCl
   theme:'dark',langCode:lang==='pt'?'pt-BR':'en',viewModeEnabled:!editing,
   excalidrawAPI:a=>{if(api===a)return;api=a;setTimeout(()=>{if(a.getSceneElements().length)a.scrollToContent(undefined,{fitToViewport:true,viewportZoomFactor:.9});},60);}, // abre com o desenho inteiro à vista
   UIOptions:{canvasActions:{loadScene:false,saveToActiveFile:false,export:false,toggleTheme:false,changeViewBackgroundColor:false}},
-  onChange:(els)=>{
+  onChange:(els,st)=>{
    if(lit)drawLayer(); // moveu ou deu zoom: a camada acompanha
    if(!editing||!api)return;
+   syncBar(st);
    const v=lib.getSceneVersion(els);if(lastVersion<0){lastVersion=v;return;}
    if(v===lastVersion)return;lastVersion=v;changed=true;
    clearTimeout(timer);timer=setTimeout(save,700);
@@ -135,15 +177,17 @@ export async function openDrawing({scene,title,t,lang,editable=false,onSave,onCl
   if(editing||!api||!down||Math.hypot(e.clientX-down.x,e.clientY-down.y)>4)return;down=null;
   if(!e.target.closest('canvas'))return;
   const st=api.getAppState(),z=st.zoom.value,x=(e.clientX-st.offsetLeft)/z-st.scrollX,y=(e.clientY-st.offsetTop)/z-st.scrollY;
-  const source=base||api.getSceneElements(),hit=shapeAt(source,x,y);
+  if(!settings.enabled)return;
+  const source=base||api.getSceneElements(),hit=clickTarget(source,shapeAt(source,x,y));
   if(!hit||hit.id===selected){clearHighlight();return;}
   clearHighlight();base=source;selected=hit.id;
   const path=pathTo(base,hit.id),last=Math.max(0,...path.order.values());
   api.updateScene({elements:dimmed(base,path)});host.classList.add('is-lit');
-  lit={path,step:0};const tick=()=>{if(selected!==hit.id)return;drawLayer();if(lit.step<last){lit.step+=.5;anim=setTimeout(tick,60);}};
+  const wait=SPEEDS[settings.speed];
+  lit={path,step:wait?0:Infinity,color:endColor(hit,settings)};const tick=()=>{if(selected!==hit.id)return;drawLayer();if(lit.step<last){lit.step+=.5;anim=setTimeout(tick,wait);}};
   tick();
  },true);
- root=ReactDOM.createRoot(mount);paint();
+ root=ReactDOM.createRoot(mount);paint();setTimeout(paintHint,200); // a dica depende dos fins marcados (cena carregada)
  panel.el.drawingApi=()=>api; // para os testes (e2e) lerem a cena e a câmera
  return {...panel,api:()=>api,path:id=>pathTo(elementsNow(),id)};
 }

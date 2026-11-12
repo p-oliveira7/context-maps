@@ -8,7 +8,7 @@ import {apiDropdown,closeApiDropdown} from './api-dropdown.js?v=1';
 import {isSequenceSource,renderSequence,FONT as SEQ_FONT} from './sequence.js?v=1';
 import {openSequenceEditor} from './sequence-editor.js?v=2';
 import {openApiViewer,mountSwagger,thumbnailSvg,endpointsOf,findEndpoint} from './openapi.js?v=7';
-import {openDrawing} from './drawing.js?v=2';
+import {openDrawing} from './drawing.js?v=3';
 applyStatic();
 const $=s=>document.querySelector(s), viewport=$('#viewport'), world=$('#world');
 $('#doc-version').textContent=`Context Maps v${VERSION}`;
@@ -729,10 +729,12 @@ function openApiImage(node,image){
 function openDrawingFor(node,index=null,{edit=false}={}){
  let entry=index===null?null:imagesOf(node)[index]||null;
  const uploadThumb=async svg=>store.upload(doc.id,new File([svg],'drawing.svg',{type:'image/svg+xml'}));
- openDrawing({scene:entry?.scene||{elements:[],files:{}},title:entry?.title||nameOf(node)||t('drawing'),t,lang,editable:edit||!entry,
+ let pendingHighlight=null; // configurações escolhidas antes do primeiro traço de um desenho novo
+ openDrawing({scene:entry?.scene||{elements:[],files:{}},title:entry?.title||nameOf(node)||t('drawing'),t,lang,editable:edit||!entry,highlight:entry?.highlight,
+  onSettings:h=>{if(!entry){pendingHighlight=h;return;}entry.highlight=h;commit(`drawing:${node.id}`);},
   onSave:async(scene,thumb)=>{
    if(!entry){ // desenho novo: entra no card no primeiro traço, já com miniatura
-    entry={kind:'drawing',src:'',alt:t('drawingAlt',nameOf(node)),scene};
+    entry={kind:'drawing',src:'',alt:t('drawingAlt',nameOf(node)),scene,...(pendingHighlight?{highlight:pendingHighlight}:{})};
     (node.images||=[]).push(entry);
     try{entry.src=await uploadThumb(await thumb());}catch{}
     commit();render();return;

@@ -160,7 +160,7 @@ async function uploadBuffer(id,name,buf){
 // [flow:arquivo.flow] → desenho do Excalidraw no card (cena + miniatura SVG); o texto fica em images[].source
 export function flowImage(text,title,alt){
  const flow=parseFlow(text);
- return {flow,svg:flowToSvg(flow),entry:{alt:alt||t('flowAlt',flow.title||title),kind:'drawing',title:flow.title||title,scene:flowToScene(flow),source:text}};
+ return {flow,svg:flowToSvg(flow),entry:{alt:alt||t('flowAlt',flow.title||title),kind:'drawing',title:flow.title||title,scene:flowToScene(flow),source:text,...(Object.keys(flow.highlight).length?{highlight:flow.highlight}:{})}};
 }
 function findMmdc(){
  if(process.env.MMDC)return process.env.MMDC;

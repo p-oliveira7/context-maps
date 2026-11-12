@@ -66,17 +66,18 @@
 direction: right                     (or down; default right)
 client: Client app                   (id: label)
 auth: Valid token? [diamond]         (shape: box (default), diamond, ellipse)
-e412: 412 Precondition
-Failed [ellipse] {color=#f08c00}   (
- breaks the line; {color} tints the box)
-ok: 201 Created [ellipse] {color=#2f9e44}
+e412: 412 Precondition\nFailed [ellipse] {color=#f08c00} {end} {highlight=#ffa94d}
+ok: 201 Created [ellipse] {color=#2f9e44} {end} {highlight=#69db7c}
 client -> auth: POST /orders         (arrow with an optional label)
 auth -> e412: no
 auth -> ok: yes
 // comment
 ```
+- `\n` breaks the line inside a label; `{color=#hex}` tints the box.
+- **Path highlighting:** `{end}` marks a box as a clickable end — once any box is marked, only marked boxes light up their path (otherwise every box does); `{highlight=#hex}` is the highlight colour for the path to that end (e.g. green for success, orange for errors).
+- Highlight settings of the whole drawing (optional lines): `highlight: off` turns it off, `speed: instant|fast|normal` (default normal), `highlight-color: #hex` (default yellow). The user can change all of this in the app (◎ Highlight; in ✎ Edit, select a box to mark it as an end).
 - Ids: letters, digits, `_ . -`. An arrow to an undeclared id creates a box labelled with the id.
-- One flow per file; keep it to ~3–15 boxes. Decisions as `[diamond]` with `yes`/`no` labels on the arrows; outcomes (status codes, errors) as `[ellipse]` ends, coloured (green success, red/orange errors).
+- One flow per file; keep it to ~3–15 boxes. Decisions as `[diamond]` with `yes`/`no` labels on the arrows; outcomes (status codes, errors) as `[ellipse]` ends, coloured (green success, red/orange errors) and marked `{end}`.
 - Loops ("try again") are fine: the arrow goes back and the layout ignores it.
 - `validate` reports flow warnings (unknown lines, shapes); `create`/`update` store it as `images[]` with `kind: "drawing"`, the Excalidraw `scene` and the text in `source` (`update` only adds it when the text changed).
 

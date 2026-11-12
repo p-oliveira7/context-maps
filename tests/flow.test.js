@@ -67,3 +67,18 @@ test('shapeAt acha o quadro sob o ponto (texto conta como o quadro)', ()=>{
  assert.equal(shapeAt(elements,s.x+s.width/2,s.y+s.height/2).id,s.id);
  assert.equal(shapeAt(elements,-9999,-9999),null);
 });
+
+test('fins clicáveis e cor do destaque: {end}, {highlight=}, cabeçalho e regras do clique', async ()=>{
+ const {clickTarget,endColor,highlightSettings,HIGHLIGHT}=await import('../drawing.js');
+ const f=parseFlow(['speed: instant','highlight-color: #ff0000','highlight: on','a: Início','b: Meio [diamond]','c: 412 [ellipse] {end} {highlight=#f08c00}','d: 201 [ellipse] {end}','a -> b','b -> c','b -> d',''].join('\n'));
+ assert.deepEqual(f.highlight,{speed:'instant',color:'#ff0000',enabled:true});assert.deepEqual(f.warnings,[]);
+ const {elements}=flowToScene(f),el=id=>elements.find(e=>e.customData?.flowId===id);
+ assert.deepEqual([el('c').customData.cmEnd,el('c').customData.cmColor,el('d').customData.cmEnd,el('b').customData.cmEnd],[true,'#f08c00',true,undefined]);
+ // com fins marcados, só eles acendem; sem nenhum, qualquer quadro
+ assert.equal(clickTarget(elements,el('b')),null);assert.equal(clickTarget(elements,el('c')).id,el('c').id);
+ const plain=flowToScene(parseFlow('a -> b')).elements;assert.ok(clickTarget(plain,plain[0]));
+ // cor: a do fim, senão a do desenho
+ const s=highlightSettings(f.highlight);assert.equal(endColor(el('c'),s),'#f08c00');assert.equal(endColor(el('d'),s),'#ff0000');
+ assert.deepEqual(highlightSettings(null),{enabled:true,speed:'normal',color:HIGHLIGHT});
+ assert.deepEqual(highlightSettings({enabled:false,speed:'warp',color:'red'}),{enabled:false,speed:'normal',color:HIGHLIGHT});
+});

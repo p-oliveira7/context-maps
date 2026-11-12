@@ -65,17 +65,18 @@
 direction: right                     (ou down; padrão right)
 client: App cliente                  (id: rótulo)
 auth: Token válido? [diamond]        (forma: box (padrão), diamond, ellipse)
-e412: 412 Precondition
-Failed [ellipse] {color=#f08c00}   (
- quebra a linha; {color} colore o quadro)
-ok: 201 Created [ellipse] {color=#2f9e44}
+e412: 412 Precondition\nFailed [ellipse] {color=#f08c00} {end} {highlight=#ffa94d}
+ok: 201 Created [ellipse] {color=#2f9e44} {end} {highlight=#69db7c}
 client -> auth: POST /orders         (seta com rótulo opcional)
 auth -> e412: não
 auth -> ok: sim
 // comentário
 ```
+- `\n` quebra a linha dentro do rótulo; `{color=#hex}` colore o quadro.
+- **Destaque de caminho:** `{end}` marca o quadro como fim clicável — havendo algum marcado, só os marcados acendem o caminho (sem nenhum, todos acendem); `{highlight=#hex}` é a cor do destaque do caminho até esse fim (ex.: verde para sucesso, laranja para erro).
+- Configuração do destaque do desenho (linhas opcionais): `highlight: off` desliga, `speed: instant|fast|normal` (padrão normal), `highlight-color: #hex` (padrão amarelo). O usuário muda tudo isso no app (◎ Destaque; em ✎ Editar, selecionar um quadro para marcá-lo como fim).
 - Ids: letras, números, `_ . -`. Uma seta para um id não declarado cria um quadro com o id como rótulo.
-- Um fluxo por arquivo; algo entre ~3 e 15 quadros. Decisões como `[diamond]` com `sim`/`não` nas setas; resultados (códigos de status, erros) como fins `[ellipse]`, coloridos (verde sucesso, vermelho/laranja erro).
+- Um fluxo por arquivo; algo entre ~3 e 15 quadros. Decisões como `[diamond]` com `sim`/`não` nas setas; resultados (códigos de status, erros) como fins `[ellipse]`, coloridos (verde sucesso, vermelho/laranja erro) e marcados com `{end}`.
 - Voltas ("tentar de novo") podem: a seta volta e o layout a ignora.
 - `validate` mostra os avisos do fluxo (linhas não entendidas, formas); `create`/`update` guardam em `images[]` com `kind: "drawing"`, a `scene` do Excalidraw e o texto em `source` (`update` só adiciona quando o texto mudou).
 

@@ -84,6 +84,42 @@ try{
  await panel.locator('.oa-close').click();await panel.waitFor({state:'detached'});
  assert.equal((await card('c2')).images[0].src,src,'sem mudanças, a miniatura fica a mesma');
 
+ // DRAW-05: ◎ Destaque — velocidade, cor e ligar/desligar ficam no desenho; no modo de edição, o quadro selecionado vira "fim clicável" com cor própria
+ await page.locator('[data-id="c2"] .image-button.is-drawing').click();await panel.locator('canvas').first().waitFor();
+ await page.waitForFunction(()=>document.querySelector('.dw-viewer')?.drawingApi?.()?.getSceneElements().length>0);await page.waitForTimeout(300);
+ await panel.locator('.dw-gear').click();await panel.locator('.dw-settings').waitFor();
+ await panel.locator('.dw-settings select').selectOption('instant');
+ await panel.locator('.dw-settings input[type=color]').evaluate(e=>{e.value='#ff0000';e.dispatchEvent(new Event('input',{bubbles:true}));});
+ for(let i=0;i<40&&(await card('c2')).images[0].highlight?.color!=='#ff0000';i++)await new Promise(r=>setTimeout(r,100));
+ assert.deepEqual((await card('c2')).images[0].highlight,{enabled:true,speed:'instant',color:'#ff0000'});
+ let q=await at('e412');await page.mouse.click(q.x,q.y);
+ assert.equal(await panel.locator('.dw-layer .dw-hl-node').count(),4,'instantâneo: tudo de uma vez');
+ assert.equal(await panel.locator('.dw-layer').evaluate(e=>e.style.getPropertyValue('--hl')),'#ff0000');
+ await panel.locator('.dw-settings input[type=checkbox]').uncheck();
+ assert.equal(await panel.locator('.dw-layer').evaluate(e=>e.children.length),0);
+ q=await at('e412');await page.mouse.click(q.x,q.y);await page.waitForTimeout(200);
+ assert.equal(await panel.locator('.dw-layer').evaluate(e=>e.children.length),0,'desligado: o clique não acende');
+ assert.match(await panel.locator('.dw-hint').textContent(),/off/);
+ await panel.locator('.dw-settings input[type=checkbox]').check();
+ // marcar o 412 como fim clicável (com cor verde) no modo de edição
+ await panel.locator('.dw-toggle').click();
+ q=await at('e412');await page.mouse.click(q.x,q.y);
+ const boxbar=panel.locator('.dw-boxbar');await boxbar.waitFor();
+ await boxbar.locator('input[type=checkbox]').check();
+ await boxbar.locator('input[type=color]').evaluate(e=>{e.value='#00ff00';e.dispatchEvent(new Event('input',{bubbles:true}));});
+ const custom=id=>page.evaluate(i=>document.querySelector('.dw-viewer').drawingApi().getSceneElements().find(x=>x.customData?.flowId===i).customData,id);
+ assert.deepEqual(await custom('e412'),{flowId:'e412',cmEnd:true,cmColor:'#00ff00'});
+ await panel.locator('.dw-toggle').click(); // ✓ Concluir: volta a ver
+ assert.match(await panel.locator('.dw-hint').textContent(),/marked ends/);
+ q=await at('auth');await page.mouse.click(q.x,q.y);await page.waitForTimeout(200);
+ assert.equal(await panel.locator('.dw-layer').evaluate(e=>e.children.length),0,'quadro que não é fim não acende');
+ q=await at('e412');await page.mouse.click(q.x,q.y);
+ await page.waitForFunction(()=>document.querySelectorAll('.dw-layer .dw-hl-node').length===4);
+ assert.equal(await panel.locator('.dw-layer').evaluate(e=>e.style.getPropertyValue('--hl')),'#00ff00','a cor do fim vale mais que a do desenho');
+ await panel.locator('.oa-close').click();await panel.waitFor({state:'detached'});
+ for(let i=0;i<40&&!(await card('c2')).images[0].scene.elements.find(e=>e.customData?.flowId==='e412').customData.cmEnd;i++)await new Promise(r=>setTimeout(r,100));
+ assert.equal((await card('c2')).images[0].scene.elements.find(e=>e.customData?.flowId==='e412').customData.cmColor,'#00ff00');
+
  assert.deepEqual(errors,[]);
- console.log('PASS DRAW-01..04 drawings on cards: create, save with thumbnail, view a skill flow and highlight the path to a box');
+ console.log('PASS DRAW-01..05 drawings on cards: create, save with thumbnail, view a skill flow, highlight the path to a box, highlight settings and clickable ends');
 }finally{await browser.close();server.kill();await rm(work,{recursive:true,force:true});}
