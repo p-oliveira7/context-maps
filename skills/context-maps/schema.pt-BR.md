@@ -37,6 +37,7 @@
 - `subtitle`: texto de apoio opcional (até 2000 caracteres), exibido só ao passar o mouse no card.
 - `links`: lista opcional de `{url, label?}` (apenas http/https), exibida como selo "N link(s)" abaixo do card.
 - `kind: "diagram"` e `source` (mermaid) são opcionais; diagramas aparecem sem corte no cartão.
+- `kind: "drawing"`: um desenho do Excalidraw (`scene: {elements, files}`; `src` é a miniatura SVG; `source` guarda o texto `.flow` quando veio da skill). Abre ao lado do card, editável, com destaque de caminho. Crie com `[flow:arquivo.flow]` (abaixo), não à mão.
 - Prefira criar pelo outline (`rm.mjs create`); o servidor valida a estrutura (ids únicos, profundidade ≤ 40).
 
 ## Como estruturar
@@ -48,7 +49,7 @@
 **Arquitetura**:
 - Ramos = camadas ou módulos (API, Domínio, Dados, Integrações).
 - Filhos = responsabilidade, entradas/saídas, dependências críticas.
-- Para topologias ou sequências, anexe mermaid (`flowchart`, `sequenceDiagram`, `erDiagram`).
+- Para fluxos de requisição/decisão que terminam em resultados (códigos de status, erros), anexe um fluxograma `[flow:…]` (destaque de caminho clicável); para topologias ou sequências, mermaid (`sequenceDiagram`, `erDiagram`).
 
 ## Qualidade
 - Títulos curtos e informativos (frases nominais). Máximo ~90 caracteres.
@@ -56,6 +57,28 @@
 - Profundidade até 5 níveis; mais que isso → quebre em outra apresentação.
 - Não repita a mesma ideia em ramos diferentes; ligue por referência no texto.
 - Não invente: onde o contexto não responde, escreva "A definir".
+
+## Fluxogramas (`.flow`)
+`[flow:arquivo.flow]` transforma um arquivo de texto curto num **desenho editável** (Excalidraw) no card: quadros e setas com layout automático, miniatura no card e, no app, o usuário abre ao lado do card, dá zoom, se move pelo desenho, edita livremente e **clica num quadro final (ex.: um `412`) para acender todos os caminhos que levam até ele**. Prefira ao mermaid para fluxos de API/requisição, decisões e resultados de erro. Não precisa de ferramentas extras.
+```text
+# Criar pedido                       (título opcional do desenho)
+direction: right                     (ou down; padrão right)
+client: App cliente                  (id: rótulo)
+auth: Token válido? [diamond]        (forma: box (padrão), diamond, ellipse)
+e412: 412 Precondition\nFailed [ellipse] {color=#f08c00} {end} {highlight=#ffa94d}
+ok: 201 Created [ellipse] {color=#2f9e44} {end} {highlight=#69db7c}
+client -> auth: POST /orders         (seta com rótulo opcional)
+auth -> e412: não
+auth -> ok: sim
+// comentário
+```
+- `\n` quebra a linha dentro do rótulo; `{color=#hex}` colore o quadro.
+- **Destaque de caminho:** `{end}` marca o quadro como fim clicável — havendo algum marcado, só os marcados acendem o caminho (sem nenhum, todos acendem); `{highlight=#hex}` é a cor do destaque do caminho até esse fim (ex.: verde para sucesso, laranja para erro).
+- Configuração do destaque do desenho (linhas opcionais): `highlight: off` desliga, `speed: instant|fast|normal` (padrão normal), `highlight-color: #hex` (padrão amarelo). O usuário muda tudo isso no app (◎ Destaque; em ✎ Editar, selecionar um quadro para marcá-lo como fim).
+- Ids: letras, números, `_ . -`. Uma seta para um id não declarado cria um quadro com o id como rótulo.
+- Um fluxo por arquivo; algo entre ~3 e 15 quadros. Decisões como `[diamond]` com `sim`/`não` nas setas; resultados (códigos de status, erros) como fins `[ellipse]`, coloridos (verde sucesso, vermelho/laranja erro) e marcados com `{end}`.
+- Voltas ("tentar de novo") podem: a seta volta e o layout a ignora.
+- `validate` mostra os avisos do fluxo (linhas não entendidas, formas); `create`/`update` guardam em `images[]` com `kind: "drawing"`, a `scene` do Excalidraw e o texto em `source` (`update` só adiciona quando o texto mudou).
 
 ## Mermaid
 Requer `mmdc` (`npm i -g @mermaid-js/mermaid-cli`) no PATH ou `MMDC=caminho`; use `MMDC_BROWSER=caminho/do/chrome` para reaproveitar um Chrome instalado (instale com `PUPPETEER_SKIP_DOWNLOAD=1`). O diagrama é renderizado em SVG

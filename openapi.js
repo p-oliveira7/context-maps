@@ -150,20 +150,18 @@ export async function mountSwagger(el,source,{tryItOut=true,focus=null}={}){
  });
 }
 
-/* Visualizador: janela sem bloqueio (fica ao lado do API client quando ele está aberto, como as imagens) */
+/* Janela lateral sem bloqueio (documentação OpenAPI, desenhos): uma por vez, fica ao lado do API client quando ele está
+   aberto, como as imagens. Sozinha, ocupa a metade direita da tela; a borda ajusta a largura (lembrada). */
 let current=null;
-export function openApiViewer({source,title,t,onClose,focus=null}){
+export function sidePanel({title,t,className='',labels={},onClose,escSkip=''}){
  current?.close();
- const host=document.createElement('div');host.className='oa-host swagger-ui-host';
- const status=document.createElement('p');status.className='oa-status';status.textContent=t('openApiLoading');
  const close=()=>{document.removeEventListener('keydown',onKey,true);win.remove();if(current===handle){current=null;document.body.classList.remove('oa-open');}onClose?.();};
  const head=document.createElement('header');head.className='oa-head';
- const h=document.createElement('strong');h.id='oa-title';h.textContent=title||'OpenAPI';
- const x=document.createElement('button');x.type='button';x.className='oa-close';x.textContent='×';x.setAttribute('aria-label',t('openApiClose'));x.onclick=close;
+ const h=document.createElement('strong');h.id='oa-title';h.textContent=title;
+ const x=document.createElement('button');x.type='button';x.className='oa-close';x.textContent='×';x.setAttribute('aria-label',labels.close||t('openApiClose'));x.onclick=()=>close();
  head.append(h,x);
- const win=document.createElement('section');win.className='oa-viewer';win.setAttribute('role','dialog');win.setAttribute('aria-labelledby','oa-title');
- // sozinha, a documentação ocupa a metade direita da tela; a borda esquerda ajusta a largura (lembrada). Ao lado do API client, ocupa o resto.
- const grip=document.createElement('div');grip.className='oa-resizer';grip.setAttribute('role','separator');grip.setAttribute('aria-orientation','vertical');grip.setAttribute('aria-label',t('openApiResize'));grip.title=t('openApiResizeHint');grip.tabIndex=0;
+ const win=document.createElement('section');win.className=`oa-viewer ${className}`.trim();win.setAttribute('role','dialog');win.setAttribute('aria-labelledby','oa-title');
+ const grip=document.createElement('div');grip.className='oa-resizer';grip.setAttribute('role','separator');grip.setAttribute('aria-orientation','vertical');grip.setAttribute('aria-label',labels.resize||t('openApiResize'));grip.title=labels.resizeHint||t('openApiResizeHint');grip.tabIndex=0;
  const setWidth=px=>{const w=Math.round(Math.min(Math.max(px,360),window.innerWidth-120));document.documentElement.style.setProperty('--oa-w',`${w}px`);try{localStorage.setItem('cm-oa-width',String(w));}catch{}};
  grip.addEventListener('pointerdown',e=>{e.preventDefault();grip.setPointerCapture(e.pointerId);document.body.classList.add('oa-resizing');});
  const swapped=()=>document.body.classList.contains('sides-swapped'); // à esquerda (lados trocados): a borda que ajusta é a direita
@@ -173,12 +171,21 @@ export function openApiViewer({source,title,t,onClose,focus=null}){
  grip.addEventListener('dblclick',()=>{document.documentElement.style.removeProperty('--oa-w');try{localStorage.removeItem('cm-oa-width');}catch{}});
  grip.addEventListener('keydown',e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();setWidth(win.offsetWidth+((e.key==='ArrowLeft')!==swapped()?40:-40));}});
  try{const saved=Number(localStorage.getItem('cm-oa-width'));if(saved)setWidth(saved);}catch{}
- win.append(grip,head,status,host);
- // o Esc fecha a documentação, a não ser que o foco esteja no API client, na imagem ao lado ou num campo do Swagger
- const onKey=e=>{if(e.key==='Escape'&&!e.target.closest?.('#api-panel,dialog')&&!e.target.closest?.('.oa-host input,.oa-host textarea,.oa-host select')){e.stopPropagation();close();}};
+ win.append(grip,head);
+ // o Esc fecha a janela, a não ser que o foco esteja no API client, na imagem ao lado ou num campo dela (escSkip)
+ const onKey=e=>{if(e.key==='Escape'&&!e.target.closest?.('#api-panel,dialog')&&!(escSkip&&e.target.closest?.(escSkip))){e.stopPropagation();close();}};
  document.addEventListener('keydown',onKey,true);
  document.body.append(win);x.focus();
- mountSwagger(host,source,{focus}).then(()=>{status.hidden=true;},e=>{status.textContent=e.message==='notOpenApi'?t('openApiInvalid'):t('openApiLoadError');status.classList.add('is-error');});
- const handle={close,el:win};current=handle;document.body.classList.add('oa-open');
+ const handle={close,el:win,head,title:h};current=handle;document.body.classList.add('oa-open');
  return handle;
+}
+
+/* Visualizador da documentação OpenAPI (Swagger UI interativo) */
+export function openApiViewer({source,title,t,onClose,focus=null}){
+ const host=document.createElement('div');host.className='oa-host swagger-ui-host';
+ const status=document.createElement('p');status.className='oa-status';status.textContent=t('openApiLoading');
+ const panel=sidePanel({title:title||'OpenAPI',t,onClose,escSkip:'.oa-host input,.oa-host textarea,.oa-host select'});
+ panel.el.append(status,host);
+ mountSwagger(host,source,{focus}).then(()=>{status.hidden=true;},e=>{status.textContent=e.message==='notOpenApi'?t('openApiInvalid'):t('openApiLoadError');status.classList.add('is-error');});
+ return panel;
 }

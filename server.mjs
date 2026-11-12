@@ -17,7 +17,7 @@ const root=path.dirname(fileURLToPath(import.meta.url));
 const dataDir=path.resolve(process.env.PRESENTATIONS_DIR||path.join(root,'presentations'));
 const configFile=path.resolve(process.env.CONTEXT_MAPS_CONFIG||path.join(root,'.context-maps.json'));
 const port=Number(process.env.PORT||4173);
-const MIME={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.webp':'image/webp','.gif':'image/gif'};
+const MIME={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.webp':'image/webp','.gif':'image/gif','.woff2':'font/woff2'};
 const IMAGE_EXT=new Set(['.png','.jpg','.jpeg','.webp','.gif','.svg']);
 const SLUG=/^[a-z0-9][a-z0-9-]{0,60}$/;
 const MAX_JSON=5*1024*1024, MAX_DOC=50*1024*1024, MAX_IMAGE=15*1024*1024, MAX_IMPORT=150*1024*1024; // MAX_DOC: a apresentação inteira (pode trazer especificações OpenAPI grandes)
