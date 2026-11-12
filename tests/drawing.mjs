@@ -17,6 +17,7 @@ const H={'x-context-maps':'1','content-type':'application/json'};
 const call=async(method,route,body)=>{const r=await fetch(`${base}/api${route}`,{method,headers:H,body:body===undefined?undefined:JSON.stringify(body)});assert.ok(r.ok,`${method} ${route} -> ${r.status}`);return r.json();};
 const FLOW=['# Criar pedido','client: App cliente','auth: Token válido? [diamond]','e401: 401 [ellipse]','etag: If-Match? [diamond]','e412: 412 [ellipse]','ok: 201 [ellipse]',
  'client -> auth','auth -> e401: não','auth -> etag: sim','etag -> e412: não','etag -> ok: sim',''].join('\n');
+const SPEC=['openapi: 3.0.3','info: {title: Pets API, version: "1"}','paths:','  /pets:','    get:','      summary: Lista','      responses:',"        '200': {description: OK}",''].join(String.fromCharCode(10));
 const browser=await launch();
 try{
  const made=await call('POST','/presentations',{title:'Desenhos'});
@@ -24,7 +25,8 @@ try{
  const up=await fetch(`${base}/api/presentations/${made.id}/assets?name=flow.svg`,{method:'POST',headers:{'x-context-maps':'1'},body:flowToSvg(flow)});const {src}=await up.json();
  await call('PUT',`/presentations/${made.id}`,{title:'Desenhos',roots:[{id:'r',title:'Sistema',children:[
   {id:'c1',title:'Rascunho',children:[]},
-  {id:'c2',title:'Pedido',children:[],images:[{src,alt:'Fluxo',kind:'drawing',title:'Criar pedido',scene:flowToScene(flow),source:FLOW}]}]}]});
+  {id:'c2',title:'Pedido',children:[],images:[{src,alt:'Fluxo',kind:'drawing',title:'Criar pedido',scene:flowToScene(flow),source:FLOW}]},
+  {id:'c3',title:'Contrato',children:[],images:[{src,alt:'API',kind:'openapi',title:'Pets API',source:SPEC}]}]}]});
  const ctx=await browser.newContext({locale:'en-US',viewport:{width:1500,height:900},extraHTTPHeaders:{'x-context-maps':'1'}});
  const page=await ctx.newPage();page.setDefaultTimeout(process.env.CI?30000:15000);
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
@@ -122,6 +124,37 @@ try{
  for(let i=0;i<40&&!(await card('c2')).images[0].scene.elements.find(e=>e.customData?.flowId==='e412').customData.cmEnd;i++)await new Promise(r=>setTimeout(r,100));
  assert.equal((await card('c2')).images[0].scene.elements.find(e=>e.customData?.flowId==='e412').customData.cmColor,'#00ff00');
 
+ // DRAW-06: desenho e contrato (Swagger) lado a lado; ⇄ troca; Esc fecha só a que tem o foco; fechar a principal promove a outra; o API client deixa só uma
+ const docs=page.locator('.oa-viewer:not(.dw-viewer)');
+ const rect=sel=>page.evaluate(q=>{const r=document.querySelector(q).getBoundingClientRect();return {left:Math.round(r.left),right:Math.round(r.right)};},sel);
+ await page.evaluate(()=>document.querySelector('[data-id="c2"] .image-button.is-drawing').click());await panel.locator('canvas').first().waitFor();
+ await page.evaluate(()=>document.querySelector('[data-id="c3"] .image-button.is-openapi').click());await docs.locator('.opblock').first().waitFor();
+ assert.equal(await panel.count(),1,'o desenho continua aberto');
+ assert.equal(await docs.evaluate(e=>e.classList.contains('is-secondary')),true);
+ let [dr,oa]=[await rect('.dw-viewer'),await rect('.oa-viewer:not(.dw-viewer)')];
+ assert.ok(dr.right>=1499&&Math.abs(oa.right-dr.left)<=2&&oa.left<=1,`contrato | desenho (${JSON.stringify({oa,dr})})`);
+ const swap=page.locator('.swap-sides');await swap.waitFor();await swap.click();
+ [dr,oa]=[await rect('.dw-viewer'),await rect('.oa-viewer:not(.dw-viewer)')];
+ assert.ok(dr.left<=1&&Math.abs(oa.left-dr.right)<=2&&oa.right>=1499,`⇄: desenho | contrato (${JSON.stringify({oa,dr})})`);
+ await page.waitForTimeout(300); // o Excalidraw relê a posição nova: o clique acerta o quadro
+ q=await at('e412');await page.mouse.click(q.x,q.y);
+ await page.waitForFunction(()=>document.querySelectorAll('.dw-layer .dw-hl-node').length===4);
+ await swap.click();
+ // Esc com o foco no contrato fecha só ele
+ await docs.locator('.oa-close').focus();await page.keyboard.press('Escape');await docs.waitFor({state:'detached'});
+ assert.equal(await panel.count(),1);
+ // fechar a principal (desenho) com o contrato aberto: o contrato vai para a direita
+ await page.evaluate(()=>document.querySelector('[data-id="c3"] .image-button.is-openapi').click());await docs.locator('.opblock').first().waitFor();
+ await panel.locator('.oa-close').click();await panel.waitFor({state:'detached'});
+ assert.equal(await docs.evaluate(e=>e.classList.contains('is-secondary')),false);
+ assert.ok((await rect('.oa-viewer')).right>=1499);
+ // com as duas abertas, o API client deixa só uma (ao lado dele)
+ await page.evaluate(()=>document.querySelector('[data-id="c2"] .image-button.is-drawing').click());await panel.locator('canvas').first().waitFor();
+ assert.equal(await page.locator('.oa-viewer').count(),2);
+ await page.evaluate(()=>document.querySelector('#api-btn').click());await page.locator('#api-panel').waitFor({state:'visible'});
+ await page.waitForFunction(()=>document.querySelectorAll('.oa-viewer').length===1);
+ assert.equal(await page.locator('.oa-viewer.is-secondary').count(),0);
+
  assert.deepEqual(errors,[]);
- console.log('PASS DRAW-01..05 drawings on cards: create, save with thumbnail, view a skill flow, highlight the path to a box, highlight settings and clickable ends');
+ console.log('PASS DRAW-01..06 drawings on cards: create, save with thumbnail, view a skill flow, highlight the path to a box, highlight settings and clickable ends');
 }finally{await browser.close();server.kill();await rm(work,{recursive:true,force:true});}

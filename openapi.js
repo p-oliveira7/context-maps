@@ -150,17 +150,38 @@ export async function mountSwagger(el,source,{tryItOut=true,focus=null}={}){
  });
 }
 
-/* Janela lateral sem bloqueio (documentação OpenAPI, desenhos): uma por vez, fica ao lado do API client quando ele está
-   aberto, como as imagens. Sozinha, ocupa a metade direita da tela; a borda ajusta a largura (lembrada). */
-let current=null;
+/* Janelas laterais sem bloqueio (documentação OpenAPI, desenhos). Sem o API client cabem duas lado a lado: a principal
+   na metade direita (a borda ajusta a largura, lembrada) e a segunda no espaço à esquerda dela; uma do mesmo tipo troca
+   de lugar com a antiga. Com o API client aberto (ou em tela estreita), só uma, ao lado dele. No máximo duas janelas
+   ao todo: abrir uma lateral fecha a imagem aberta ao lado. */
+const panels=[]; // ordem de abertura; a principal é a que não tem .is-secondary
+let titleSeq=0,watching=false;
+const single=()=>document.body.classList.contains('api-open')||window.innerWidth<=900;
+function layoutPanels(){
+ if(panels.length&&!panels.some(p=>!p.el.classList.contains('is-secondary')))panels[0].el.classList.remove('is-secondary'); // a principal fechou: a outra assume
+ document.body.classList.toggle('oa-open',panels.length>0);document.body.classList.toggle('oa-two',panels.length>1);
+}
+/** fecha a segunda janela lateral (ex.: o API client abriu, ou uma imagem vai ocupar o lugar dela) */
+export function closeSecondaryPanel(){panels.find(p=>p.el.classList.contains('is-secondary'))?.close();}
 export function sidePanel({title,t,className='',labels={},onClose,escSkip=''}){
- current?.close();
- const close=()=>{document.removeEventListener('keydown',onKey,true);win.remove();if(current===handle){current=null;document.body.classList.remove('oa-open');}onClose?.();};
+ if(!watching){watching=true;new MutationObserver(()=>{if(panels.length>1&&single())closeSecondaryPanel();}).observe(document.body,{attributes:true,attributeFilter:['class']});}
+ const kind=className||'oa-docs',same=panels.find(p=>p.kind===kind);
+ let secondary=false;
+ if(same){ // mesmo tipo: a nova fica no lugar da antiga
+  const wasSecondary=same.el.classList.contains('is-secondary');same.close();
+  if(panels.length===1){if(wasSecondary)secondary=true;else panels[0].el.classList.add('is-secondary');} // a outra volta para o lugar dela
+ }
+ else{
+  document.querySelector('dialog[open].is-beside')?.close(); // a imagem ao lado sai (no máximo duas janelas)
+  if(single())[...panels].forEach(p=>p.close());
+  else{if(panels.length>1)closeSecondaryPanel();secondary=panels.length===1;}
+ }
+ const close=()=>{document.removeEventListener('keydown',onKey,true);win.remove();const i=panels.indexOf(handle);if(i>=0)panels.splice(i,1);layoutPanels();onClose?.();};
  const head=document.createElement('header');head.className='oa-head';
- const h=document.createElement('strong');h.id='oa-title';h.textContent=title;
+ const h=document.createElement('strong');h.id=`oa-title-${++titleSeq}`;h.textContent=title;
  const x=document.createElement('button');x.type='button';x.className='oa-close';x.textContent='×';x.setAttribute('aria-label',labels.close||t('openApiClose'));x.onclick=()=>close();
  head.append(h,x);
- const win=document.createElement('section');win.className=`oa-viewer ${className}`.trim();win.setAttribute('role','dialog');win.setAttribute('aria-labelledby','oa-title');
+ const win=document.createElement('section');win.className=`oa-viewer ${className}`.trim();win.setAttribute('role','dialog');win.setAttribute('aria-labelledby',h.id);if(secondary)win.classList.add('is-secondary');
  const grip=document.createElement('div');grip.className='oa-resizer';grip.setAttribute('role','separator');grip.setAttribute('aria-orientation','vertical');grip.setAttribute('aria-label',labels.resize||t('openApiResize'));grip.title=labels.resizeHint||t('openApiResizeHint');grip.tabIndex=0;
  const setWidth=px=>{const w=Math.round(Math.min(Math.max(px,360),window.innerWidth-120));document.documentElement.style.setProperty('--oa-w',`${w}px`);try{localStorage.setItem('cm-oa-width',String(w));}catch{}};
  grip.addEventListener('pointerdown',e=>{e.preventDefault();grip.setPointerCapture(e.pointerId);document.body.classList.add('oa-resizing');});
@@ -173,10 +194,15 @@ export function sidePanel({title,t,className='',labels={},onClose,escSkip=''}){
  try{const saved=Number(localStorage.getItem('cm-oa-width'));if(saved)setWidth(saved);}catch{}
  win.append(grip,head);
  // o Esc fecha a janela, a não ser que o foco esteja no API client, na imagem ao lado ou num campo dela (escSkip)
- const onKey=e=>{if(e.key==='Escape'&&!e.target.closest?.('#api-panel,dialog')&&!(escSkip&&e.target.closest?.(escSkip))){e.stopPropagation();close();}};
+ // com duas abertas, o Esc fecha a que tem o foco (ou a última aberta, se o foco está fora delas)
+ const onKey=e=>{
+  if(e.key!=='Escape'||e.target.closest?.('#api-panel,dialog')||(escSkip&&e.target.closest?.(escSkip)))return;
+  const inside=e.target.closest?.('.oa-viewer');if(inside?inside!==win:panels.at(-1)!==handle)return;
+  e.stopImmediatePropagation();close();
+ };
  document.addEventListener('keydown',onKey,true);
  document.body.append(win);x.focus();
- const handle={close,el:win,head,title:h};current=handle;document.body.classList.add('oa-open');
+ const handle={close,el:win,head,title:h,kind};panels.push(handle);layoutPanels();
  return handle;
 }
 

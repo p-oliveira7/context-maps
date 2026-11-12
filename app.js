@@ -7,8 +7,8 @@ import {initApiClient,openApiPanel,closeApiPanel,isApiOpen,setAttachTarget,summa
 import {apiDropdown,closeApiDropdown} from './api-dropdown.js?v=1';
 import {isSequenceSource,renderSequence,FONT as SEQ_FONT} from './sequence.js?v=1';
 import {openSequenceEditor} from './sequence-editor.js?v=2';
-import {openApiViewer,mountSwagger,thumbnailSvg,endpointsOf,findEndpoint} from './openapi.js?v=7';
-import {openDrawing} from './drawing.js?v=3';
+import {openApiViewer,mountSwagger,thumbnailSvg,endpointsOf,findEndpoint,closeSecondaryPanel} from './openapi.js?v=8';
+import {openDrawing} from './drawing.js?v=4';
 applyStatic();
 const $=s=>document.querySelector(s), viewport=$('#viewport'), world=$('#world');
 $('#doc-version').textContent=`Context Maps v${VERSION}`;
@@ -75,6 +75,7 @@ function openImage(node,index=0){
  // No máximo duas janelas lado a lado: com o API client aberto, a imagem toma o lugar da documentação.
  const docs=document.body.classList.contains('oa-open');
  if(isApiOpen()&&docs)document.querySelector('.oa-viewer .oa-close')?.click();
+ closeSecondaryPanel(); // duas janelas laterais abertas: a imagem fica no lugar da segunda
  if(isApiOpen()||(docs&&window.innerWidth>900)){d.classList.add('is-beside');d.show();}
  else{d.classList.remove('is-beside');d.showModal();}
 }
@@ -1528,7 +1529,7 @@ $('dialog').addEventListener('close',()=>{const d=$('dialog');if(d.open)return;l
  let swapOn=false;try{swapOn=localStorage.getItem('cm-swap-sides')==='1';}catch{}
  const syncSwap=()=>{
   const b=document.body.classList,api=b.contains('api-open'),docs=b.contains('oa-open'),img=d.open&&d.classList.contains('is-beside');
-  const pair=window.innerWidth>900&&((api&&(docs||img))||(docs&&img));
+  const pair=window.innerWidth>900&&((api&&(docs||img))||(docs&&img)||b.contains('oa-two'));
   swapBtn.hidden=!pair;swapBtn.setAttribute('aria-pressed',String(pair&&swapOn));b.toggle('sides-swapped',pair&&swapOn);
  };
  swapBtn.addEventListener('click',()=>{swapOn=!swapOn;try{localStorage.setItem('cm-swap-sides',swapOn?'1':'0');}catch{}syncSwap();});
