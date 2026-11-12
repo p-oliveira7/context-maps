@@ -1,5 +1,5 @@
 // Desenhos livres nos cards (Excalidraw carregado sob demanda) e destaque do caminho até um quadro clicado.
-import {sidePanel} from './openapi.js?v=7';
+import {sidePanel} from './openapi.js?v=8';
 
 const BASE='vendor/excalidraw/';
 let libReady=null;
@@ -189,5 +189,8 @@ export async function openDrawing({scene,title,t,lang,editable=false,highlight,o
  },true);
  root=ReactDOM.createRoot(mount);paint();setTimeout(paintHint,200); // a dica depende dos fins marcados (cena carregada)
  panel.el.drawingApi=()=>api; // para os testes (e2e) lerem a cena e a câmera
+ // a janela muda de lugar sem mudar de tamanho (⇄, a outra janela fechou): o Excalidraw precisa reler a posição
+ const moved=new MutationObserver(()=>{if(!panel.el.isConnected)return moved.disconnect();requestAnimationFrame(()=>{api?.refresh();if(lit)drawLayer();});});
+ moved.observe(document.body,{attributes:true,attributeFilter:['class']});moved.observe(panel.el,{attributes:true,attributeFilter:['class']});
  return {...panel,api:()=>api,path:id=>pathTo(elementsNow(),id)};
 }

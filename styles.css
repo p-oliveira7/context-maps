@@ -985,3 +985,9 @@ body.oa-open.sides-swapped:not(.api-open) .swap-sides{left:var(--oa-w,50vw)}
 @keyframes dw-flow{to{stroke-dashoffset:-18}}
 @keyframes dw-in{from{opacity:0}}
 @media (prefers-reduced-motion:reduce){.dw-hl-arrow,.dw-new{animation:none}.dw-hl-arrow{stroke-dasharray:none}}
+/* duas janelas laterais (ex.: desenho e documentação): a segunda ocupa o espaço à esquerda da principal */
+@media (min-width:901px){
+ body:not(.api-open) .oa-viewer.is-secondary{left:0;right:var(--oa-w,50vw);width:auto;z-index:509;box-shadow:none}
+ .oa-viewer.is-secondary .oa-resizer{display:none}
+ body.sides-swapped.oa-open:not(.api-open) .oa-viewer.is-secondary{left:var(--oa-w,50vw);right:0;width:auto;border-right:0;border-left:1px solid #ffffff26}
+}
