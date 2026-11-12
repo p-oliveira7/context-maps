@@ -68,6 +68,16 @@ try{
  const p412=await at('e412');await page.mouse.click(p412.x,p412.y);
  await page.waitForFunction(()=>document.querySelectorAll('.dw-layer .dw-hl-node').length===4,null,{timeout:5000});
  assert.equal(await panel.locator('.dw-layer .dw-hl-arrow').count(),3);
+ // mexer o mouse sobre o desenho não remonta a camada (remontar reiniciava a animação: piscava e travava)
+ await panel.evaluate(p=>{window.__dwNode=p.querySelector('.dw-layer .dw-hl-arrow');});
+ for(let i=0;i<12;i++)await page.mouse.move(p412.x-200+i*25,p412.y+60);
+ assert.equal(await panel.evaluate(p=>p.querySelector('.dw-layer .dw-hl-arrow')===window.__dwNode),true);
+ // rolar a cena só reposiciona o grupo (os mesmos nós), acompanhando a câmera
+ const camBefore=await panel.evaluate(p=>p.querySelector('.dw-cam').getAttribute('transform'));
+ await page.mouse.move(p412.x,p412.y);await page.mouse.wheel(0,120);await page.waitForTimeout(200);
+ assert.notEqual(await panel.evaluate(p=>p.querySelector('.dw-cam').getAttribute('transform')),camBefore);
+ assert.equal(await panel.evaluate(p=>p.querySelector('.dw-layer .dw-hl-arrow')===window.__dwNode),true);
+ await page.mouse.wheel(0,-120);await page.waitForTimeout(200);
  // o destaque não sai da janela do desenho (com zoom, parte do caminho fica fora dela)
  assert.deepEqual(await panel.evaluate(p=>[getComputedStyle(p.querySelector('.dw-host')).overflow,getComputedStyle(p.querySelector('.dw-layer')).overflow]),['hidden','hidden']);
  const opacity=id=>page.evaluate(i=>document.querySelector('.dw-viewer').drawingApi().getSceneElements().find(x=>x.customData?.flowId===i).opacity,id);

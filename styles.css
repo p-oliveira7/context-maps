@@ -979,6 +979,7 @@ body.oa-open.sides-swapped:not(.api-open) .swap-sides{left:var(--oa-w,50vw)}
 .dw-mount{position:absolute;inset:0}
 .dw-layer{position:absolute;inset:0;z-index:3;width:100%;height:100%;pointer-events:none;overflow:hidden}
 .dw-hl-node,.dw-hl-arrow{fill:none;stroke:var(--hl,#ffd43b);stroke-width:3;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 6px var(--hl,#ffd43b))}
+.dw-layer .dw-cam *{vector-effect:non-scaling-stroke} /* traço com a mesma espessura em qualquer zoom */
 .dw-hl-arrow{stroke-dasharray:10 8;animation:dw-flow .8s linear infinite}
 .dw-new{animation:dw-in .15s ease-out}
 .dw-hl-arrow.dw-new{animation:dw-in .15s ease-out,dw-flow .8s linear infinite}
