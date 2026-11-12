@@ -3,12 +3,13 @@
 // No dependencies. Needs the app server (node server.mjs) — `serve` starts it when needed.
 // Messages follow RM_LANG=en|pt (default: system locale; Portuguese for pt-*, otherwise English).
 import {readFile,writeFile,mkdtemp,rm as removeFile} from 'node:fs/promises';
-import {existsSync} from 'node:fs';
+import {existsSync,readFileSync} from 'node:fs';
 import {spawn,spawnSync} from 'node:child_process';
 import {randomBytes} from 'node:crypto';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {parseFlow,flowToScene,flowToSvg} from './flow.mjs';
 
 const here=path.dirname(fileURLToPath(import.meta.url));
 const appRoot=path.resolve(here,'../../..');
@@ -41,6 +42,9 @@ const MSG={
  skipNoMmdc:{pt:t=>`${t}: mermaid-cli (mmdc) não encontrado — diagrama não renderizado; instale com "npm i -g @mermaid-js/mermaid-cli" ou defina MMDC`,en:t=>`${t}: mermaid-cli (mmdc) not found — diagram not rendered; install with "npm i -g @mermaid-js/mermaid-cli" or set MMDC`},
  skipMmdcFail:{pt:(t,e)=>`${t}: falha ao renderizar diagrama (${e})`,en:(t,e)=>`${t}: failed to render diagram (${e})`},
  diagramAlt:{pt:t=>`Diagrama: ${t}`,en:t=>`Diagram: ${t}`},
+ flowAlt:{pt:t=>`Fluxograma: ${t}`,en:t=>`Flowchart: ${t}`},
+ skipFlowMissing:{pt:(t,f)=>`${t}: fluxo não encontrado (${f})`,en:(t,f)=>`${t}: flow not found (${f})`},
+ warnFlow:{pt:(f,w)=>`${f}: ${w}`,en:(f,w)=>`${f}: ${w}`},
  statusDown:{pt:b=>`Servidor indisponível em ${b}`,en:b=>`Server unavailable at ${b}`},
  serveActive:{pt:b=>`Servidor já ativo em ${b}`,en:b=>`Server already running at ${b}`},
  serveStarted:{pt:b=>`Servidor iniciado em ${b}`,en:b=>`Server started at ${b}`},
@@ -78,7 +82,7 @@ const isUp=async()=>{try{const r=await fetch(`${BASE}/api/presentations`);return
 /* ---------- Outline (markdown com marcadores) → árvore ---------- */
 const nodeId=()=>`n-${randomBytes(4).toString('hex')}`;
 const norm=s=>String(s||'').replace(/\s+/g,' ').trim().toLowerCase();
-const RE_MEDIA=/\[(img|mermaid|link|subtitle|rel):([^\]|]+)(?:\|([^\]]*))?\]/g;
+const RE_MEDIA=/\[(img|mermaid|flow|link|subtitle|rel):([^\]|]+)(?:\|([^\]]*))?\]/g;
 const RE_COLOR=/\{color=(#[0-9a-fA-F]{3,8})\}/;
 const RE_LINKS=/\{links=(#[0-9a-fA-F]{3,8})\}/;
 export function parseOutline(text){
@@ -89,7 +93,7 @@ export function parseOutline(text){
  let stack=[{indent:-1,node:root}];const roots=[root];
  const pull=(raw,node,lineNo)=>{
   let s=raw;
-  node._media=[...s.matchAll(RE_MEDIA)].map(m=>({kind:m[1]==='img'?'image':m[1]==='link'?'link':m[1]==='subtitle'?'subtitle':m[1]==='rel'?'rel':'diagram',file:m[2].trim(),alt:(m[3]||'').trim(),raw:m[2]+(m[3]!==undefined?'|'+m[3]:'')}));
+  node._media=[...s.matchAll(RE_MEDIA)].map(m=>({kind:m[1]==='img'?'image':m[1]==='link'?'link':m[1]==='subtitle'?'subtitle':m[1]==='rel'?'rel':m[1]==='flow'?'flow':'diagram',file:m[2].trim(),alt:(m[3]||'').trim(),raw:m[2]+(m[3]!==undefined?'|'+m[3]:'')}));
   s=s.replace(RE_MEDIA,'');
   const col=s.match(RE_COLOR);if(col){node.color=col[1];s=s.replace(RE_COLOR,'');}
   const lnk=s.match(RE_LINKS);if(lnk){node.linksColor=lnk[1];s=s.replace(RE_LINKS,'');}
@@ -148,10 +152,15 @@ function lint(root){
 
 /* ---------- Imagens e diagramas ---------- */
 const MIME_OK=new Set(['.png','.jpg','.jpeg','.webp','.gif','.svg']);
-async function uploadFile(id,file){
- const buf=await readFile(file);
- const res=await api(`/api/presentations/${id}/assets?name=${encodeURIComponent(path.basename(file))}`,{method:'POST',body:buf});
+async function uploadFile(id,file){return uploadBuffer(id,path.basename(file),await readFile(file));}
+async function uploadBuffer(id,name,buf){
+ const res=await api(`/api/presentations/${id}/assets?name=${encodeURIComponent(name)}`,{method:'POST',body:buf});
  return res.src;
+}
+// [flow:arquivo.flow] → desenho do Excalidraw no card (cena + miniatura SVG); o texto fica em images[].source
+export function flowImage(text,title,alt){
+ const flow=parseFlow(text);
+ return {flow,svg:flowToSvg(flow),entry:{alt:alt||t('flowAlt',flow.title||title),kind:'drawing',title:flow.title||title,scene:flowToScene(flow),source:text}};
 }
 function findMmdc(){
  if(process.env.MMDC)return process.env.MMDC;
@@ -186,6 +195,13 @@ async function attachOwn(id,node,baseDir,report){ // mídia, links e subtítulo 
    continue;
   }
   const file=path.resolve(baseDir,item.file);
+  if(item.kind==='flow'){
+   if(!existsSync(file)){report.skipped.push(t('skipFlowMissing',node.title,item.file));continue;}
+   const {flow,svg,entry}=flowImage(await readFile(file,'utf8'),node.title,item.alt);
+   for(const w of flow.warnings)report.skipped.push(t('warnFlow',item.file,w));
+   (node.images||=[]).push({src:await uploadBuffer(id,'flow.svg',Buffer.from(svg)),...entry});report.drawings=(report.drawings||0)+1;
+   continue;
+  }
   if(item.kind==='image'){
    if(/^https?:/i.test(item.file))report.skipped.push(t('skipRemote',node.title,item.file));
    else if(!existsSync(file))report.skipped.push(t('skipImgMissing',node.title,item.file));
@@ -232,7 +248,7 @@ async function mergeInto(id,existing,fresh,baseDir,report,opts){
   if(item.kind==='image'){if(have.some(m=>m.kind!=='diagram'&&m.alt===(item.alt||fresh.title)))continue;pending.push(item);continue;}
   const file=path.resolve(baseDir,item.file);
   const source=existsSync(file)?await readFile(file,'utf8'):null;
-  if(source!==null&&have.some(m=>m.kind==='diagram'&&m.source===source))continue;
+  if(source!==null&&have.some(m=>(m.kind==='diagram'||m.kind==='drawing')&&m.source===source))continue;
   pending.push(item);
  }
  const subtitleItem=pending.find(i=>i.kind==='subtitle-set');
@@ -280,7 +296,9 @@ const commands={
  async validate(args){
   const file=args.outline||args._[0];if(!file)die(t('usageValidate'));
   const {root,roots,warnings}=parseOutline(await readFile(file,'utf8'));
-  const l=lintAll(roots);
+  const l=lintAll(roots),base=path.dirname(path.resolve(file));
+  const flows=n=>{for(const m of n._media||[])if(m.kind==='flow'){const p=path.resolve(base,m.file);if(!existsSync(p))warnings.push(t('skipFlowMissing',n.title,m.file));else for(const w of parseFlow(readFileSync(p,'utf8')).warnings)warnings.push(t('warnFlow',m.file,w));}n.children.forEach(flows);};
+  roots.forEach(flows);
   console.log(JSON.stringify({title:root.title,roots:roots.length,nodes:l.count,depth:l.depth,widest:l.widest,warnings:[...warnings,...l.warnings]},null,2));
   process.exit(warnings.length||l.warnings.length?3:0);
  },
@@ -304,7 +322,7 @@ const commands={
   const pairs=[];const collect=n=>{pairs.push([n,n]);n.children.forEach(collect);};roots.forEach(collect);
   resolveRelations(pairs,roots,warnings);
   await api(`/api/presentations/${id}`,{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({title:docTitle,roots:roots.map(clean)})});
-  console.log(JSON.stringify({id,url:`${BASE}/?p=${id}`,file:`presentations/${id}.json`,roots:roots.length,nodes:l.count,depth:l.depth,images:report.images,diagrams:report.diagrams,links:report.links||0,warnings:[...warnings,...l.warnings],skipped:report.skipped},null,2));
+  console.log(JSON.stringify({id,url:`${BASE}/?p=${id}`,file:`presentations/${id}.json`,roots:roots.length,nodes:l.count,depth:l.depth,images:report.images,diagrams:report.diagrams,drawings:report.drawings||0,links:report.links||0,warnings:[...warnings,...l.warnings],skipped:report.skipped},null,2));
  },
  async update(args){
   const file=args.outline||args._[0],id=args.id&&args.id!==true?args.id:null;
@@ -330,7 +348,7 @@ const commands={
   const l=lintAll(roots);
   resolveRelations(report.pairs,merged,warnings);
   if(!opts.dry)await api(`/api/presentations/${id}`,{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({title,roots:merged})});
-  console.log(JSON.stringify({id,url:`${BASE}/?p=${id}`,dryRun:opts.dry,added:report.added,updated:report.updated,kept:report.kept,removed:report.removed,images:report.images,diagrams:report.diagrams,warnings:[...warnings,...l.warnings],skipped:report.skipped},null,2));
+  console.log(JSON.stringify({id,url:`${BASE}/?p=${id}`,dryRun:opts.dry,added:report.added,updated:report.updated,kept:report.kept,removed:report.removed,images:report.images,diagrams:report.diagrams,drawings:report.drawings||0,warnings:[...warnings,...l.warnings],skipped:report.skipped},null,2));
  },
  async upload(args){
   const [id,file]=args._;if(!id||!file)die(t('usageUpload'));

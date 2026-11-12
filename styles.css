@@ -958,3 +958,21 @@ body.oa-open.sides-swapped:not(.api-open) .swap-sides{left:var(--oa-w,50vw)}
  body.sides-swapped.oa-open:not(.api-open) .oa-resizer{left:auto;right:-4px}
  body.sides-swapped.oa-open:not(.api-open) dialog.is-beside{left:var(--oa-w,50vw);right:0}
 }
+/* desenhos (Excalidraw) na janela lateral */
+.dw-viewer .oa-head{gap:.6rem}
+.dw-toggle{margin-left:auto;padding:.3rem .7rem;border-radius:8px;border:1px solid #ffffff2e;background:#202020;color:#eee;font:inherit;font-size:.8rem;cursor:pointer}
+.dw-toggle:hover,.dw-toggle:focus-visible{border-color:#4f9d7a;outline:none}
+.dw-toggle[aria-pressed=true]{background:#2a6b50;border-color:#4f9d7a}
+.dw-hint{margin:0;padding:.35rem .9rem;font-size:.75rem;color:#ffffff99;background:#1a1a1a;border-bottom:1px solid #ffffff12}
+.dw-host{flex:1;min-height:0;position:relative}
+.dw-host>.excalidraw-container,.dw-host .excalidraw{height:100%}
+.image-button.is-drawing img{background:#121212}
+.dw-mount{position:absolute;inset:0}
+.dw-layer{position:absolute;inset:0;z-index:3;width:100%;height:100%;pointer-events:none;overflow:visible}
+.dw-hl-node,.dw-hl-arrow{fill:none;stroke:#ffd43b;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 6px #ffd43bb3)}
+.dw-hl-arrow{stroke-dasharray:10 8;animation:dw-flow .8s linear infinite}
+.dw-new{animation:dw-in .3s ease-out}
+.dw-hl-arrow.dw-new{animation:dw-in .3s ease-out,dw-flow .8s linear infinite}
+@keyframes dw-flow{to{stroke-dashoffset:-18}}
+@keyframes dw-in{from{opacity:0}}
+@media (prefers-reduced-motion:reduce){.dw-hl-arrow,.dw-new{animation:none}.dw-hl-arrow{stroke-dasharray:none}}

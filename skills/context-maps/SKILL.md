@@ -37,8 +37,9 @@ CLI: `node skills/context-maps/scripts/rm.mjs <command>` (from the app root).
    - *Both:* root = the system; an "Architecture" branch and a "Flows" branch, each with its own structure.
 4. **Write the outline** in markdown (format below) in a temporary file. Short texts (≤ 90 characters),
    3–7 children per node, depth ≤ 5.
-5. **Attach media when it exists:** project screenshots/diagrams with `[img:path|alt]`; complex flows as
-   mermaid with `[mermaid:file.mmd]` (rendered to SVG when `mmdc` is available).
+5. **Attach media when it exists:** project screenshots/diagrams with `[img:path|alt]`; request/decision flows
+   as **flowcharts** with `[flow:file.flow]` (editable Excalidraw drawing; clicking an end box lights up the path to it —
+   format in `schema.md`, no extra tools); sequences/topologies as mermaid with `[mermaid:file.mmd]` (rendered to SVG when `mmdc` is available).
 6. **Validate and publish:** `rm.mjs validate --outline f.md`, fix warnings, then `rm.mjs create --outline f.md --id <slug>`.
 7. **Deliver:** report the URL (`…/?p=<id>`), the generated file (`presentations/<id>.json`), the node count and
    what was skipped (media not attached). Remind the user they can adjust it in **Edit** mode and version it in Git.
@@ -63,6 +64,7 @@ CLI: `node skills/context-maps/scripts/rm.mjs <command>` (from the app root).
 - An idea can have **several** media items: repeat the markers (`[img:a.png|A] [mermaid:flow.mmd] [img:b.png|B]`); they stack in the card, in the order written.
 - Image/diagram paths are relative to the outline file. Remote URLs are **not** downloaded.
 - Images: png, jpg, webp, gif, svg.
+- `[flow:file.flow]` attaches a flowchart (boxes, decisions, outcomes and labelled arrows, laid out automatically) as an editable drawing; see **Flowcharts** in `schema.md` for the format. Write one `.flow` file per flow next to the outline.
 
 ## Rules
 - `--dir <folder>` saves the presentation in another folder of the machine (e.g. the project's `docs/maps`); the folder is registered automatically and images are stored relative to the file.

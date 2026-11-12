@@ -129,11 +129,26 @@ try{
   assert.equal(JSON.parse(run(['update','--id','rel','--outline','rel2.md'],{MMDC:shim}).stdout).updated.length,0);
   assert.equal(run(['validate','--outline','rel2.md']).status,0);
  }
+ // SKILL-10: [flow:arquivo.flow] vira um desenho do Excalidraw (cena + miniatura SVG); validate mostra os avisos do fluxo; update não duplica
+ {
+  await writeFile(path.join(src,'pedido.flow'),'# Pedido\nc: Cliente\nd: Ok? [diamond]\ne: 412 [ellipse] {color=#f08c00}\nc -> d: POST\nd -> e: não\n');
+  await writeFile(path.join(src,'ruim.flow'),'a -> b\nisso não é fluxo\n');
+  await writeFile(path.join(src,'flow.md'),'# Fluxos\n- Pedido [flow:pedido.flow]\n');
+  await writeFile(path.join(src,'flow-bad.md'),'# Fluxos\n- Ruim [flow:ruim.flow]\n- Falta [flow:nao-existe.flow]\n');
+  assert.equal(run(['validate','--outline','flow.md']).status,0);
+  const bad=run(['validate','--outline','flow-bad.md']);assert.equal(bad.status,3);assert.match(bad.stdout,/ruim\.flow/);assert.match(bad.stdout,/nao-existe\.flow/);
+  const made=JSON.parse(run(['create','--outline','flow.md','--id','fluxos']).stdout);assert.equal(made.drawings,1);
+  const img=(await (await fetch(`${base}/api/presentations/fluxos`)).json()).roots[0].children[0].images[0];
+  assert.equal(img.kind,'drawing');assert.equal(img.title,'Pedido');assert.match(img.src,/\.svg$/);assert.match(img.source,/c -> d: POST/);
+  assert.equal(img.scene.elements.filter(e=>e.type==='arrow').length,2);
+  assert.match(await (await fetch(`${base}/${img.src}`)).text(),/412/);
+  const again=JSON.parse(run(['update','--id','fluxos','--outline','flow.md']).stdout);assert.equal(again.updated.length,0);
+ }
  // --version imprime a versão do pacote
  {const v=run(['--version']);assert.equal(v.status,0);assert.match(v.stdout,/^context-maps \d+\.\d+\.\d+\s*$/);assert.equal(run(['version']).stdout,v.stdout);}
  // idioma das mensagens (RM_LANG)
  const badEn=run(['validate','--outline','bad.md'],{RM_LANG:'en'});assert.match(badEn.stdout,/characters/);
  const againEn=run(['create','--outline','mapa.md','--id','fluxo-login'],{RM_LANG:'en',MMDC:shim});assert.match(againEn.stderr,/already exists/);
  const downEn=run(['status'],{RM_URL:'http://127.0.0.1:1',RM_LANG:'en'});assert.match(downEn.stderr,/Server unavailable/);
- console.log('PASS SKILL-01..09');
+ console.log('PASS SKILL-01..10');
 }finally{server.kill();await rm(work,{recursive:true,force:true});await rm(configDir,{recursive:true,force:true});}

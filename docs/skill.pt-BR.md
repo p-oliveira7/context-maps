@@ -166,6 +166,7 @@ Quando o sistema muda, edite o outline e rode `update` em vez de `create --repla
 | `{links=#rrggbb}` | Cor das linhas daquela ideia até as filhas |
 | `[img:caminho\|alt]` | Imagem local (png, jpg, webp, gif, svg); `alt` opcional |
 | `[mermaid:arquivo.mmd]` | Diagrama; renderizado com tema escuro e fundo transparente |
+| `[flow:arquivo.flow]` | Fluxograma como desenho editável do Excalidraw (layout automático; clique num quadro final para acender o caminho até ele). Formato: `skills/context-maps/schema.pt-BR.md` → *Fluxogramas* |
 | `[link:https://…\|rótulo]` | Link http/https; rótulo opcional (padrão: domínio) |
 | `[subtitle:texto]` | Texto de apoio exibido só ao passar o mouse no card (sem `]` dentro) |
 | `[rel:Título de outra ideia]` | Ligação cruzada com outra ideia, pelo título exato; títulos desconhecidos ou ambíguos geram avisos |

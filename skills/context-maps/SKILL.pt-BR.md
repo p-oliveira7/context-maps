@@ -37,8 +37,9 @@ CLI: `node skills/context-maps/scripts/rm.mjs <comando>` (a partir da raiz do ap
    - *Ambos:* raiz = o sistema; um ramo "Arquitetura" e um ramo "Fluxos", cada um com sua estrutura.
 4. **Escreva o outline** em markdown (formato abaixo) num arquivo temporário. Textos curtos (≤ 90 caracteres),
    3–7 filhos por nó, profundidade ≤ 5.
-5. **Anexe mídia quando existir:** prints/diagramas do projeto com `[img:caminho|alt]`; fluxos complexos como
-   mermaid com `[mermaid:arquivo.mmd]` (renderizado para SVG se `mmdc` estiver disponível).
+5. **Anexe mídia quando existir:** prints/diagramas do projeto com `[img:caminho|alt]`; fluxos de requisição/decisão
+   como **fluxogramas** com `[flow:arquivo.flow]` (desenho editável do Excalidraw; clicar num quadro final acende o caminho até ele —
+   formato no `schema.pt-BR.md`, sem ferramentas extras); sequências/topologias como mermaid com `[mermaid:arquivo.mmd]` (renderizado para SVG se `mmdc` estiver disponível).
 6. **Valide e publique:** `rm.mjs validate --outline f.md`, corrija avisos, depois `rm.mjs create --outline f.md --id <slug>`.
 7. **Entregue:** informe a URL (`…/?p=<id>`), o arquivo gerado (`presentations/<id>.json`), contagem de nós e
    o que foi pulado (imagens/diagramas não anexados). Lembre que dá para ajustar no modo **Editar** e versionar no Git.
@@ -63,6 +64,7 @@ CLI: `node skills/context-maps/scripts/rm.mjs <comando>` (a partir da raiz do ap
 - Uma ideia pode ter **várias** mídias: repita os marcadores ([img:a.png|A] [mermaid:fluxo.mmd] [img:b.png|B]); elas aparecem empilhadas no card, na ordem escrita.
 - Caminhos de imagem/diagrama são relativos ao arquivo outline. URLs remotas **não** são baixadas.
 - Imagens: png, jpg, webp, gif, svg.
+- `[flow:arquivo.flow]` anexa um fluxograma (quadros, decisões, resultados e setas com rótulo, com layout automático) como desenho editável; veja **Fluxogramas** no `schema.pt-BR.md` para o formato. Escreva um arquivo `.flow` por fluxo ao lado do outline.
 
 ## Regras
 - `--dir <pasta>` salva a apresentação em outra pasta da máquina (ex.: `docs/mapas` do projeto); a pasta é registrada automaticamente e as imagens ficam relativas ao arquivo.

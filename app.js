@@ -1,13 +1,14 @@
 import {tree as seed,visibleNodes,allBranches,zoomAt,parentOf,findNode,newId,PALETTE} from './model.js?v=16';
 import {cancelMotion,snapshot,animateLayout,hoverEdge,updateEdges,onEdges} from './motion.js?v=17';
 import * as store from './store.js?v=18';
-import {t,applyStatic} from './i18n.js?v=1';
+import {t,applyStatic,lang} from './i18n.js?v=1';
 import {VERSION} from './version.js?v=1';
 import {initApiClient,openApiPanel,closeApiPanel,isApiOpen,setAttachTarget,summarize,summarizeTree,API_DRAG_TYPE} from './api-client.js?v=27';
 import {apiDropdown,closeApiDropdown} from './api-dropdown.js?v=1';
 import {isSequenceSource,renderSequence,FONT as SEQ_FONT} from './sequence.js?v=1';
 import {openSequenceEditor} from './sequence-editor.js?v=2';
-import {openApiViewer,mountSwagger,thumbnailSvg,endpointsOf,findEndpoint} from './openapi.js?v=6';
+import {openApiViewer,mountSwagger,thumbnailSvg,endpointsOf,findEndpoint} from './openapi.js?v=7';
+import {openDrawing} from './drawing.js?v=1';
 applyStatic();
 const $=s=>document.querySelector(s), viewport=$('#viewport'), world=$('#world');
 $('#doc-version').textContent=`Context Maps v${VERSION}`;
@@ -67,6 +68,7 @@ function lbZoom(factor,point){
 function openImage(node,index=0){
  const image=imagesOf(node)[index];
  if(image?.kind==='openapi'&&image.source){openApiImage(node,image);return;} // especificação: abre o Swagger UI interativo
+ if(image?.kind==='drawing'){openDrawingFor(node,index);return;} // desenho: abre o Excalidraw na janela lateral
  const d=$('dialog');
  gallery.images=imagesOf(node);gallery.index=index;showGalleryImage();
  // API client ou documentação abertos: a imagem fica ao lado (no lugar do mapa) e eles seguem utilizáveis.
@@ -83,6 +85,7 @@ function imageButton(node,image,index){
  button.setAttribute('aria-label',node===roots[0]&&index===0?t('enlargeIllustration'):t('enlargeImage',nameOf(node),suffix));button.append(imageFor(image));
  if(image.kind==='diagram')button.classList.add('is-diagram');
  if(image.kind==='openapi')button.classList.add('is-diagram','is-openapi');
+ if(image.kind==='drawing')button.classList.add('is-diagram','is-drawing');
  button.onclick=()=>openImage(node,index);return button;
 }
 function imageBadge(node){
@@ -99,6 +102,10 @@ function imageItem(node,image,index){
  if(image.kind==='openapi'){
   const edit=document.createElement('button');edit.type='button';edit.textContent=t('openApiReplaceShort');edit.setAttribute('aria-label',t('openApiReplaceFor',nameOf(node)));
   edit.onclick=()=>openApiDialog(node,index);tools.append(edit);
+ }
+ if(image.kind==='drawing'){
+  const edit=document.createElement('button');edit.type='button';edit.textContent=t('edit');edit.setAttribute('aria-label',t('drawingEditFor',nameOf(node)));
+  edit.onclick=()=>openDrawingFor(node,index,{edit:true});tools.append(edit);
  }
  if(image.kind==='diagram'){
   const edit=document.createElement('button');edit.type='button';edit.textContent=t('edit');edit.setAttribute('aria-label',t('editDiagram',nameOf(node),imagesOf(node).length>1?` (${index+1})`:''));
@@ -574,6 +581,7 @@ function radialItems(node,depth,picker,anchor){
   {icon:'▣',label:t('image'),aria:t('addImage'),run:()=>picker.click()},
   {icon:'◇',label:t('diagram'),aria:t('addDiagram'),run:()=>openDiagramEditor(node,null)},
   {icon:'⧉',label:'OpenAPI',aria:t('openApiAddFor',nameOf(node)),run:()=>openApiDialog(node,null)},
+  {icon:'✐',label:t('drawing'),aria:t('drawingAddFor',nameOf(node)),run:()=>openDrawingFor(node,null,{edit:true})},
   {icon:'{ }',label:t('apiButton'),aria:t('apiAttach'),run:()=>startAttach(node)},
   {icon:'↗',label:t('link'),aria:t('addLink'),run:()=>addLink(node)});
  items.push({icon:'⇄',label:t('relate'),aria:t('relateIdea'),run:()=>startRelate(node)},{icon:'⧉',label:t('duplicate'),aria:t('duplicateIdea'),run:()=>duplicateNode(node)},{icon:'⎘',label:t('copy'),aria:t('copyIdea'),run:()=>copyNode(node)});
@@ -715,6 +723,30 @@ function openApiDialog(node,index=null){
 function compactSpec(text){if(!/^\s*[{[]/.test(text))return text;try{return JSON.stringify(JSON.parse(text));}catch{return text;}}
 function openApiImage(node,image){
  openApiViewer({source:image.source||'',title:image.focus?`${image.title||nameOf(node)} · ${image.focus.method.toUpperCase()} ${image.focus.path}`:image.title||nameOf(node),t,focus:image.focus||null});
+}
+
+/* Desenhos livres (Excalidraw sob demanda): a cena fica no card, a miniatura é um SVG; abre na janela lateral */
+function openDrawingFor(node,index=null,{edit=false}={}){
+ let entry=index===null?null:imagesOf(node)[index]||null;
+ const uploadThumb=async svg=>store.upload(doc.id,new File([svg],'drawing.svg',{type:'image/svg+xml'}));
+ openDrawing({scene:entry?.scene||{elements:[],files:{}},title:entry?.title||nameOf(node)||t('drawing'),t,lang,editable:edit||!entry,
+  onSave:async(scene,thumb)=>{
+   if(!entry){ // desenho novo: entra no card no primeiro traço, já com miniatura
+    entry={kind:'drawing',src:'',alt:t('drawingAlt',nameOf(node)),scene};
+    (node.images||=[]).push(entry);
+    try{entry.src=await uploadThumb(await thumb());}catch{}
+    commit();render();return;
+   }
+   entry.scene=scene;commit(`drawing:${node.id}`);
+  },
+  onClose:async({changed,svg})=>{
+   if(!changed||!entry||!svg)return;
+   try{entry.src=await uploadThumb(svg);commit();render();}catch{setStatus(t('saveError'),'error');}
+  }
+ }).catch(()=>{ // sem o Excalidraw (ex.: HTML exportado): mostra a miniatura
+  if(!entry?.src)return showToast(t('drawingLoadError'));
+  const d=$('dialog');gallery.images=imagesOf(node);gallery.index=index;showGalleryImage();d.classList.remove('is-beside');d.showModal();
+ });
 }
 
 /* Diagramas (Mermaid carregado sob demanda; o SVG renderizado é salvo como imagem do nó) */
