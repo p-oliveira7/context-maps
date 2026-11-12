@@ -66,6 +66,8 @@ try{
  const p412=await at('e412');await page.mouse.click(p412.x,p412.y);
  await page.waitForFunction(()=>document.querySelectorAll('.dw-layer .dw-hl-node').length===4,null,{timeout:5000});
  assert.equal(await panel.locator('.dw-layer .dw-hl-arrow').count(),3);
+ // o destaque não sai da janela do desenho (com zoom, parte do caminho fica fora dela)
+ assert.deepEqual(await panel.evaluate(p=>[getComputedStyle(p.querySelector('.dw-host')).overflow,getComputedStyle(p.querySelector('.dw-layer')).overflow]),['hidden','hidden']);
  const opacity=id=>page.evaluate(i=>document.querySelector('.dw-viewer').drawingApi().getSceneElements().find(x=>x.customData?.flowId===i).opacity,id);
  assert.equal(await opacity('ok'),18);assert.equal(await opacity('client'),100);
  // clicar de novo no mesmo quadro limpa
