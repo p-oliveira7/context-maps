@@ -1,9 +1,10 @@
 // Exportação de apresentações como HTML único (visualizador somente leitura, imagens embutidas).
 import {readFile} from 'node:fs/promises';
 import path from 'node:path';
+import {lightSvgFonts} from './svg-fonts.js';
 
 const MIME={'.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.webp':'image/webp','.gif':'image/gif','.svg':'image/svg+xml'};
-const MODULES=['version.js','i18n.js','model.js','motion.js','store.js','chai-lite.js','assertions.js','pipeline.js','curl.js','runner.js','mocks.js','run-report.js','jwt.js','response-view.js','sandbox.js','var-field.js','api-client.js','api-dropdown.js','sequence.js','sequence-edit.js','sequence-editor.js','openapi.js','drawing.js','app.js']; // ordem de dependência
+const MODULES=['version.js','i18n.js','model.js','motion.js','store.js','chai-lite.js','assertions.js','pipeline.js','curl.js','runner.js','mocks.js','run-report.js','jwt.js','response-view.js','sandbox.js','var-field.js','api-client.js','api-dropdown.js','sequence.js','sequence-edit.js','sequence-editor.js','openapi.js','svg-fonts.js','drawing.js','app.js']; // ordem de dependência
 const escapeHtml=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const inlineJson=value=>JSON.stringify(value).replace(/</g,'\\u003c').replaceAll(String.fromCharCode(0x2028),'\\u2028').replaceAll(String.fromCharCode(0x2029),'\\u2029'); // seguro dentro de <script>
 
@@ -19,7 +20,8 @@ export async function buildHtml({doc,appRoot,readAsset}){
   for(const m of node.images||[]){
    if(typeof m.src!=='string'||m.src.startsWith('data:'))continue;
    if(!cache.has(m.src)){
-    const bytes=await readAsset(m.src).catch(()=>null),type=MIME[path.extname(m.src.split('?')[0]).toLowerCase()];
+    let bytes=await readAsset(m.src).catch(()=>null);const type=MIME[path.extname(m.src.split('?')[0]).toLowerCase()];
+    if(bytes&&type==='image/svg+xml')bytes=Buffer.from(lightSvgFonts(bytes.toString('utf8'))); // miniaturas de desenho com fontes leves
     cache.set(m.src,bytes&&type?`data:${type};base64,${bytes.toString('base64')}`:null);
    }
    const data=cache.get(m.src);if(data)m.src=data;

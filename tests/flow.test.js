@@ -82,3 +82,15 @@ test('fins clicáveis e cor do destaque: {end}, {highlight=}, cabeçalho e regra
  assert.deepEqual(highlightSettings(null),{enabled:true,speed:'normal',color:HIGHLIGHT});
  assert.deepEqual(highlightSettings({enabled:false,speed:'warp',color:'red'}),{enabled:false,speed:'normal',color:HIGHLIGHT});
 });
+
+test('lightSvgFonts: miniatura do Excalidraw sem @font-face e sem a fonte de emoji', async ()=>{
+ const {lightSvgFonts}=await import('../svg-fonts.js');
+ const raw='<svg xmlns="http://www.w3.org/2000/svg"><defs><style class="style-fonts">@font-face{font-family:"Virgil";src:url("x/Virgil.woff2")}</style></defs><text font-family="Virgil, Segoe UI Emoji">a</text><text font-family="Cascadia, Segoe UI Emoji">b</text><text font-family="Helvetica, Segoe UI Emoji">c</text></svg>';
+ const out=lightSvgFonts(raw);
+ assert.doesNotMatch(out,/@font-face|style-fonts|Segoe UI Emoji/);
+ assert.match(out,/font-family="Virgil, 'Segoe Print', 'Comic Sans MS', sans-serif"/);
+ assert.match(out,/font-family="Cascadia, Consolas, 'Courier New', monospace"/);
+ assert.match(out,/font-family="Helvetica, Arial, sans-serif"/);
+ const other='<svg><text font-family="Arial">x</text></svg>';assert.equal(lightSvgFonts(other),other); // outros SVGs ficam iguais
+ assert.equal(lightSvgFonts(out),out);
+});
