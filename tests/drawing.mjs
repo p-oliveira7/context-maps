@@ -56,6 +56,13 @@ try{
  await panel.locator('.oa-close').click();await panel.waitFor({state:'detached'});
  await page.locator('[data-id="c1"] .image-button.is-drawing').waitFor();
  assert.match(await (await fetch(`${base}/${(await card('c1')).images[0].src}`)).text(),/<svg/);
+ // a miniatura salva já vem com fontes leves (sem @font-face nem a fonte de emoji, que travavam o zoom do mapa)
+ const onDisk=await readFile(path.join(work,(await card('c1')).images[0].src.replace(/^presentations\//,'presentations/')),'utf8');
+ assert.doesNotMatch(onDisk,/style-fonts|Segoe UI Emoji/);
+ // miniatura antiga (salva antes da correção): o servidor a entrega leve, sem mexer no arquivo
+ const old='<svg xmlns="http://www.w3.org/2000/svg"><style class="style-fonts">@font-face{font-family:"Virgil";src:url("a.woff2")}</style><text font-family="Virgil, Segoe UI Emoji">x</text></svg>';
+ const oldSrc=(await (await fetch(`${base}/api/presentations/${made.id}/assets?name=drawing.svg`,{method:'POST',headers:{'x-context-maps':'1'},body:old})).json()).src;
+ assert.doesNotMatch(await (await fetch(`${base}/${oldSrc}`)).text(),/style-fonts|Segoe UI Emoji/);
 
  // DRAW-03: fora do modo de edição, o desenho abre só para ver; clicar no 412 acende o caminho até ele
  await page.locator('#edit-switch').click();

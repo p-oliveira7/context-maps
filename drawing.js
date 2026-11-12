@@ -1,5 +1,6 @@
 // Desenhos livres nos cards (Excalidraw carregado sob demanda) e destaque do caminho até um quadro clicado.
 import {sidePanel} from './openapi.js?v=8';
+import {lightSvgFonts} from './svg-fonts.js?v=1';
 
 const BASE='vendor/excalidraw/';
 let libReady=null;
@@ -130,7 +131,7 @@ export async function openDrawing({scene,title,t,lang,editable=false,highlight,o
  const snapshot=()=>({elements:JSON.parse(JSON.stringify(elementsNow())),files:usedFiles()});
  const usedFiles=()=>{const all=api?.getFiles()||{},ids=new Set(elementsNow().filter(e=>e.type==='image').map(e=>e.fileId));return Object.fromEntries(Object.entries(all).filter(([k])=>ids.has(k)));};
  // miniatura do card: SVG no tema escuro, como o desenho aparece na janela
- const thumb=async()=>{const el=await lib.exportToSvg({elements:elementsNow(),files:usedFiles(),appState:{exportBackground:true,exportWithDarkMode:true,viewBackgroundColor:'#ffffff'},exportPadding:16});return new XMLSerializer().serializeToString(el);};
+ const thumb=async()=>{const el=await lib.exportToSvg({elements:elementsNow(),files:usedFiles(),appState:{exportBackground:true,exportWithDarkMode:true,viewBackgroundColor:'#ffffff'},exportPadding:16});return lightSvgFonts(new XMLSerializer().serializeToString(el));};
  const save=()=>{clearTimeout(timer);timer=0;onSave?.(snapshot(),thumb);};
  const flush=()=>{if(timer)save();};
  // a camada é montada em coordenadas da cena só quando o passo muda; mover o mouse, rolar ou dar zoom só reposiciona o grupo

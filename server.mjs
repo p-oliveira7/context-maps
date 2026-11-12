@@ -9,6 +9,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {tree as seed} from './model.js';
 import {buildHtml} from './export.mjs';
+import {lightSvgFonts} from './svg-fonts.js';
 import {writeZip,readZip} from './zip.mjs';
 import {createCollections} from './collections.mjs';
 import {sendRequest} from './send.mjs';
@@ -354,7 +355,10 @@ async function serveStatic(res,pathname){
  if(!resolved)return fail(res,404,'Não encontrado');
  try{
   const info=await stat(resolved);if(!info.isFile())throw new Error('not file');
-  send(res,200,await readFile(resolved),MIME[path.extname(resolved).toLowerCase()]||'application/octet-stream');
+  const ext=path.extname(resolved).toLowerCase();let body=await readFile(resolved);
+  // miniaturas de desenho salvas antes da correção das fontes: saem leves, sem mexer no arquivo
+  if(ext==='.svg'&&rel.startsWith('/presentations/'))body=Buffer.from(lightSvgFonts(body.toString('utf8')));
+  send(res,200,body,MIME[ext]||'application/octet-stream');
  }catch{fail(res,404,'Não encontrado');}
 }
 // Exportação: HTML único (imagens embutidas) ou pacote ZIP (o JSON + a pasta de imagens, no formato portátil de pastas extras), como download.
