@@ -1499,7 +1499,8 @@ document.addEventListener('pointerdown',e=>{if(!e.target.closest('#doc-bar'))clo
 window.addEventListener('beforeunload',()=>{if(doc.id&&saveTimer)flush();});
 $('#close-dialog').onclick=e=>{e.stopPropagation();$('dialog').close();};
 $('dialog').addEventListener('click',()=>{if(lb.moved){lb.moved=false;return;}if(lb.z>1)return;$('dialog').close();});
-$('dialog').addEventListener('close',()=>{lbReset();$('dialog').classList.remove('is-beside');});
+// o evento 'close' chega depois (tarefa na fila): se a imagem já foi reaberta nesse meio-tempo, não mexe nela
+$('dialog').addEventListener('close',()=>{const d=$('dialog');if(d.open)return;lbReset();d.classList.remove('is-beside');});
 { // controles de zoom da imagem aberta
  const d=$('dialog'),mk=(label,aria,fn)=>{const b=document.createElement('button');b.type='button';b.textContent=label;b.setAttribute('aria-label',aria);b.title=aria;b.onclick=e=>{e.stopPropagation();fn();};return b;};
  lbLabel=document.createElement('span');lbLabel.className='lightbox-zoom-label';lbLabel.textContent='100%';
