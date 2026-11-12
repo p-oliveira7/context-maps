@@ -133,11 +133,19 @@ export async function openDrawing({scene,title,t,lang,editable=false,highlight,o
  const thumb=async()=>{const el=await lib.exportToSvg({elements:elementsNow(),files:usedFiles(),appState:{exportBackground:true,exportWithDarkMode:true,viewBackgroundColor:'#ffffff'},exportPadding:16});return new XMLSerializer().serializeToString(el);};
  const save=()=>{clearTimeout(timer);timer=0;onSave?.(snapshot(),thumb);};
  const flush=()=>{if(timer)save();};
+ // a camada é montada em coordenadas da cena só quando o passo muda; mover o mouse, rolar ou dar zoom só reposiciona o grupo
+ // (remontar a cada evento reiniciava as animações e recalculava o brilho: piscava e travava)
+ let camKey='';
+ const placeLayer=()=>{
+  const cam=layer.firstElementChild;if(!cam||!api)return;
+  const st=api.getAppState(),r=host.getBoundingClientRect(),z=st.zoom.value;
+  const key=`translate(${st.offsetLeft-r.left} ${st.offsetTop-r.top}) scale(${z}) translate(${st.scrollX} ${st.scrollY})`;
+  if(key!==camKey){camKey=key;cam.setAttribute('transform',key);}
+ };
  const drawLayer=()=>{
-  if(!lit||!api){layer.innerHTML='';return;}
+  if(!lit||!api){layer.innerHTML='';camKey='';return;}
   layer.style.setProperty('--hl',lit.color);
-  const st=api.getAppState(),r=host.getBoundingClientRect();
-  layer.innerHTML=`<g transform="translate(${st.offsetLeft-r.left} ${st.offsetTop-r.top})">${overlaySvg(base,lit.path,lit.step,{zoom:st.zoom.value,scrollX:st.scrollX,scrollY:st.scrollY})}</g>`;
+  layer.innerHTML=`<g class="dw-cam">${overlaySvg(base,lit.path,lit.step,{zoom:1,scrollX:0,scrollY:0})}</g>`;camKey='';placeLayer();
  };
  const clearHighlight=()=>{clearTimeout(anim);if(base&&api){api.updateScene({elements:base});}base=null;selected=null;lit=null;drawLayer();host.classList.remove('is-lit');};
  const panel=sidePanel({title,t,className:'dw-viewer',labels:{close:t('drawingClose'),resize:t('drawingResize'),resizeHint:t('openApiResizeHint')},escSkip:'.dw-host',
@@ -161,7 +169,7 @@ export async function openDrawing({scene,title,t,lang,editable=false,highlight,o
   excalidrawAPI:a=>{if(api===a)return;api=a;setTimeout(()=>{if(a.getSceneElements().length)a.scrollToContent(undefined,{fitToViewport:true,viewportZoomFactor:.9});},60);}, // abre com o desenho inteiro à vista
   UIOptions:{canvasActions:{loadScene:false,saveToActiveFile:false,export:false,toggleTheme:false,changeViewBackgroundColor:false}},
   onChange:(els,st)=>{
-   if(lit)drawLayer(); // moveu ou deu zoom: a camada acompanha
+   if(lit)placeLayer(); // moveu ou deu zoom: a camada acompanha (só se a câmera mudou)
    if(!editing||!api)return;
    syncBar(st);
    const v=lib.getSceneVersion(els);if(lastVersion<0){lastVersion=v;return;}
@@ -190,7 +198,7 @@ export async function openDrawing({scene,title,t,lang,editable=false,highlight,o
  root=ReactDOM.createRoot(mount);paint();setTimeout(paintHint,200); // a dica depende dos fins marcados (cena carregada)
  panel.el.drawingApi=()=>api; // para os testes (e2e) lerem a cena e a câmera
  // a janela muda de lugar sem mudar de tamanho (⇄, a outra janela fechou): o Excalidraw precisa reler a posição
- const moved=new MutationObserver(()=>{if(!panel.el.isConnected)return moved.disconnect();requestAnimationFrame(()=>{api?.refresh();if(lit)drawLayer();});});
+ const moved=new MutationObserver(()=>{if(!panel.el.isConnected)return moved.disconnect();requestAnimationFrame(()=>{api?.refresh();if(lit)placeLayer();});});
  moved.observe(document.body,{attributes:true,attributeFilter:['class']});moved.observe(panel.el,{attributes:true,attributeFilter:['class']});
  return {...panel,api:()=>api,path:id=>pathTo(elementsNow(),id)};
 }
