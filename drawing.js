@@ -140,7 +140,7 @@ export async function openDrawing({scene,title,t,lang,editable=false,onSave,onCl
   clearHighlight();base=source;selected=hit.id;
   const path=pathTo(base,hit.id),last=Math.max(0,...path.order.values());
   api.updateScene({elements:dimmed(base,path)});host.classList.add('is-lit');
-  lit={path,step:0};const tick=()=>{if(selected!==hit.id)return;drawLayer();if(lit.step<last){lit.step+=.5;anim=setTimeout(tick,150);}};
+  lit={path,step:0};const tick=()=>{if(selected!==hit.id)return;drawLayer();if(lit.step<last){lit.step+=.5;anim=setTimeout(tick,60);}};
   tick();
  },true);
  root=ReactDOM.createRoot(mount);paint();

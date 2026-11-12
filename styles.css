@@ -971,8 +971,8 @@ body.oa-open.sides-swapped:not(.api-open) .swap-sides{left:var(--oa-w,50vw)}
 .dw-layer{position:absolute;inset:0;z-index:3;width:100%;height:100%;pointer-events:none;overflow:visible}
 .dw-hl-node,.dw-hl-arrow{fill:none;stroke:#ffd43b;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 6px #ffd43bb3)}
 .dw-hl-arrow{stroke-dasharray:10 8;animation:dw-flow .8s linear infinite}
-.dw-new{animation:dw-in .3s ease-out}
-.dw-hl-arrow.dw-new{animation:dw-in .3s ease-out,dw-flow .8s linear infinite}
+.dw-new{animation:dw-in .15s ease-out}
+.dw-hl-arrow.dw-new{animation:dw-in .15s ease-out,dw-flow .8s linear infinite}
 @keyframes dw-flow{to{stroke-dashoffset:-18}}
 @keyframes dw-in{from{opacity:0}}
 @media (prefers-reduced-motion:reduce){.dw-hl-arrow,.dw-new{animation:none}.dw-hl-arrow{stroke-dasharray:none}}
