@@ -39,6 +39,7 @@
 - `links`: optional list of `{url, label?}` (http/https only), shown as an "N link(s)" badge below the card.
 - `kind: "diagram"` and `source` (mermaid) are optional; diagrams are shown uncropped on the card.
 - `kind: "drawing"`: an Excalidraw drawing (`scene: {elements, files}`; `src` is its SVG thumbnail; `source` keeps the `.flow` text when it came from the skill). Opens beside the card, editable, with path highlighting. Create it with `[flow:file.flow]` (below), not by hand.
+- `kind: "session"`: a Claude Code session (`src` is an SVG thumbnail that carries the compact transcript inside; `anchor` is the item the card opens on). Create it with `[session:file.jsonl|text]` (below) or in the app.
 - Prefer creating through the outline (`rm.mjs create`); the server validates the structure (unique ids, depth ≤ 40).
 
 ## How to structure
@@ -80,6 +81,13 @@ auth -> ok: yes
 - One flow per file; keep it to ~3–15 boxes. Decisions as `[diamond]` with `yes`/`no` labels on the arrows; outcomes (status codes, errors) as `[ellipse]` ends, coloured (green success, red/orange errors) and marked `{end}`.
 - Loops ("try again") are fine: the arrow goes back and the layout ignores it.
 - `validate` reports flow warnings (unknown lines, shapes); `create`/`update` store it as `images[]` with `kind: "drawing"`, the Excalidraw `scene` and the text in `source` (`update` only adds it when the text changed).
+
+## Claude sessions (`.jsonl`)
+`[session:file.jsonl|text of the opening point]` puts a **Claude Code session** on the card — useful to present how a skill is used. The card shows a static thumbnail of the conversation at the opening point; clicking it opens the whole session beside the card, already scrolled there, and the user can move up and down through everything: messages, tool calls (collapsed; click to see input and result), skill calls (highlighted), task lists and the **questions Claude asked the user** (AskUserQuestion) with the options and the chosen answers.
+- Sessions live in `~/.claude/projects/<project>/<session-id>.jsonl` (one folder per working directory). Copy the file next to the outline or reference it by path.
+- The text after `|` is optional: the card opens on the first user message containing it (any item if no user message matches); without it, on the first message. An unknown text is reported in `skipped` and the card opens on the first message.
+- The transcript is stored compact inside the thumbnail SVG (`images[]` with `kind: "session"`, `anchor` = index of the opening item, `source` = `file|text`): long tool inputs/results are cut (start and end kept), app-internal records are dropped, and anything that looks like a secret (tokens, keys, passwords) is replaced by `•••`. Still, **read the session before publishing it** — it may contain paths, code and data the audience should not see; when in doubt, ask the user which part to show and use the app (**Session** in the card menu), which lets them keep only an excerpt.
+- Several cards can point at different moments of the same session: repeat the marker with another text.
 
 ## Mermaid
 Requires `mmdc` (`npm i -g @mermaid-js/mermaid-cli`) on PATH or `MMDC=path`; use `MMDC_BROWSER=path/to/chrome` to reuse an installed Chrome (install with `PUPPETEER_SKIP_DOWNLOAD=1`). The diagram is rendered to SVG

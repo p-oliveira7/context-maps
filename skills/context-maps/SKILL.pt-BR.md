@@ -65,6 +65,7 @@ CLI: `node skills/context-maps/scripts/rm.mjs <comando>` (a partir da raiz do ap
 - Caminhos de imagem/diagrama são relativos ao arquivo outline. URLs remotas **não** são baixadas.
 - Imagens: png, jpg, webp, gif, svg.
 - `[flow:arquivo.flow]` anexa um fluxograma (quadros, decisões, resultados e setas com rótulo, com layout automático) como desenho editável; veja **Fluxogramas** no `schema.pt-BR.md` para o formato. Escreva um arquivo `.flow` por fluxo ao lado do outline.
+- `[session:arquivo.jsonl|texto do ponto de abertura]` anexa uma **sessão do Claude Code** (para apresentar o uso de uma skill): miniatura da conversa naquele ponto; ao clicar, a sessão inteira abre ao lado do card, com as chamadas de ferramenta, de skill e as perguntas feitas ao usuário. Veja **Sessões do Claude** no `schema.pt-BR.md` (onde ficam os arquivos, privacidade).
 
 ## Regras
 - `--dir <pasta>` salva a apresentação em outra pasta da máquina (ex.: `docs/mapas` do projeto); a pasta é registrada automaticamente e as imagens ficam relativas ao arquivo.

@@ -167,6 +167,7 @@ When the system changes, edit the outline and run `update` instead of `create --
 | `[img:path\|alt]` | Local image (png, jpg, webp, gif, svg); `alt` optional |
 | `[mermaid:file.mmd]` | Diagram; rendered with a dark theme and transparent background |
 | `[flow:file.flow]` | Flowchart as an editable Excalidraw drawing (auto layout; click an end box to light up the path to it). Format: `skills/context-maps/schema.md` → *Flowcharts* |
+| `[session:file.jsonl\|text]` | Claude Code session on the card: thumbnail at the opening point, whole conversation beside the card on click (tools, skills, questions asked). Format: `schema.md` → *Claude sessions* |
 | `[link:https://…\|label]` | http/https link; label optional (default: the domain) |
 | `[subtitle:text]` | Supporting text shown only while hovering the card (no `]` inside) |
 | `[rel:Other idea title]` | Cross-link to another idea, matched by exact title; unknown or ambiguous titles produce warnings |

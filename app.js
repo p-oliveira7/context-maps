@@ -8,6 +8,8 @@ import {apiDropdown,closeApiDropdown} from './api-dropdown.js?v=1';
 import {isSequenceSource,renderSequence,FONT as SEQ_FONT} from './sequence.js?v=1';
 import {openSequenceEditor} from './sequence-editor.js?v=2';
 import {openApiViewer,mountSwagger,thumbnailSvg,endpointsOf,findEndpoint,closeSecondaryPanel} from './openapi.js?v=8';
+import {openSessionViewer,openSessionDialog,loadSessionCard} from './session.js?v=1';
+import {sessionCardSvg} from './session-core.js?v=1';
 import {openDrawing} from './drawing.js?v=6';
 applyStatic();
 const $=s=>document.querySelector(s), viewport=$('#viewport'), world=$('#world');
@@ -69,6 +71,7 @@ function openImage(node,index=0){
  const image=imagesOf(node)[index];
  if(image?.kind==='openapi'&&image.source){openApiImage(node,image);return;} // especificação: abre o Swagger UI interativo
  if(image?.kind==='drawing'){openDrawingFor(node,index);return;} // desenho: abre o Excalidraw na janela lateral
+ if(image?.kind==='session'){openSessionImage(node,image);return;} // sessão do Claude: abre a conversa na janela lateral, no ponto marcado
  const d=$('dialog');
  gallery.images=imagesOf(node);gallery.index=index;showGalleryImage();
  // API client ou documentação abertos: a imagem fica ao lado (no lugar do mapa) e eles seguem utilizáveis.
@@ -87,6 +90,7 @@ function imageButton(node,image,index){
  if(image.kind==='diagram')button.classList.add('is-diagram');
  if(image.kind==='openapi')button.classList.add('is-diagram','is-openapi');
  if(image.kind==='drawing')button.classList.add('is-diagram','is-drawing');
+ if(image.kind==='session')button.classList.add('is-diagram','is-session');
  button.onclick=()=>openImage(node,index);return button;
 }
 function imageBadge(node){
@@ -103,6 +107,10 @@ function imageItem(node,image,index){
  if(image.kind==='openapi'){
   const edit=document.createElement('button');edit.type='button';edit.textContent=t('openApiReplaceShort');edit.setAttribute('aria-label',t('openApiReplaceFor',nameOf(node)));
   edit.onclick=()=>openApiDialog(node,index);tools.append(edit);
+ }
+ if(image.kind==='session'){
+  const edit=document.createElement('button');edit.type='button';edit.textContent=t('sessionReplaceShort');edit.setAttribute('aria-label',t('sessionReplaceFor',nameOf(node)));
+  edit.onclick=()=>openSessionDialogFor(node,index);tools.append(edit);
  }
  if(image.kind==='drawing'){
   const edit=document.createElement('button');edit.type='button';edit.textContent=t('edit');edit.setAttribute('aria-label',t('drawingEditFor',nameOf(node)));
@@ -583,6 +591,7 @@ function radialItems(node,depth,picker,anchor){
   {icon:'◇',label:t('diagram'),aria:t('addDiagram'),run:()=>openDiagramEditor(node,null)},
   {icon:'⧉',label:'OpenAPI',aria:t('openApiAddFor',nameOf(node)),run:()=>openApiDialog(node,null)},
   {icon:'✐',label:t('drawing'),aria:t('drawingAddFor',nameOf(node)),run:()=>openDrawingFor(node,null,{edit:true})},
+  {icon:'❯',label:t('session'),aria:t('sessionAddFor',nameOf(node)),run:()=>openSessionDialogFor(node,null)},
   {icon:'{ }',label:t('apiButton'),aria:t('apiAttach'),run:()=>startAttach(node)},
   {icon:'↗',label:t('link'),aria:t('addLink'),run:()=>addLink(node)});
  items.push({icon:'⇄',label:t('relate'),aria:t('relateIdea'),run:()=>startRelate(node)},{icon:'⧉',label:t('duplicate'),aria:t('duplicateIdea'),run:()=>duplicateNode(node)},{icon:'⎘',label:t('copy'),aria:t('copyIdea'),run:()=>copyNode(node)});
@@ -724,6 +733,30 @@ function openApiDialog(node,index=null){
 function compactSpec(text){if(!/^\s*[{[]/.test(text))return text;try{return JSON.stringify(JSON.parse(text));}catch{return text;}}
 function openApiImage(node,image){
  openApiViewer({source:image.source||'',title:image.focus?`${image.title||nameOf(node)} · ${image.focus.method.toUpperCase()} ${image.focus.path}`:image.title||nameOf(node),t,focus:image.focus||null});
+}
+
+/* Sessões do Claude Code: a transcrição (compacta) vai dentro do SVG da miniatura — um arquivo só, como qualquer imagem */
+async function openSessionDialogFor(node,index=null){
+ const existing=index===null?null:imagesOf(node)[index];
+ let current=null;
+ if(existing){
+  const card=await loadSessionCard(existing.src);if(!card)return showToast(t('sessionOpenError'));
+  current={session:card.session,anchor:existing.anchor??card.anchor,title:existing.title};
+ }
+ openSessionDialog({t,lang,current,onPick:async({session,anchor,title})=>{
+  try{
+   const svg=sessionCardSvg(session,anchor,{title,you:t('sessionYou')});
+   const src=await store.upload(doc.id,new File([svg],'session.svg',{type:'image/svg+xml'}));
+   const entry={src,alt:t('sessionAlt',title,nameOf(node)),kind:'session',title,anchor};
+   if(existing)node.images[index]=entry;else(node.images||=[]).push(entry);
+   commit();render();showToast(t(existing?'sessionUpdated':'sessionAdded',title),true);
+  }catch{showToast(t('sessionSaveError'));}
+ }});
+}
+async function openSessionImage(node,image){
+ const card=await loadSessionCard(image.src);
+ if(!card)return showToast(t('sessionOpenError'));
+ openSessionViewer({session:card.session,anchor:image.anchor??card.anchor,title:image.title||nameOf(node),t});
 }
 
 /* Desenhos livres (Excalidraw sob demanda): a cena fica no card, a miniatura é um SVG; abre na janela lateral */

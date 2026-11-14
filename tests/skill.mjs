@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {spawn,spawnSync} from 'node:child_process';
-import {mkdtemp,mkdir,writeFile,readFile,rm,chmod} from 'node:fs/promises';
+import {mkdtemp,mkdir,writeFile,readFile,rm,chmod,copyFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -144,11 +144,27 @@ try{
   assert.match(await (await fetch(`${base}/${img.src}`)).text(),/412/);
   const again=JSON.parse(run(['update','--id','fluxos','--outline','flow.md']).stdout);assert.equal(again.updated.length,0);
  }
+ // SKILL-11: [session:arquivo.jsonl|texto] vira um card de sessão do Claude (transcrição dentro do SVG, segredos ocultos, ponto de abertura pelo texto)
+ {
+  const {sessionFromSvg}=await import('../session-core.js');
+  await copyFile(path.join(root,'tests','fixtures','session-sample.jsonl'),path.join(src,'sessao.jsonl'));
+  await writeFile(path.join(src,'sess.md'),'# Sessões\n- Do início [session:sessao.jsonl]\n- A pergunta [session:sessao.jsonl|Qual fluxo você quer mapear]\n- Ponto errado [session:sessao.jsonl|isso não está na conversa]\n- Falta [session:nao-existe.jsonl]\n');
+  const val=run(['validate','--outline','sess.md']);assert.equal(val.status,3);assert.match(val.stdout,/nao-existe\.jsonl/);
+  const made=JSON.parse(run(['create','--outline','sess.md','--id','sessoes']).stdout);
+  assert.equal(made.sessions,3);assert.ok(made.skipped.some(x=>/nao-existe\.jsonl/.test(x)));assert.ok(made.skipped.some(x=>/isso não está na conversa/.test(x)));
+  const kids=(await (await fetch(`${base}/api/presentations/sessoes`)).json()).roots[0].children;
+  assert.deepEqual(kids.map(k=>k.images?.[0]?.anchor),[0,4,0,undefined]);
+  const img=kids[1].images[0];assert.deepEqual([img.kind,img.title],['session','Mapa do fluxo de pedidos']);
+  const svg=await (await fetch(`${base}/${img.src}`)).text(),card=sessionFromSvg(svg);
+  assert.equal(card.session.items.length,14);assert.equal(card.anchor,4);assert.doesNotMatch(svg,/eyJhbGci/);assert.match(svg,/✓ Criar pedido/);
+  await writeFile(path.join(src,'sess2.md'),'# Sessões\n- Do início [session:sessao.jsonl]\n- A pergunta [session:sessao.jsonl|Qual fluxo você quer mapear]\n');
+  assert.equal(JSON.parse(run(['update','--id','sessoes','--outline','sess2.md']).stdout).updated.length,0); // mesma sessão e ponto: não duplica
+ }
  // --version imprime a versão do pacote
  {const v=run(['--version']);assert.equal(v.status,0);assert.match(v.stdout,/^context-maps \d+\.\d+\.\d+\s*$/);assert.equal(run(['version']).stdout,v.stdout);}
  // idioma das mensagens (RM_LANG)
  const badEn=run(['validate','--outline','bad.md'],{RM_LANG:'en'});assert.match(badEn.stdout,/characters/);
  const againEn=run(['create','--outline','mapa.md','--id','fluxo-login'],{RM_LANG:'en',MMDC:shim});assert.match(againEn.stderr,/already exists/);
  const downEn=run(['status'],{RM_URL:'http://127.0.0.1:1',RM_LANG:'en'});assert.match(downEn.stderr,/Server unavailable/);
- console.log('PASS SKILL-01..10');
+ console.log('PASS SKILL-01..11');
 }finally{server.kill();await rm(work,{recursive:true,force:true});await rm(configDir,{recursive:true,force:true});}

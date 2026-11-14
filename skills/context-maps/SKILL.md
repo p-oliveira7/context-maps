@@ -65,6 +65,7 @@ CLI: `node skills/context-maps/scripts/rm.mjs <command>` (from the app root).
 - Image/diagram paths are relative to the outline file. Remote URLs are **not** downloaded.
 - Images: png, jpg, webp, gif, svg.
 - `[flow:file.flow]` attaches a flowchart (boxes, decisions, outcomes and labelled arrows, laid out automatically) as an editable drawing; see **Flowcharts** in `schema.md` for the format. Write one `.flow` file per flow next to the outline.
+- `[session:file.jsonl|text of the opening point]` attaches a **Claude Code session** (to present how a skill is used): a thumbnail of the conversation at that point; clicking opens the whole session beside the card, with tool calls, skill calls and the questions asked to the user. See **Claude sessions** in `schema.md` (where the files are, privacy).
 
 ## Rules
 - `--dir <folder>` saves the presentation in another folder of the machine (e.g. the project's `docs/maps`); the folder is registered automatically and images are stored relative to the file.

@@ -10,6 +10,7 @@ const STACKS={
 };
 /** SVG do Excalidraw → sem @font-face e com pilhas de fonte leves; qualquer outro SVG volta igual */
 export function lightSvgFonts(svg){
+ if(svg.includes('<metadata id="cm-session">'))return svg; // card de sessão: o texto da conversa vai dentro e não é mexido
  if(!/class="style-fonts"|Segoe UI Emoji/.test(svg))return svg;
  return svg.replace(/<style class="style-fonts">[\s\S]*?<\/style>/g,'')
   .replace(/font-family="([^"]*)"/g,(m,list)=>{const first=list.split(',')[0].trim().replace(/['"]/g,'');return `font-family="${STACKS[first]||`${first}, sans-serif`}"`;});
