@@ -92,6 +92,7 @@ try{
  // fica ao lado do mapa como as outras janelas laterais; Esc fecha
  assert.ok((await viewer.boundingBox()).x>=740);
  // o mapa ocupa o lado livre e o card que abriu a sessão continua à vista
+ await page.waitForFunction(()=>{const r=document.querySelector('[data-id="c1"]').getBoundingClientRect();return r.left>=0&&r.right<=document.querySelector('#viewport').clientWidth+1;}); // espera o mapa terminar de deslizar
  const mapBox=await page.locator('#viewport').boundingBox(),cardBox=await page.locator('[data-id="c1"]').boundingBox();
  assert.ok(Math.abs(mapBox.x+mapBox.width-(await viewer.boundingBox()).x)<=1&&cardBox.x>=0&&cardBox.x+cardBox.width<=mapBox.width+1,JSON.stringify({mapBox,cardBox}));
  await viewer.locator('.oa-close').focus();await page.keyboard.press('Escape');await viewer.waitFor({state:'detached'});
