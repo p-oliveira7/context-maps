@@ -35,7 +35,7 @@ const EN={
  'Rota inexistente':'Route not found','Identificador inválido ou já existente':'Invalid or already existing identifier',
  'Identificador inválido':'Invalid identifier','Apresentação inexistente':'Presentation not found',
  'Formato de imagem não suportado':'Unsupported image format','Informe um nome para a cópia':'Enter a name for the copy',
- 'Estrutura inválida':'Invalid structure','Formato de exportação inválido':'Invalid export format','Arquivo de importação inválido':'Invalid import file','Informe um nome':'Enter a name','Método inválido':'Invalid method','URL inválida':'Invalid URL','Só http e https são aceitos':'Only http and https are accepted','Caminho inválido':'Invalid path','Pasta inexistente':'Folder not found','Tipo inválido':'Invalid type','Request inexistente':'Request not found','Item inexistente':'Item not found','Coleção inexistente':'Collection not found','Ambiente inexistente':'Environment not found','Pacote sem bruno.json':'Package has no bruno.json','Pasta sem arquivos .bru':'Folder has no .bru files','Pacote sem apresentação (.json)':'Package has no presentation (.json)','Não encontrado':'Not found','Erro interno':'Internal error'
+ 'Estrutura inválida':'Invalid structure','Formato de exportação inválido':'Invalid export format','Arquivo de importação inválido':'Invalid import file','Informe um nome':'Enter a name','Método inválido':'Invalid method','URL inválida':'Invalid URL','Só http e https são aceitos':'Only http and https are accepted','Caminho inválido':'Invalid path','Pasta inexistente':'Folder not found','Tipo inválido':'Invalid type','Request inexistente':'Request not found','Item inexistente':'Item not found','A pasta não pode ir para dentro dela mesma':'A folder cannot go inside itself','Coleção inexistente':'Collection not found','Ambiente inexistente':'Environment not found','Pacote sem bruno.json':'Package has no bruno.json','Pasta sem arquivos .bru':'Folder has no .bru files','Pacote sem apresentação (.json)':'Package has no presentation (.json)','Não encontrado':'Not found','Erro interno':'Internal error'
 };
 const wantsEnglish=req=>{const l=String(req?.headers?.['x-lang']||req?.headers?.['accept-language']||'').toLowerCase();return !(l.startsWith('pt'));};
 const fail=(res,status,message)=>send(res,status,{error:res.req&&wantsEnglish(res.req)&&EN[message]?EN[message]:message});
@@ -157,6 +157,10 @@ async function collectionsApi(req,res,url,parts){
   if(method==='GET')return send(res,200,await collections.readRequest(id,q('path')));
   if(method==='PUT'){await collections.writeRequest(id,q('path'),await jsonBody(req));return send(res,200,{ok:true});}
   return fail(res,405,'Método não permitido');
+ }
+ if(sub==='transfer'){
+  if(method!=='POST')return fail(res,405,'Método não permitido');
+  return send(res,201,await collections.transfer(id,await jsonBody(req)));
  }
  if(sub==='reorder'){
   if(method!=='POST')return fail(res,405,'Método não permitido');

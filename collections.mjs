@@ -1,6 +1,6 @@
 // Coleções de requests no formato do Bruno: uma pasta com bruno.json, pastas, arquivos .bru e environments/*.bru.
 // Segredos de ambiente ficam em <pasta de coleções>/.secrets/<id>.json (fora do Git e fora de exportações).
-import {readFile,writeFile,readdir,mkdir,rm,rename,stat} from 'node:fs/promises';
+import {readFile,writeFile,readdir,mkdir,rm,rename,stat,copyFile} from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 import path from 'node:path';
 import {parseBru,stringifyBru,parseBlocks,stringifyBlocks,toModel,fromModel,parseEnv,stringifyEnv,METHODS} from './bru.mjs';
@@ -150,6 +150,50 @@ export function createCollections({dir,writeJson}){
   await rm(file,{recursive:true,force:true});
   await dropMocks(id,parts.join('/'));
  }
+ // Copia ou move um item (request ou pasta) para outra pasta, desta coleção ou de outra. Os mocks do item vão junto.
+ const RESERVED=new Set(['bruno.json','collection.bru','folder.bru','mocks.json']);
+ async function copyTree(from,to){
+  if((await stat(from)).isDirectory()){
+   await mkdir(to);
+   for(const e of await readdir(from,{withFileTypes:true})){
+    if(e.name.startsWith('.'))continue;
+    if(e.isDirectory()||ALLOWED_EXT.has(path.extname(e.name).toLowerCase()))await copyTree(path.join(from,e.name),path.join(to,e.name));
+   }
+  }else await copyFile(from,to);
+ }
+ async function transfer(id,{path:rel,to,mode,name}={}){
+  if(mode!=='copy'&&mode!=='move')throw fail(400,'Estrutura inválida');
+  const src=inside(id,String(rel||''));
+  if(!src.parts.length||RESERVED.has(src.parts.at(-1))||(src.parts.length===1&&src.parts[0]==='environments'))throw fail(400,'Caminho inválido');
+  if(!existsSync(src.file))throw fail(404,'Item inexistente');
+  const isDir=(await stat(src.file)).isDirectory();
+  if(!isDir&&!src.file.endsWith('.bru'))throw fail(400,'Caminho inválido');
+  const destId=to?.collection?String(to.collection):id,dest=inside(destId,String(to?.parent||''));
+  if(!existsSync(path.join(dest.root,'bruno.json'))||!existsSync(dest.file)||!(await stat(dest.file)).isDirectory())throw fail(404,'Pasta inexistente');
+  const srcRel=src.parts.join('/'),destRel=dest.parts.join('/');
+  if(isDir&&destId===id&&(destRel===srcRel||destRel.startsWith(`${srcRel}/`)))throw fail(400,'A pasta não pode ir para dentro dela mesma');
+  if(mode==='move'&&destId===id&&src.parts.slice(0,-1).join('/')===destRel)return {collection:id,path:srcRel};
+  const seq=Math.max(0,...(await tree(destId,destRel)).map(s=>s.seq||0))+1;
+  const last=src.parts.at(-1),fileName=isDir?uniqueName(dest.file,last):uniqueName(dest.file,last.slice(0,-4),'.bru'),target=path.join(dest.file,fileName);
+  if(mode==='move'){
+   try{await rename(src.file,target);}catch{await copyTree(src.file,target);await rm(src.file,{recursive:true,force:true});}
+  }else await copyTree(src.file,target);
+  const meta=isDir?path.join(target,'folder.bru'):target,title=String(name||'').trim().slice(0,100);
+  const model=existsSync(meta)?parseBru(await readText(meta)):{name:last,type:'folder'};
+  model.seq=seq;if(title)model.name=title;
+  await writeFile(meta,isDir?stringifyBlocks(fromModel(model)):stringifyBru(model));
+  const newRel=[...dest.parts,fileName].join('/');
+  await carryMocks(id,srcRel,destId,newRel,mode==='move');
+  return {collection:destId,path:newRel};
+ }
+ async function carryMocks(id,rel,destId,newRel,move){
+  const from=await readMocks(id),keys=Object.keys(from.requests).filter(k=>k===rel||k.startsWith(`${rel}/`));
+  if(!keys.length)return;
+  const into=destId===id?from:await readMocks(destId);
+  for(const k of keys){into.requests[newRel+k.slice(rel.length)]=JSON.parse(JSON.stringify(from.requests[k]));if(move)delete from.requests[k];}
+  if(move&&destId!==id)await writeMocks(id,from);
+  await writeMocks(destId,into);
+ }
  // mocks.json: cenários de resposta simulada por request (fica na coleção, junto do Git; os .bru não mudam)
  const mocksFile=id=>path.join(collDir(id),'mocks.json');
  async function readMocks(id){
@@ -266,5 +310,5 @@ export function createCollections({dir,writeJson}){
   }
   return {id,name:created?.name||await readName(id),files:count,...(folderPath?{folder:folderPath}:{})};
  }
- return {readSettings,writeSettings,readMocks,writeMocks,list,tree,defaults,environments,readEnv,writeEnv,createCollection,createItem,readRequest,writeRequest,renameItem,removeItem,reorder,removeEnv,removeCollection,exportZip,importZip,importFolder,readName,collDir,secretsOf};
+ return {readSettings,writeSettings,readMocks,writeMocks,list,tree,defaults,environments,readEnv,writeEnv,createCollection,createItem,readRequest,writeRequest,renameItem,removeItem,transfer,reorder,removeEnv,removeCollection,exportZip,importZip,importFolder,readName,collDir,secretsOf};
 }

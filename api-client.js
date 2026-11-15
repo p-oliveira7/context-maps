@@ -370,11 +370,13 @@ function parentOf(path){return path.includes('/')?path.slice(0,path.lastIndexOf(
 function findItem(items,path){for(const it of items){if(it.path===path)return it;if(it.children){const f=findItem(it.children,path);if(f)return f;}}return null;}
 function matches(item,q){return !q||item.name.toLowerCase().includes(q)||(item.url||'').toLowerCase().includes(q)||(item.children||[]).some(c=>matches(c,q));}
 let dragged=null;
+const copyKey=e=>e.ctrlKey||e.altKey; // Ctrl (ou Alt) ao soltar: copia em vez de mover
+const clearDropMarks=()=>els.tree.querySelectorAll('.drop-before,.drop-after,.drop-into').forEach(x=>x.classList.remove('drop-before','drop-after','drop-into'));
 function dragData(extra){return e=>{e.dataTransfer.setData(API_TYPE,JSON.stringify({collection:state.coll.id,collectionName:state.coll.name,...extra}));e.dataTransfer.setData('text/plain',extra.name||state.coll.name);e.dataTransfer.effectAllowed='copyMove';};}
 function treeRows(items,depth,q){
  return items.filter(it=>matches(it,q)).flatMap(it=>{
   const isFolder=it.type==='folder',open=q?true:state.expanded.has(it.path);
-  const row=h('li',{role:'treeitem','aria-level':String(depth+1),'aria-expanded':isFolder?String(open):null,'aria-selected':String(!isFolder&&it.path===state.reqPath),class:`api-row${!isFolder&&it.path===state.reqPath?' is-active':''}`,style:`--depth:${depth}`,draggable:'true',dataset:{path:it.path}},
+  const row=h('li',{role:'treeitem','aria-level':String(depth+1),'aria-expanded':isFolder?String(open):null,'aria-selected':String(!isFolder&&it.path===state.reqPath),class:`api-row${!isFolder&&it.path===state.reqPath?' is-active':''}${isCut(it)?' is-cut':''}`,style:`--depth:${depth}`,draggable:'true',dataset:{path:it.path}},
    h('button',{type:'button',class:'api-row-main',draggable:'true',onClick:()=>{if(isFolder){state.expanded.has(it.path)?state.expanded.delete(it.path):state.expanded.add(it.path);renderTree();}else openRequest(it.path);}},
     isFolder?h('span',{class:'api-caret','aria-hidden':'true'},open?'▾':'▸'):methodBadge(it.method),
     h('span',{class:'api-row-name'},isFolder?`📁 ${it.name}`:it.name),mockPill(it)),
@@ -384,22 +386,35 @@ function treeRows(items,depth,q){
     isFolder?h('button',{type:'button',class:'api-icon-btn',title:t('apiNewRequest'),'aria-label':`${t('apiNewRequest')}: ${it.name}`,onClick:()=>newItem('request',it.path)},'+'):null,
     isFolder?h('button',{type:'button',class:'api-icon-btn',title:t('apiNewFolder'),'aria-label':`${t('apiNewFolder')}: ${it.name}`,onClick:()=>newItem('folder',it.path)},'▤'):null,
     hooks.attach?h('button',{type:'button',class:'api-icon-btn api-attach',title:t('apiAttach'),'aria-label':`${t('apiAttach')}: ${it.name}`,onClick:()=>attachTo({path:it.path,name:it.name,type:it.type})},'⤓'):null,
+    h('button',{type:'button',class:'api-icon-btn api-more-btn','aria-haspopup':'menu',title:t('apiMore'),'aria-label':`${t('apiMore')}: ${it.name}`,onClick:e=>openCtx(e,itemMenu(it))},'⋯'),
     h('button',{type:'button',class:'api-icon-btn',title:t('apiRename'),'aria-label':`${t('apiRename')}: ${it.name}`,onClick:()=>renameItem(it)},'✎'),
     h('button',{type:'button',class:'api-icon-btn danger',title:t('apiDelete'),'aria-label':`${t('apiDelete')}: ${it.name}`,onClick:()=>deleteItem(it)},'✕')));
   row.addEventListener('dragstart',e=>{dragged=it;dragData({path:it.path,name:it.name,type:it.type})(e);});
   row.addEventListener('contextmenu',e=>openCtx(e,itemMenu(it)));
-  row.addEventListener('dragend',()=>{dragged=null;els.tree.querySelectorAll('.drop-before,.drop-after').forEach(x=>x.classList.remove('drop-before','drop-after'));});
+  row.addEventListener('dragend',()=>{dragged=null;clearDropMarks();});
+  // onde soltar: no meio de uma pasta = dentro dela; nas bordas = antes/depois do item (na pasta dele)
+  const dropSpot=e=>{
+   if(!dragged||dragged.path===it.path||(dragged.type==='folder'&&it.path.startsWith(`${dragged.path}/`)))return null;
+   const r=row.getBoundingClientRect(),y=(e.clientY-r.top)/r.height;
+   if(isFolder&&y>.25&&y<.75)return parentOf(dragged.path)===it.path&&!copyKey(e)?null:'into';
+   return y>.5?'after':'before';
+  };
   row.addEventListener('dragover',e=>{
-   if(!dragged||dragged===it||parentOf(dragged.path)!==parentOf(it.path))return;
-   e.preventDefault();const r=row.getBoundingClientRect(),after=e.clientY>r.top+r.height/2;row.classList.toggle('drop-after',after);row.classList.toggle('drop-before',!after);
+   const spot=dropSpot(e);row.classList.toggle('drop-into',spot==='into');row.classList.toggle('drop-after',spot==='after');row.classList.toggle('drop-before',spot==='before');
+   if(!spot)return;
+   e.preventDefault();e.dataTransfer.dropEffect=copyKey(e)?'copy':'move';
   });
-  row.addEventListener('dragleave',()=>row.classList.remove('drop-before','drop-after'));
+  row.addEventListener('dragleave',()=>row.classList.remove('drop-before','drop-after','drop-into'));
   row.addEventListener('drop',async e=>{
-   if(!dragged||dragged===it||parentOf(dragged.path)!==parentOf(it.path))return;
-   e.preventDefault();const after=row.classList.contains('drop-after');row.classList.remove('drop-before','drop-after');
-   const parent=parentOf(it.path),siblings=(parent?findItem(state.coll.tree,parent).children:state.coll.tree).map(s=>s.path).filter(p=>p!==dragged.path);
-   siblings.splice(siblings.indexOf(it.path)+(after?1:0),0,dragged.path);
-   try{await api('POST',`/collections/${state.coll.id}/reorder`,{parent,order:siblings});await reloadTree();}catch{}
+   const spot=dropSpot(e),item=dragged,mode=copyKey(e)?'copy':'move';if(!spot||!item)return;
+   e.preventDefault();clearDropMarks();
+   const src=srcOf(item),here=state.coll.id;
+   if(spot==='into'){await transferItem(src,{collection:here,parent:it.path},mode);return;}
+   const parent=parentOf(it.path);let path=item.path;
+   if(mode==='copy'||parentOf(item.path)!==parent){const made=await transferItem(src,{collection:here,parent},mode,{quiet:true});if(!made)return;path=made.path;}
+   const siblings=(parent?findItem(state.coll.tree,parent).children:state.coll.tree).map(s=>s.path).filter(p=>p!==path);
+   siblings.splice(siblings.indexOf(it.path)+(spot==='after'?1:0),0,path);
+   try{await api('POST',`/collections/${here}/reorder`,{parent,order:siblings});await reloadTree();flashRow(path);}catch{}
   });
   return [row,...(isFolder&&open?treeRows(it.children,depth+1,q):[])];
  });
@@ -426,6 +441,10 @@ function renderTree(){
   hooks.attach?h('button',{type:'button',class:'api-icon-btn api-attach',title:t('apiAttach'),'aria-label':`${t('apiAttach')}: ${state.coll.name}`,onClick:()=>attachTo({path:'',name:state.coll.name,type:'collection'})},'⤓'):null);
  head.addEventListener('dragstart',dragData({path:'',name:state.coll.name,type:'collection'}));
  head.addEventListener('contextmenu',e=>openCtx(e,collectionMenu()));
+ const toRoot=e=>dragged&&(copyKey(e)||parentOf(dragged.path)!=='');
+ head.addEventListener('dragover',e=>{head.classList.toggle('drop-into',!!toRoot(e));if(!toRoot(e))return;e.preventDefault();e.dataTransfer.dropEffect=copyKey(e)?'copy':'move';});
+ head.addEventListener('dragleave',()=>head.classList.remove('drop-into'));
+ head.addEventListener('drop',e=>{if(!toRoot(e))return;e.preventDefault();const item=dragged;clearDropMarks();transferItem(srcOf(item),{collection:state.coll.id,parent:''},copyKey(e)?'copy':'move');});
  els.tree.replaceChildren(head,...treeRows(state.coll.tree,0,q));
  if(!state.coll.tree.length)els.tree.append(h('li',{class:'api-empty-small',role:'presentation'},t('apiEmptyCollection')));
 }
@@ -905,15 +924,94 @@ function copyAsMenu(){
  const menu=h('div',{class:'api-menu',role:'menu',hidden:true},...Object.keys(COPY_AS).map(kind=>h('button',{type:'button',role:'menuitem',onClick:()=>{menu.hidden=true;copyAs(kind,state.request);}},t(COPY_AS[kind].label))));
  return h('div',{class:'api-menu-wrap api-copyas'},h('button',{type:'button',class:'api-btn','aria-haspopup':'menu',onClick:()=>{menu.hidden=!menu.hidden;}},t('apiCopyAsButton')),menu);
 }
-async function duplicateItem(item){
+/* ---------- duplicar, copiar, recortar, colar e mover (requests e pastas, entre pastas e coleções) ---------- */
+let clip=null; // {collection,collectionName,path,name,type,mode}: continua valendo ao trocar de coleção
+const srcOf=it=>({collection:state.coll.id,collectionName:state.coll.name,path:it.path,name:it.name,type:it.type});
+const isCut=it=>clip?.mode==='move'&&clip.collection===state.coll?.id&&clip.path===it.path;
+const focusRow=path=>els.tree.querySelector(`.api-row[data-path="${CSS.escape(path)}"] .api-row-main`)?.focus({preventScroll:true});
+// src: item de qualquer coleção; dest: {collection,parent}. Devolve o novo caminho ou null (cancelado, sem efeito ou erro).
+async function transferItem(src,dest,mode,{quiet=false}={}){
+ const here=state.coll.id,local=src.collection===here,toHere=dest.collection===here,same=src.collection===dest.collection;
+ if(same&&src.type==='folder'&&(dest.parent===src.path||dest.parent.startsWith(`${src.path}/`))){toast(t('apiMoveInside'));return null;}
+ if(mode==='move'&&same&&parentOf(src.path)===dest.parent)return null;
+ if(mode==='move'&&local){const affected=dirtyTabs(src.path);if(affected.length&&!(await guardUnsaved(affected)))return null;}
+ await flushSave();
+ const active=state.reqPath,open=mode==='copy'&&local&&src.type==='request'?tabEntry(src.path):null,draft=open?.dirty?modelOf(open):null;
  try{
-  const id=state.coll.id,open=tabEntry(item.path),model=open?modelOf(open):await api('GET',`/collections/${id}/request?path=${encodeURIComponent(item.path)}`);
-  const name=`${item.name} ${t('apiCopySuffix')}`;
-  const made=await api('POST',`/collections/${id}/items`,{type:'request',parent:parentOf(item.path),name,method:model.method,url:model.url});
-  const {path:_path,...rest}=model;
-  await api('PUT',`/collections/${id}/request?path=${encodeURIComponent(made.path)}`,{...rest,name});
-  await reloadTree();await openRequest(made.path);
- }catch(e){toast(e.message);}
+  const made=await api('POST',`/collections/${src.collection}/transfer`,{path:src.path,mode,to:dest,...(mode==='copy'&&same&&parentOf(src.path)===dest.parent?{name:`${src.name} ${t('apiCopySuffix')}`}:{})});
+  if(draft){ // a cópia leva o que está na aba, mesmo sem salvar
+   const route=`/collections/${dest.collection}/request?path=${encodeURIComponent(made.path)}`,copy=await api('GET',route),{path:_path,...rest}=draft;
+   await api('PUT',route,{...rest,name:copy.name,seq:copy.seq});
+  }
+  if(mode==='move'&&local)dropTabs(src.path);
+  if(!same)await loadCollections();
+  if(toHere){if(dest.parent)state.expanded.add(dest.parent);if(src.type==='folder')state.expanded.add(made.path);}
+  await reloadTree();
+  const follow=mode==='move'&&local&&toHere&&active&&(active===src.path||active.startsWith(`${src.path}/`))?made.path+active.slice(src.path.length):null;
+  const reopen=follow||(mode==='copy'&&toHere&&src.type==='request'&&!quiet?made.path:null);
+  if(reopen)await openRequest(reopen);else renderMain();
+  if(toHere)flashRow(made.path);
+  else toast(t(mode==='move'?'apiMovedTo':'apiCopiedTo',src.name,state.collections.find(c=>c.id===dest.collection)?.name||dest.collection));
+  return made;
+ }catch(e){toast(e.message);return null;}
+}
+const duplicateItem=it=>transferItem(srcOf(it),{collection:state.coll.id,parent:parentOf(it.path)},'copy');
+function setClip(it,mode){clip={...srcOf(it),mode};renderTree();focusRow(it.path);toast(t(mode==='move'?'apiClipCut':'apiClipCopied',it.name));}
+async function pasteInto(parent){
+ if(!clip||!state.coll)return;
+ const src=clip,made=await transferItem(src,{collection:state.coll.id,parent},src.mode);
+ if(made&&src.mode==='move'){clip=null;renderTree();}
+}
+// atalhos com o foco numa linha da árvore
+function treeKeys(e){
+ const row=e.target.closest?.('.api-row'),it=row&&state.coll&&findItem(state.coll.tree,row.dataset.path);
+ if(!it||e.target.closest('.api-row-actions'))return;
+ const mod=e.ctrlKey||e.metaKey,k=e.key.toLowerCase(),run=fn=>{e.preventDefault();e.stopPropagation();fn();};
+ if(mod&&k==='c')run(()=>setClip(it,'copy'));
+ else if(mod&&k==='x')run(()=>setClip(it,'move'));
+ else if(mod&&k==='v'){if(clip)run(()=>pasteInto(it.type==='folder'?it.path:parentOf(it.path)));}
+ else if(mod&&k==='d')run(()=>duplicateItem(it));
+ else if(e.key==='F2')run(()=>renameItem(it));
+ else if(e.key==='Delete')run(()=>deleteItem(it));
+}
+// "Mover ou copiar para…": escolhe uma pasta desta coleção ou de outra
+async function openMoveDialog(it){
+ if(!state.coll||panel.querySelector('.api-modal'))return;
+ const back=document.activeElement,here=state.coll.id,src=srcOf(it);
+ let others;try{others=await Promise.all(state.collections.filter(c=>c.id!==here).map(c=>api('GET',`/collections/${c.id}`)));}catch(e){toast(e.message);return;}
+ const value=(collection,parent)=>JSON.stringify({collection,parent}),current=value(here,parentOf(it.path));
+ const options=(coll,items,depth,out=[])=>{
+  for(const f of items){
+   if(f.type!=='folder'||(coll.id===here&&it.type==='folder'&&f.path===it.path))continue; // a própria pasta (e o que está dentro dela) fica de fora
+   out.push(h('option',{value:value(coll.id,f.path)},`${'\u00a0\u00a0'.repeat(depth)}📁 ${f.name}`));options(coll,f.children||[],depth+1,out);
+  }
+  return out;
+ };
+ const list=h('select',{class:'api-move-list',size:'10',id:'api-move-dest'},...[state.coll,...others].map(coll=>h('optgroup',{label:`🗂 ${coll.name}`},h('option',{value:value(coll.id,'')},t('apiMoveRoot')),...options(coll,coll.tree,1))));
+ const overlay=h('div',{class:'api-modal api-move',role:'dialog','aria-modal':'true','aria-labelledby':'api-move-title'});
+ const close=(restore=true)=>{overlay.remove();document.removeEventListener('keydown',onKey,true);if(restore&&back?.isConnected)back.focus({preventScroll:true});};
+ const go=async mode=>{const dest=JSON.parse(list.value);close(false);await transferItem(src,dest,mode);};
+ const moveBtn=h('button',{type:'button',class:'api-btn primary',onClick:()=>go('move')},t('apiMoveHere')),copyBtn=h('button',{type:'button',class:'api-btn',onClick:()=>go('copy')},t('apiCopyHere'));
+ const sync=()=>{moveBtn.disabled=!list.value||list.value===current;copyBtn.disabled=!list.value;};
+ list.addEventListener('change',sync);list.addEventListener('dblclick',()=>{if(!moveBtn.disabled)go('move');});
+ function onKey(e){
+  if(!overlay.isConnected)return;
+  if(e.key==='Escape'){e.preventDefault();e.stopPropagation();close();return;}
+  if(e.key==='Enter'&&e.target===list&&!moveBtn.disabled){e.preventDefault();go('move');return;}
+  if(e.key==='Tab'){
+   const items=[...overlay.querySelectorAll('select,button')].filter(x=>!x.disabled),first=items[0],last=items.at(-1);
+   if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
+   else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+  }
+ }
+ document.addEventListener('keydown',onKey,true);
+ overlay.addEventListener('pointerdown',e=>{if(e.target===overlay)close();});
+ overlay.append(h('div',{class:'api-modal-card'},
+  h('header',{},h('h3',{id:'api-move-title'},t('apiMoveTitle',it.name)),h('button',{type:'button',class:'api-icon-btn','aria-label':t('close'),onClick:()=>close()},'×')),
+  h('label',{class:'api-field'},h('span',{},t('apiMoveDest')),list),
+  h('p',{class:'api-hint'},t('apiMoveHint')),
+  h('footer',{},h('button',{type:'button',class:'api-btn',onClick:()=>close()},t('close')),h('span',{class:'api-move-actions'},copyBtn,moveBtn))));
+ panel.append(overlay);list.value=current;sync();list.focus();
 }
 
 /* menu de contexto (botão direito, tecla de menu ou toque longo) */
@@ -930,8 +1028,9 @@ function openCtx(e,items){
  const el=h('div',{class:'api-ctx',role:'menu','aria-label':t('apiMore')},...items.filter(Boolean).map(([label,fn,danger])=>h('button',{type:'button',role:'menuitem',class:danger?'danger':'',onClick:()=>{closeCtx();fn();}},label)));
  panel.append(el);
  const box=panel.getBoundingClientRect();
- el.style.left=`${Math.max(4,Math.min(e.clientX-box.left,box.width-el.offsetWidth-4))}px`;
- el.style.top=`${Math.max(4,Math.min(e.clientY-box.top,box.height-el.offsetHeight-4))}px`;
+ const anchor=e.clientX||e.clientY?null:(e.currentTarget||e.target)?.getBoundingClientRect?.(),x=anchor?anchor.left:e.clientX,y=anchor?anchor.bottom:e.clientY;
+ el.style.left=`${Math.max(4,Math.min(x-box.left,box.width-el.offsetWidth-4))}px`;
+ el.style.top=`${Math.max(4,Math.min(y-box.top,box.height-el.offsetHeight-4))}px`;
  ctxMenu={el,back};document.addEventListener('pointerdown',ctxOutside,true);
  el.addEventListener('keydown',ev=>{
   const btns=[...el.querySelectorAll('button')],i=btns.indexOf(document.activeElement);
@@ -941,12 +1040,14 @@ function openCtx(e,items){
  });
  el.querySelector('button')?.focus();
 }
+const pasteEntry=parent=>clip?[t('apiPaste',clip.name),()=>pasteInto(parent)]:null;
+const clipMenu=(it,parent)=>[[t('apiDuplicate'),()=>duplicateItem(it)],[t('apiCopy'),()=>setClip(it,'copy')],[t('apiCut'),()=>setClip(it,'move')],pasteEntry(parent),[t('apiMoveTo'),()=>openMoveDialog(it)]];
 function itemMenu(it){
  const attach=hooks.attach?[t('apiAttach'),()=>attachTo({path:it.path,name:it.name,type:it.type})]:null;
- if(it.type==='folder')return [[t('apiRunFolder'),()=>startRun({path:it.path,recursive:false})],[t('apiRunFolderAll'),()=>startRun({path:it.path,recursive:true})],[t('apiNewRequest'),()=>newItem('request',it.path)],[t('apiNewFolder'),()=>newItem('folder',it.path)],attach,[t('apiRename'),()=>renameItem(it)],[t('apiDelete'),()=>deleteItem(it),true]];
- return [[t('apiCtxOpen'),()=>openRequest(it.path)],[t('apiDuplicate'),()=>duplicateItem(it)],[`${t('apiCopyAs')} ${t('apiCopyCurl')}`,()=>copyRowAs('curl',it)],[`${t('apiCopyAs')} ${t('apiCopyFetch')}`,()=>copyRowAs('fetch',it)],attach,[t('apiRename'),()=>renameItem(it)],[t('apiDelete'),()=>deleteItem(it),true]];
+ if(it.type==='folder')return [[t('apiRunFolder'),()=>startRun({path:it.path,recursive:false})],[t('apiRunFolderAll'),()=>startRun({path:it.path,recursive:true})],[t('apiNewRequest'),()=>newItem('request',it.path)],[t('apiNewFolder'),()=>newItem('folder',it.path)],...clipMenu(it,it.path),attach,[t('apiRename'),()=>renameItem(it)],[t('apiDelete'),()=>deleteItem(it),true]];
+ return [[t('apiCtxOpen'),()=>openRequest(it.path)],...clipMenu(it,parentOf(it.path)),[`${t('apiCopyAs')} ${t('apiCopyCurl')}`,()=>copyRowAs('curl',it)],[`${t('apiCopyAs')} ${t('apiCopyFetch')}`,()=>copyRowAs('fetch',it)],attach,[t('apiRename'),()=>renameItem(it)],[t('apiDelete'),()=>deleteItem(it),true]];
 }
-const collectionMenu=()=>[[t('apiRunCollection'),()=>startRun({path:'',recursive:true})],[t('apiNewRequest'),()=>newItem('request','')],[t('apiNewFolder'),()=>newItem('folder','')],hooks.attach?[t('apiAttach'),()=>attachTo({path:'',name:state.coll.name,type:'collection'})]:null,[t('apiExport'),()=>{location.href=`api/collections/${state.coll.id}/export`;}],[state.coll?.settings?.verifyTls===false?t('apiTlsMenuOn'):t('apiTlsMenuOff'),()=>setVerifyTls(state.coll?.settings?.verifyTls===false)]];
+const collectionMenu=()=>[[t('apiRunCollection'),()=>startRun({path:'',recursive:true})],[t('apiNewRequest'),()=>newItem('request','')],[t('apiNewFolder'),()=>newItem('folder','')],pasteEntry(''),hooks.attach?[t('apiAttach'),()=>attachTo({path:'',name:state.coll.name,type:'collection'})]:null,[t('apiExport'),()=>{location.href=`api/collections/${state.coll.id}/export`;}],[state.coll?.settings?.verifyTls===false?t('apiTlsMenuOn'):t('apiTlsMenuOff'),()=>setVerifyTls(state.coll?.settings?.verifyTls===false)]];
 
 /* variáveis de sessão: o que os scripts e as "Vars post-response" guardaram, num lugar só */
 function syncVarsUi(){
@@ -1276,7 +1377,7 @@ function openQuickOpen(){
 function build(){
  els.save=h('span',{class:'api-save',role:'status','aria-live':'polite'});
  els.head=h('header',{class:'api-head'});
- els.tree=h('ul',{class:'api-tree',role:'tree','aria-label':t('apiTitle')});
+ els.tree=h('ul',{class:'api-tree',role:'tree','aria-label':t('apiTitle')});els.tree.addEventListener('keydown',treeKeys);
  els.tabbar=h('div',{class:'api-tabbar',role:'tablist','aria-label':t('apiOpenRequests'),hidden:true,onKeydown:onTabbarKey});
  els.content=h('div',{class:'api-content'});
  els.main=h('section',{class:'api-main'},els.tabbar,els.content);

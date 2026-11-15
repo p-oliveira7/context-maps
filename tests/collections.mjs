@@ -167,10 +167,45 @@ try{
  const qsBru=await readFile(path.join(collections,'minha-api',withQs.path),'utf8');
  assert.ok(qsBru.includes('params:query {')&&qsBru.includes('status: ativo')&&qsBru.includes('params:path {'));
  await call('DELETE',`/minha-api/items?path=${withQs.path}`);
+ // COLL-11: copiar e mover itens entre pastas e coleções (os mocks vão junto)
+ const mock={version:1,requests:{'usuarios/criar-usuario.bru':{mode:'on',active:'s1',scenarios:[{id:'s1',name:'Criado',kind:'response',status:201,headers:[],body:'{"id":1}',delay:0}]}}};
+ assert.equal((await call('PUT','/minha-api/mocks',mock)).status,200);
+ const dup=await (await call('POST','/minha-api/transfer',{path:'usuarios/criar-usuario.bru',mode:'copy',to:{parent:'usuarios'},name:'Criar usuário (cópia)'})).json();
+ assert.deepEqual(dup,{collection:'minha-api',path:'usuarios/criar-usuario-2.bru'});
+ const dupModel=await json('GET','/minha-api/request?path=usuarios/criar-usuario-2.bru');
+ assert.deepEqual([dupModel.name,dupModel.seq,dupModel.url,dupModel.scriptPre],['Criar usuário (cópia)',3,'{{host}}/v2/users','req.setHeader("x","1");']);
+ assert.ok((await readFile(path.join(collections,'minha-api','usuarios','criar-usuario-2.bru'),'utf8')).includes('assert {'));
+ assert.deepEqual(Object.keys((await json('GET','/minha-api/mocks')).requests).sort(),['usuarios/criar-usuario-2.bru','usuarios/criar-usuario.bru']);
+ await json('POST','/minha-api/items',{type:'folder',name:'Arquivo'});
+ const moved=await (await call('POST','/minha-api/transfer',{path:'usuarios/criar-usuario-2.bru',mode:'move',to:{parent:'arquivo'}})).json();
+ assert.deepEqual(moved,{collection:'minha-api',path:'arquivo/criar-usuario-2.bru'});
+ assert.equal(existsSync(path.join(collections,'minha-api','usuarios','criar-usuario-2.bru')),false);
+ assert.equal((await json('GET','/minha-api/request?path=arquivo/criar-usuario-2.bru')).name,'Criar usuário (cópia)');
+ assert.deepEqual(Object.keys((await json('GET','/minha-api/mocks')).requests).sort(),['arquivo/criar-usuario-2.bru','usuarios/criar-usuario.bru']);
+ // mover para a mesma pasta não muda nada; pasta para dentro dela mesma, destino inexistente e caminhos reservados são recusados
+ assert.deepEqual(await (await call('POST','/minha-api/transfer',{path:'saude.bru',mode:'move',to:{parent:''}})).json(),{collection:'minha-api',path:'saude.bru'});
+ for(const [body,status] of [[{path:'usuarios',mode:'move',to:{parent:'usuarios'}},400],[{path:'arquivo',mode:'copy',to:{parent:'arquivo'}},400],[{path:'saude.bru',mode:'move',to:{parent:'nao-existe'}},404],
+  [{path:'saude.bru',mode:'move',to:{collection:'nao-existe'}},404],[{path:'bruno.json',mode:'copy',to:{parent:'arquivo'}},400],[{path:'environments',mode:'move',to:{parent:'arquivo'}},400],
+  [{path:'../minha-api-2/saude.bru',mode:'copy',to:{parent:''}},400],[{path:'saude.bru',mode:'copy',to:{parent:'../minha-api-2'}},400],[{path:'saude.bru',mode:'outro',to:{parent:''}},400],[{path:'nada.bru',mode:'copy',to:{parent:''}},404]])
+  assert.equal((await call('POST','/minha-api/transfer',body)).status,status,JSON.stringify(body));
+ // pasta inteira para outra coleção: copiar mantém a origem, mover tira; o nome do arquivo não colide com o que já existe lá
+ const copied=await (await call('POST','/minha-api/transfer',{path:'usuarios',mode:'copy',to:{collection:'minha-api-2',parent:''}})).json();
+ assert.deepEqual(copied,{collection:'minha-api-2',path:'usuarios-2'});
+ let other=await json('GET','/minha-api-2');
+ assert.deepEqual(other.tree.map(i=>[i.name,i.path]),[['Pessoas','usuarios'],['Health check','saude.bru'],['Pessoas','usuarios-2']]);
+ assert.deepEqual(other.tree[2].children.map(i=>i.name),['Criar usuário','Listar usuários']);
+ assert.deepEqual(Object.keys(other.mocks.requests),['usuarios-2/criar-usuario.bru']);
+ assert.equal((await json('GET','/minha-api')).tree.some(i=>i.path==='usuarios'),true);
+ const movedOut=await (await call('POST','/minha-api/transfer',{path:'arquivo',mode:'move',to:{collection:'minha-api-2',parent:'usuarios-2'}})).json();
+ assert.deepEqual(movedOut,{collection:'minha-api-2',path:'usuarios-2/arquivo'});
+ assert.equal(existsSync(path.join(collections,'minha-api','arquivo')),false);
+ other=await json('GET','/minha-api-2');
+ assert.deepEqual(Object.keys(other.mocks.requests).sort(),['usuarios-2/arquivo/criar-usuario-2.bru','usuarios-2/criar-usuario.bru']);
+ assert.deepEqual(Object.keys((await json('GET','/minha-api/mocks')).requests),['usuarios/criar-usuario.bru']);
  // excluir
  assert.equal((await call('DELETE','/minha-api/items?path=usuarios')).status,200);
  assert.equal((await json('GET','/minha-api')).tree.length,1);
  for(const id of ['minha-api','minha-api-2',evilRes.id])assert.equal((await call('DELETE',`/${id}`)).status,200);
  assert.deepEqual(await json('GET',''),[]);assert.equal(existsSync(path.join(collections,'.secrets','minha-api.json')),false);
- console.log('PASS COLL-01..10 collections API');
+ console.log('PASS COLL-01..11 collections API');
 }finally{server.kill();await rm(work,{recursive:true,force:true});}
