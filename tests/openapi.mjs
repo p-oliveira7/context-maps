@@ -207,7 +207,7 @@ try{
  await page.evaluate(()=>document.querySelector('[data-id="c3"] .image-button').click());await lightbox.waitFor();
  await viewer.waitFor({state:'detached'});
  const [im2,api]=[await rect('dialog[open]'),await rect('#api-panel')];assert.ok(Math.abs(im2.right-(1500-api.width))<=2,JSON.stringify({im2,api})); // ao lado do painel (que ainda pode estar deslizando)
- await page.locator('dialog[open]').focus();await page.keyboard.press('Escape');await lightbox.waitFor({state:'detached'});
+ await page.locator('#close-dialog').focus();await page.keyboard.press('Escape');await lightbox.waitFor({state:'detached'});
 
  // OA-13: com duas janelas lado a lado, o botão ⇄ na divisa troca os lados (e a escolha é lembrada); com uma só, ele some
  const swap=page.locator('.swap-sides');
@@ -224,7 +224,7 @@ try{
  await swap.click();[s1,s2]=[await rect('.oa-viewer'),await rect('dialog[open]')];
  assert.ok(s2.left<=1&&Math.abs(s2.right-s1.left)<=2,'de volta: imagem à esquerda');
  await swap.click(); // fica trocado e vale para o próximo par
- await page.locator('dialog[open]').focus();await page.keyboard.press('Escape');await lightbox.waitFor({state:'detached'});
+ await page.locator('#close-dialog').focus();await page.keyboard.press('Escape');await lightbox.waitFor({state:'detached'});
  assert.equal(await swap.isVisible(),false);
  await page.evaluate(()=>document.querySelector('#api-btn').click());await page.locator('#api-panel').waitFor({state:'visible'});
  await page.waitForFunction(()=>{const r=document.querySelector('#api-panel').getBoundingClientRect();return r.left<=1;});

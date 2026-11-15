@@ -70,9 +70,11 @@ test('segredos viram •••; trecho e ponto de abertura', ()=>{
 
 test('arquivo do card: miniatura SVG com a transcrição dentro (ida e volta), sem markdown cru', ()=>{
  const s=sample(),thumb=sessionThumbSvg(s,0,{you:'Você'});
- assert.match(thumb,/^<svg /);assert.match(thumb,/Mapa do fluxo de pedidos/);assert.match(thumb,/Você/);assert.match(thumb,/★ Skill · context-maps/);
+ assert.match(thumb,/^<svg /);assert.match(thumb,/Mapa do fluxo de pedidos/);assert.ok(thumb.includes('&gt; </tspan><tspan fill="#ffffff">Use a skill context-maps')); // "> " + a mensagem da pessoa, em branco
+ assert.ok(thumb.includes('>Skill</tspan><tspan fill="#e5c07b">(context-maps)'));assert.ok(thumb.includes('⎿ </tspan><tspan fill="#7d7d7d">Launching skill')); // a skill em destaque e o resultado em cinza
  assert.doesNotMatch(thumb,/\*\*/);assert.doesNotMatch(thumb,/<metadata/);
- const ask=sessionThumbSvg(s,4);assert.match(ask,/✓ Criar pedido/);assert.match(ask,/○ Login/);assert.match(ask,/✓ 412 Precondition Failed/);
+ const ask=sessionThumbSvg(s,4);assert.ok(ask.includes('❯   </tspan><tspan fill="#5fbf8f">1. </tspan><tspan fill="#5fbf8f" font-weight="700">Criar pedido')); // escolhida: ❯ e verde
+ assert.ok(ask.includes('fill="#d0d0d0">Login'));assert.ok(ask.includes('[✓] </tspan><tspan fill="#5fbf8f">2. </tspan><tspan fill="#5fbf8f" font-weight="700">412 Precondition Failed'));assert.ok(ask.includes('[ ] </tspan><tspan fill="#7d7d7d">3. </tspan><tspan fill="#d0d0d0">409 Conflict'));
  const hostile={title:'<script>alert(1)</script>',items:[{k:'user',text:'</metadata><svg onload="x">&amp; &lt; ]]> "aspas"'},{k:'tool',name:'Bash',title:'',input:"echo $& $' $` $1 $$ \\$0",result:'\u0001 \\u0000 \ud83d\ude00'}]};
  const card=sessionCardSvg(hostile,0);
  assert.equal((card.match(/<\/metadata>/g)||[]).length,1);assert.doesNotMatch(card,/<script>/);

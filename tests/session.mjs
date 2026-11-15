@@ -68,7 +68,7 @@ try{
  const saved=await stored();
  assert.deepEqual(saved.session.items.map(i=>i.k),['tool','assistant','ask','plan','assistant','tool','tool','tool']);assert.equal(saved.anchor,2);
  assert.match(saved.session.items[7].input,/Bearer •••/);assert.doesNotMatch(JSON.stringify(saved),/eyJhbGci/);
- const thumb=await (await fetch(`${base}/${entry.src}`)).text();assert.match(thumb,/Skill context-maps em uso/);assert.match(thumb,/✓ Criar pedido/);
+ const thumb=await (await fetch(`${base}/${entry.src}`)).text();assert.match(thumb,/Skill context-maps em uso/);assert.match(thumb,/font-weight="700">Criar pedido/);
  assert.equal(await page.locator('[data-id="c1"] .image-button.is-session').count(),1);
 
  // SESS-04: clicar no card abre a conversa na janela lateral, já no ponto marcado (a pergunta), com as ferramentas recolhidas
@@ -78,9 +78,9 @@ try{
  assert.equal((await viewer.locator('.oa-head strong').textContent()).trim(),'Skill context-maps em uso');
  assert.equal(await viewer.locator('.ss-item').count(),8);
  const anchorRow=viewer.locator('.ss-item.is-anchor');assert.equal(await anchorRow.getAttribute('data-i'),'2');assert.equal(await anchorRow.evaluate(e=>e.classList.contains('ss-ask')),true);
- await page.waitForFunction(()=>{const l=document.querySelector('.ss-viewer .ss-list'),a=l.querySelector('.is-anchor');const r=a.getBoundingClientRect(),lr=l.getBoundingClientRect();return r.top>=lr.top-2&&r.top<lr.top+80;});
+ await page.waitForFunction(()=>{const l=document.querySelector('.ss-viewer .ss-list'),a=l.querySelector('.is-anchor');const r=a.getBoundingClientRect(),lr=l.getBoundingClientRect();return r.top>=lr.top-2&&r.top<lr.bottom-20;}); // o ponto marcado está à vista (no topo, quando há o que rolar)
  assert.deepEqual(await viewer.locator('.ss-ask li.is-picked b').allTextContents(),['Criar pedido (Recommended)','401 Unauthorized','412 Precondition Failed']);
- assert.equal(await viewer.locator('.ss-tool.is-skill .ss-tool-name').textContent(),'★ Skill');
+ assert.equal(await viewer.locator('.ss-tool.is-skill .ss-tool-name').textContent(),'Skill');
  assert.equal(await viewer.locator('.ss-tool details[open]').count(),0);
  // rolar para cima mostra o que veio antes; abrir uma ferramenta mostra a entrada e o resultado
  await viewer.locator('.ss-list').evaluate(e=>{e.scrollTop=0;});
@@ -88,7 +88,7 @@ try{
  assert.match(await read.locator('.ss-result').textContent(),/status\(412\)/);
  await viewer.locator('.dw-gear',{hasText:'Tools'}).click();assert.equal(await viewer.locator('.ss-tool details[open]').count(),4);
  await viewer.locator('.dw-toggle',{hasText:'Marked point'}).click();
- await page.waitForFunction(()=>{const l=document.querySelector('.ss-viewer .ss-list'),a=l.querySelector('.is-anchor');const r=a.getBoundingClientRect(),lr=l.getBoundingClientRect();return r.top>=lr.top-2&&r.top<lr.top+80;});
+ await page.waitForFunction(()=>{const l=document.querySelector('.ss-viewer .ss-list'),a=l.querySelector('.is-anchor');const r=a.getBoundingClientRect(),lr=l.getBoundingClientRect();return r.top>=lr.top-2&&r.top<lr.bottom-20;}); // o ponto marcado está à vista (no topo, quando há o que rolar)
  // fica ao lado do mapa como as outras janelas laterais; Esc fecha
  assert.ok((await viewer.boundingBox()).x>=740);
  await viewer.locator('.oa-close').focus();await page.keyboard.press('Escape');await viewer.waitFor({state:'detached'});

@@ -1,6 +1,6 @@
 // Sessões do Claude Code nos cards: desenho da conversa, visualizador lateral e janela de importar.
 import {sidePanel} from './openapi.js?v=8';
-import {parseSession,sliceSession,sessionStats,secretHits,maskSecrets,itemText,sessionFromSvg} from './session-core.js?v=1';
+import {parseSession,sliceSession,sessionStats,secretHits,maskSecrets,itemText,sessionFromSvg} from './session-core.js?v=2';
 
 const el=(tag,props={},...kids)=>{const e=document.createElement(tag);for(const [k,v] of Object.entries(props)){if(k==='class')e.className=v;else if(k.startsWith('on'))e.addEventListener(k.slice(2),v);else if(v!==null&&v!==undefined&&v!==false)e.setAttribute(k,v===true?'':v);}e.append(...kids.filter(x=>x!==null&&x!==undefined&&x!==false));return e;};
 const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -17,46 +17,51 @@ export function miniMarkdown(text){
 export async function loadSessionCard(src){
  try{const res=await fetch(src);if(!res.ok)return null;return sessionFromSvg(await res.text());}catch{return null;}
 }
-const STATUS={completed:'✓',in_progress:'▶',pending:'○'};
+// Visual de terminal (como o Claude Code): fonte monoespaçada, quase sem cor; "> " para a pessoa, "●" para o Claude e
+// para as ferramentas, "⎿" para o resultado. Realce só onde importa: resposta escolhida, skill, erro, ponto marcado.
+const STATUS={completed:'☒',in_progress:'▶',pending:'☐'};
+const firstLine=text=>String(text||'').slice(0,400).replace(/\s+/g,' ').trim().slice(0,200); // prévia do resultado numa linha (um JSON não fica só "{")
+const line=(mark,cls,...kids)=>el('div',{class:'ss-line'},el('span',{class:`ss-mark ${cls}`,'aria-hidden':'true'},mark),el('div',{class:'ss-body'},...kids));
 /** um item da transcrição → elemento (as ferramentas ficam recolhidas; o corpo só é montado ao abrir) */
 function renderItem(item,index,t){
  const row=el('div',{class:`ss-item ss-${item.k}`,'data-i':String(index)});
  if(item.k==='user'){
-  row.append(el('span',{class:'ss-who'},t('sessionYou')));
-  if(item.text){const body=el('div',{class:'ss-text'});body.innerHTML=miniMarkdown(item.text);row.append(body);}
-  if(item.images)row.append(el('span',{class:'ss-note'},t('sessionImages',item.images)));
+  row.setAttribute('aria-label',t('sessionYou'));
+  const body=el('div',{class:'ss-text'});if(item.text)body.innerHTML=miniMarkdown(item.text);
+  row.append(line('>','',body,item.images?el('span',{class:'ss-note'},t('sessionImages',item.images)):null));
  }else if(item.k==='assistant'){
-  const body=el('div',{class:'ss-text'});body.innerHTML=miniMarkdown(item.text);row.append(el('span',{class:'ss-who'},'Claude'),body);
+  const body=el('div',{class:'ss-text'});body.innerHTML=miniMarkdown(item.text);row.append(line('●','',body));
  }else if(item.k==='think'||item.k==='sum'){
   const d=el('details',{},el('summary',{},t(item.k==='think'?'sessionThinking':'sessionSummary')));
-  d.addEventListener('toggle',()=>{if(d.open&&d.children.length===1)d.append(el('pre',{class:'ss-pre'},item.text));});row.append(d);
+  d.addEventListener('toggle',()=>{if(d.open&&d.children.length===1)d.append(el('pre',{class:'ss-pre'},item.text));});row.append(line(item.k==='think'?'✻':'⋯','is-dim',d));
  }else if(item.k==='cmd'){
-  row.append(el('code',{},`${item.name}${item.args?' '+item.args:''}`));
- }else if(item.k==='tool'){
+  row.append(line('>','',el('span',{class:'ss-text'},`${item.name}${item.args?' '+item.args:''}`)));
+ }else if(item.k==='tool'){ // ● Nome(resumo)  +  ⎿ primeira linha do resultado; clicar abre a entrada e o resultado inteiros
   if(item.skill)row.classList.add('is-skill');if(item.error)row.classList.add('is-error');
-  const d=el('details',{},el('summary',{},el('span',{class:'ss-tool-name'},item.skill?`★ Skill`:item.name),item.title?el('span',{class:'ss-tool-title'},item.title):null,item.error?el('span',{class:'ss-tool-err'},t('sessionToolError')):null));
+  const d=el('details',{},el('summary',{},el('span',{class:'ss-tool-name'},item.name),el('span',{class:'ss-tool-title'},`(${item.title||''})`),item.error?el('span',{class:'ss-tool-err'},t('sessionToolError')):null));
   d.addEventListener('toggle',()=>{
    if(!d.open||d.children.length>1)return;
    if(item.input)d.append(el('pre',{class:'ss-pre'},item.input));
-   if(item.result)d.append(el('span',{class:'ss-label'},t('sessionResult')),el('pre',{class:'ss-pre ss-result'},item.result));
+   if(item.result)d.append(el('pre',{class:'ss-pre ss-result'},item.result));
   });
-  row.append(d);
- }else if(item.k==='ask'){ // as perguntas como apareceram, com a resposta marcada
-  row.append(el('span',{class:'ss-who'},t('sessionAsked')));
+  const out=firstLine(item.result);
+  row.append(line('●',item.error?'is-bad':'is-ok',d,out?el('div',{class:'ss-out'},el('span',{'aria-hidden':'true'},'⎿ '),out):null));
+ }else if(item.k==='ask'){ // as perguntas como apareceram (caixa do terminal), com a resposta marcada
+  row.setAttribute('aria-label',t('sessionAsked'));
   for(const q of item.questions){
    const answer=String(item.answers?.[q.question]??''),picked=new Set(q.multiSelect?answer.split(', '):[answer]);
    const known=q.options.some(o=>picked.has(o.label));
    row.append(el('div',{class:'ss-q'},
-    q.header?el('span',{class:'ss-q-chip'},q.header):null,
-    el('strong',{class:'ss-q-title'},q.question),
-    el('ul',{class:'ss-q-options'},...q.options.map(o=>el('li',{class:picked.has(o.label)?'is-picked':'','aria-label':picked.has(o.label)?t('sessionPicked',o.label):o.label},el('span',{class:'ss-q-mark','aria-hidden':'true'},picked.has(o.label)?'✓':q.multiSelect?'☐':'○'),el('span',{},el('b',{},o.label),o.description?el('small',{},o.description):null)))),
+    el('div',{class:'ss-q-head'},q.header?el('span',{class:'ss-q-chip'},q.header):null,el('strong',{class:'ss-q-title'},q.question)),
+    el('ul',{class:'ss-q-options'},...q.options.map((o,n)=>{const on=picked.has(o.label);return el('li',{class:on?'is-picked':'','aria-label':on?t('sessionPicked',o.label):o.label},el('span',{class:'ss-q-mark','aria-hidden':'true'},on?(q.multiSelect?'[✓]':'❯'):(q.multiSelect?'[ ]':' ')),el('span',{class:'ss-q-num','aria-hidden':'true'},`${n+1}.`),el('span',{},el('b',{},o.label),o.description?el('small',{},o.description):null));})),
     answer&&!known?el('p',{class:'ss-q-answer'},el('span',{},t('sessionAnswer')),answer):!answer?el('p',{class:'ss-q-answer is-none'},t('sessionNoAnswer')):null));
   }
  }else if(item.k==='next'){
-  row.append(el('span',{class:'ss-who'},t('sessionNext')),item.recap?el('p',{class:'ss-recap'},item.recap):null,item.ask?el('strong',{class:'ss-q-title'},item.ask):null,
-   item.actions.length?el('div',{class:'ss-actions'},...item.actions.map(a=>el('span',{class:'ss-action'},a))):null);
+  row.setAttribute('aria-label',t('sessionNext'));
+  row.append(el('div',{class:'ss-q'},item.recap?el('p',{class:'ss-recap'},item.recap):null,item.ask?el('strong',{class:'ss-q-title'},item.ask):null,
+   item.actions.length?el('div',{class:'ss-actions'},...item.actions.map(a=>el('span',{class:'ss-action'},`[ ${a} ]`))):null));
  }else if(item.k==='plan'){
-  row.append(el('ul',{class:'ss-plan-list'},...item.items.map(x=>el('li',{class:`is-${x.status}`},el('span',{'aria-hidden':'true'},STATUS[x.status]||'○'),x.content))));
+  row.append(line('●','is-dim',el('ul',{class:'ss-plan-list'},...item.items.map(x=>el('li',{class:`is-${x.status}`},el('span',{'aria-hidden':'true'},STATUS[x.status]||'☐'),x.content)))));
  }
  return row;
 }

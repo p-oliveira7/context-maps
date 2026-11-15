@@ -156,7 +156,7 @@ try{
   assert.deepEqual(kids.map(k=>k.images?.[0]?.anchor),[0,4,0,undefined]);
   const img=kids[1].images[0];assert.deepEqual([img.kind,img.title],['session','Mapa do fluxo de pedidos']);
   const svg=await (await fetch(`${base}/${img.src}`)).text(),card=sessionFromSvg(svg);
-  assert.equal(card.session.items.length,14);assert.equal(card.anchor,4);assert.doesNotMatch(svg,/eyJhbGci/);assert.match(svg,/✓ Criar pedido/);
+  assert.equal(card.session.items.length,14);assert.equal(card.anchor,4);assert.doesNotMatch(svg,/eyJhbGci/);assert.match(svg,/font-weight="700">Criar pedido/);
   await writeFile(path.join(src,'sess2.md'),'# Sessões\n- Do início [session:sessao.jsonl]\n- A pergunta [session:sessao.jsonl|Qual fluxo você quer mapear]\n');
   assert.equal(JSON.parse(run(['update','--id','sessoes','--outline','sess2.md']).stdout).updated.length,0); // mesma sessão e ponto: não duplica
  }

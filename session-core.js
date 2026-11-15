@@ -146,37 +146,44 @@ function wrap(text,width,maxLines){
  const lines=out.slice(0,maxLines);if(cut&&lines.length)lines[lines.length-1]=lines.at(-1).slice(0,width-1).replace(/\s+$/,'')+'…';
  return lines;
 }
-/** SVG 800×450 no estilo de conversa: a mensagem do ponto de abertura e o que vem logo depois */
-export function sessionThumbSvg(session,anchor=0,{title='',you='You',assistant='Claude'}={}){
- const W=800,H=450,F="font-family=\"'Segoe UI', Arial, sans-serif\"",parts=[];
- parts.push(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}"><defs><linearGradient id="fade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#151515" stop-opacity="0"/><stop offset="1" stop-color="#151515"/></linearGradient><clipPath id="body"><rect x="0" y="46" width="${W}" height="${H-46}"/></clipPath></defs>`);
- parts.push(`<rect width="${W}" height="${H}" rx="14" fill="#151515"/><rect width="${W}" height="46" rx="14" fill="#202020"/><rect y="30" width="${W}" height="16" fill="#202020"/>`);
- parts.push(`<circle cx="24" cy="23" r="6" fill="#d97757"/><text x="40" y="29" ${F} font-size="17" font-weight="600" fill="#e8e8e8">${esc(wrap(title||session.title||'Claude Code',70,1)[0]||'')}</text><g clip-path="url(#body)">`);
- let y=66;
- const label=(text,color)=>{parts.push(`<text x="28" y="${y+12}" ${F} font-size="13" font-weight="600" fill="${color}">${esc(text)}</text>`);y+=22;};
- const lines=(list,color,size=17,x=28)=>{for(const l of list){parts.push(`<text x="${x}" y="${y+size-3}" ${F} font-size="${size}" fill="${color}" xml:space="preserve">${esc(l)}</text>`);y+=size+6;}};
+/** SVG 800×450 em visual de terminal: a mensagem do ponto de abertura e o que vem logo depois.
+ *  "> " a pessoa, "●" o Claude e as ferramentas, "⎿" o resultado; cor só na resposta escolhida, na skill e no erro. */
+export function sessionThumbSvg(session,anchor=0,{title=''}={}){
+ const W=800,H=450,X=26,LH=24,COLS=76,FG='#d0d0d0',DIM='#7d7d7d',WHITE='#ffffff',OK='#5fbf8f',BAD='#e06c6c',HI='#e5c07b';
+ const FONT="font-family=\"Consolas, 'Cascadia Mono', Menlo, monospace\" font-size=\"16\"",parts=[];
+ parts.push(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}"><defs><linearGradient id="fade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0c0c0c" stop-opacity="0"/><stop offset="1" stop-color="#0c0c0c"/></linearGradient><clipPath id="body"><rect x="0" y="40" width="${W}" height="${H-40}"/></clipPath></defs>`);
+ parts.push(`<rect width="${W}" height="${H}" rx="10" fill="#0c0c0c"/><rect width="${W}" height="40" rx="10" fill="#1a1a1a"/><rect y="28" width="${W}" height="12" fill="#1a1a1a"/>`);
+ parts.push(`<circle cx="22" cy="20" r="5" fill="#3d3d3d"/><circle cx="40" cy="20" r="5" fill="#3d3d3d"/><circle cx="58" cy="20" r="5" fill="#3d3d3d"/><text x="80" y="25" ${FONT} fill="${DIM}">${esc(wrap(title||session.title||'claude',64,1)[0]||'')}</text><g clip-path="url(#body)">`);
+ let y=58;
+ // uma linha de texto: segmentos [texto, cor, negrito?]
+ const row=(segs,x=X)=>{parts.push(`<text x="${x}" y="${y+17}" ${FONT} xml:space="preserve">${segs.map(([t,fill,bold])=>`<tspan fill="${fill}"${bold?' font-weight="700"':''}>${esc(t)}</tspan>`).join('')}</text>`);y+=LH;};
+ const block=(mark,markFill,text,fill,max,bold)=>wrap(text,COLS-2,max).forEach((l,i)=>row([[i?'  ':mark+' ',markFill],[l,fill,bold]]));
  for(const item of session.items.slice(Math.max(0,anchor))){
-  if(y>H-30)break;
-  if(item.k==='user'){
-   const ls=wrap(item.text||`[${item.images||1} image]`,74,4),h=ls.length*23+40;
-   parts.push(`<rect x="16" y="${y}" width="${W-32}" height="${h}" rx="12" fill="#1d3a30" stroke="#2f6b54"/>`);y+=10;label(you,'#7fd1ae');lines(ls,'#f2f2f2');y+=18;
-  }else if(item.k==='assistant'){label(assistant,'#d97757');lines(wrap(plain(item.text),76,4),'#dcdcdc');y+=12;}
+  if(y>H-34)break;
+  if(item.k==='user'||item.k==='cmd'){
+   const ls=wrap(item.k==='cmd'?`${item.name} ${item.args}`:plain(item.text)||`[${item.images||1} image]`,COLS-2,4);
+   parts.push(`<rect x="12" y="${y-2}" width="${W-24}" height="${ls.length*LH+6}" fill="#191919"/>`);
+   ls.forEach((l,i)=>row([[i?'  ':'> ',DIM],[l,WHITE]]));y+=12;
+  }else if(item.k==='assistant'){block('●',FG,plain(item.text),FG,4);y+=8;}
   else if(item.k==='tool'){
-   const text=`${item.skill?'★ Skill':'▸ '+item.name}${item.title?' · '+item.title:''}`;
-   parts.push(`<rect x="16" y="${y}" width="${W-32}" height="30" rx="8" fill="${item.skill?'#3a2f14':'#1e1e1e'}" stroke="${item.skill?'#b8891f':'#333'}"/><text x="28" y="${y+20}" ${F} font-size="14" fill="${item.skill?'#ffd43b':'#a8a8a8'}">${esc(wrap(text,92,1)[0])}</text>`);y+=38;
+   const c=item.skill?HI:item.error?BAD:OK,label=wrap(`(${item.title||''})`,COLS-4-item.name.length,1)[0];
+   row([['● ',c],[item.name,item.skill?HI:WHITE,true],[label,item.skill?HI:FG]]);
+   const out=String(item.result||'').slice(0,400).replace(/\s+/g,' ').trim(); // prévia numa linha (um JSON não fica só "{")
+   if(out)row([['  ⎿ ',DIM],[wrap(out.trim(),COLS-6,1)[0],DIM]]);
+   y+=8;
   }else if(item.k==='ask'){
    for(const q of item.questions){
-    const opts=q.options.slice(0,4),h=44+opts.length*26;
-    parts.push(`<rect x="16" y="${y}" width="${W-32}" height="${h}" rx="12" fill="#1b2330" stroke="#4a6fa5"/>`);
-    parts.push(`<text x="28" y="${y+25}" ${F} font-size="16" font-weight="600" fill="#cfe0ff">${esc(wrap(`? ${q.question}`,78,1)[0])}</text>`);
-    const picked=String(item.answers?.[q.question]??'');
-    opts.forEach((o,i)=>{const on=picked.split(', ').includes(o.label)||picked===o.label;parts.push(`<text x="40" y="${y+50+i*26}" ${F} font-size="15" fill="${on?'#7fd1ae':'#9fb0c8'}">${esc(wrap(`${on?'✓':'○'} ${o.label}`,84,1)[0])}</text>`);});
-    y+=h+10;
+    const opts=q.options.slice(0,4),h=(1+opts.length)*LH+16,top=y;
+    parts.push(`<rect x="14" y="${top}" width="${W-28}" height="${h}" rx="4" fill="none" stroke="#3a3a3a"/>`);y+=8;
+    row([[q.header?`[${q.header}] `:'',DIM],[wrap(q.question,COLS-6-(q.header?q.header.length+3:0),1)[0],WHITE,true]]);
+    const answer=String(item.answers?.[q.question]??''),picked=new Set(q.multiSelect?answer.split(', '):[answer]);
+    opts.forEach((o,i)=>{const on=picked.has(o.label);row([[on?(q.multiSelect?'[✓] ':'❯   '):(q.multiSelect?'[ ] ':'    '),on?OK:DIM],[`${i+1}. `,on?OK:DIM],[wrap(o.label,COLS-12,1)[0],on?OK:FG,on]]);});
+    y=top+h+10;
    }
-  }else if(item.k==='next'&&item.ask){parts.push(`<text x="28" y="${y+16}" ${F} font-size="15" fill="#9fb0c8">${esc(wrap(`→ ${item.ask}`,88,1)[0])}</text>`);y+=30;}
-  else if(item.k==='cmd'){parts.push(`<text x="28" y="${y+16}" ${F} font-size="15" fill="#a8a8a8">${esc(wrap(`${item.name} ${item.args}`,88,1)[0])}</text>`);y+=30;}
+  }else if(item.k==='next'&&item.ask){row([['→ ',DIM],[wrap(item.ask,COLS-2,1)[0],WHITE,true]]);y+=8;}
+  else if(item.k==='plan'){for(const x of item.items.slice(0,4))row([[x.status==='completed'?'☒ ':x.status==='in_progress'?'▶ ':'☐ ',DIM],[wrap(x.content,COLS-2,1)[0],x.status==='completed'?DIM:x.status==='in_progress'?WHITE:FG]],X+18);y+=8;}
  }
- parts.push(`</g><rect x="0" y="${H-70}" width="${W}" height="70" fill="url(#fade)"/><rect width="${W}" height="${H}" rx="14" fill="none" stroke="#ffffff22"/></svg>`);
+ parts.push(`</g><rect x="0" y="${H-60}" width="${W}" height="60" fill="url(#fade)"/><rect width="${W}" height="${H}" rx="10" fill="none" stroke="#ffffff22"/></svg>`);
  return parts.join('');
 }
 
