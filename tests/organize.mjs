@@ -39,6 +39,13 @@ try{
  const until=async(fn,want,msg)=>{let got;for(let i=0;i<60;i++){got=await fn();if(JSON.stringify(got)===JSON.stringify(want))return;await new Promise(r=>setTimeout(r,100));}assert.deepEqual(got,want,typeof msg==='function'?await msg():msg);};
  // eventos de arrastar vistos pela página (entram na mensagem quando um arrasto não tem efeito)
  await page.addInitScript(()=>{window.__drag=[];for(const t of ['dragstart','dragenter','dragover','dragleave','drop','dragend'])document.addEventListener(t,e=>{const el=e.target.closest?.('[data-path],.api-collection-row'),k=`${t}>${el?(el.dataset.path??'collection'):e.target.tagName}`;if(window.__drag.at(-1)!==k)window.__drag.push(k);},true);});
+ // arrastar em etapas (o dragTo de uma vez às vezes não tem o arrasto capturado no Linux/macOS e o soltar nunca chega)
+ const drag=async(src,dst,pos)=>{
+  const a=await src.boundingBox();await src.hover();await page.mouse.down();
+  await page.mouse.move(a.x+a.width/2+8,a.y+a.height/2+4,{steps:3});
+  await dst.scrollIntoViewIfNeeded();const b=await dst.boundingBox(),x=b.x+(pos?pos.x:b.width/2),y=b.y+(pos?pos.y:b.height/2);
+  await page.mouse.move(x,y,{steps:6});await page.mouse.move(x,y+.5);await page.mouse.up();
+ };
  const dragLog=async()=>`drag events: ${JSON.stringify(await page.evaluate(()=>window.__drag.splice(0)))}`;
  await row('Health').waitFor();
 
@@ -109,17 +116,17 @@ try{
  // ORG-07: arrastar para dentro de uma pasta move; a aba aberta acompanha; soltar no nome da coleção volta para a raiz
  await row('Health').locator('.api-row-main').click();await page.locator('.api-tab.is-active',{hasText:'Health'}).waitFor();
  const inbox=await row('Inbox').boundingBox();
- await row('Health').locator('.api-row-main').dragTo(row('Inbox'),{targetPosition:{x:40,y:inbox.height/2}});
+ await drag(row('Health').locator('.api-row-main'),row('Inbox'),{x:40,y:inbox.height/2});
  await until(()=>treeOf('other'),[{Inbox:[{Archive:['List','Create']},'List','Health']}],dragLog);
  await page.locator('.api-row.is-active[data-path="inbox/health.bru"]').waitFor();
  await page.locator('.api-tab.is-active',{hasText:'Health'}).waitFor();
  await page.evaluate(()=>{window.__drag.length=0;});
- await row('Health').locator('.api-row-main').dragTo(page.locator('.api-collection-row .api-collection-name'));
+ await drag(row('Health').locator('.api-row-main'),page.locator('.api-collection-row .api-collection-name'));
  await until(()=>treeOf('other'),[{Inbox:[{Archive:['List','Create']},'List']},'Health'],dragLog);
  await page.locator('.api-row[data-path="health.bru"]').waitFor();
  // soltar na borda de um item de outra pasta leva para aquela posição
  const first=row('Archive');
- await row('Health').locator('.api-row-main').dragTo(first,{targetPosition:{x:40,y:2}});
+ await drag(row('Health').locator('.api-row-main'),first,{x:40,y:2});
  await until(()=>treeOf('other'),[{Inbox:['Health',{Archive:['List','Create']},'List']}],dragLog);
  await page.locator('.api-row[data-path="inbox/health.bru"]').waitFor();
 
@@ -167,7 +174,7 @@ try{
  await until(async()=>(await call('GET','/collections/linked/request?path=ping.bru')).url,'https://example.test/ping/mine');
  await page.locator('.api-tab-dirty').waitFor({state:'detached'});
  await page.locator('.api-select').first().selectOption('other');await row('Inbox').waitFor();
- await row('Inbox').locator('.api-row-main').dragTo(row('Archive'),{targetPosition:{x:40,y:(await row('Archive').boundingBox()).height/2}});
+ await drag(row('Inbox').locator('.api-row-main'),row('Archive'),{x:40,y:(await row('Archive').boundingBox()).height/2});
  assert.deepEqual(await treeOf('other'),[{Inbox:['Health',{Archive:['List','Create']},'List']}]);
 
  assert.deepEqual(errors,[]);
