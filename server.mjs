@@ -13,6 +13,7 @@ import {lightSvgFonts} from './svg-fonts.js';
 import {writeZip,readZip} from './zip.mjs';
 import {createCollections} from './collections.mjs';
 import {sendRequest} from './send.mjs';
+import {createSessions} from './sessions.mjs';
 
 const root=path.dirname(fileURLToPath(import.meta.url));
 const dataDir=path.resolve(process.env.PRESENTATIONS_DIR||path.join(root,'presentations'));
@@ -29,7 +30,7 @@ const send=(res,status,body,type='application/json; charset=utf-8')=>{res.writeH
 const EN={
  'Corpo grande demais':'Request body too large','Informe o caminho completo da pasta':'Enter the full folder path',
  'Escolha uma pasta, não a raiz do disco':'Choose a folder, not the drive root','Sem permissão para gravar nessa pasta':'No permission to write to that folder',
- 'Acesso negado':'Access denied','Método não permitido':'Method not allowed','Pasta não registrada':'Folder not registered',
+ 'Acesso negado':'Access denied','Sessão não encontrada':'Session not found','Método não permitido':'Method not allowed','Pasta não registrada':'Folder not registered',
  'Seletor de pasta indisponível neste sistema; digite o caminho':'Folder picker unavailable on this system; type the path',
  'Rota inexistente':'Route not found','Identificador inválido ou já existente':'Invalid or already existing identifier',
  'Identificador inválido':'Invalid identifier','Apresentação inexistente':'Presentation not found',
@@ -230,6 +231,7 @@ function pickFolder(){
 }
 
 /* ---------- API ---------- */
+const sessions=createSessions();
 const LOCAL_HOST=/^(127\.0\.0\.1|localhost|\[::1\])(:\d+)?$/i;
 async function api(req,res,url){
  if(!LOCAL_HOST.test(req.headers.host||''))return fail(res,403,'Acesso negado');
@@ -257,6 +259,13 @@ async function api(req,res,url){
  if(parts[0]==='import'){
   if(req.method!=='POST')return fail(res,405,'Método não permitido');
   return importDoc(req,res);
+ }
+ if(parts[0]==='sessions'){ // sessões do Claude Code desta máquina (só leitura); o cabeçalho é exigido também no GET: são conversas privadas
+  if(req.method!=='GET')return fail(res,405,'Método não permitido');
+  if(req.headers['x-context-maps']!=='1')return fail(res,403,'Acesso negado');
+  if(!parts[1])return send(res,200,{dir:sessions.dir,sessions:await sessions.list()});
+  const found=parts[2]?await sessions.read(decodeURIComponent(parts[1]),decodeURIComponent(parts[2])):null;
+  return found?send(res,200,found):fail(res,404,'Sessão não encontrada');
  }
  if(parts[0]==='send'){ // cliente de API: o servidor faz a chamada (sem CORS); só http/https
   if(req.method!=='POST')return fail(res,405,'Método não permitido');

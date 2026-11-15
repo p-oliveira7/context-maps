@@ -992,3 +992,98 @@ body.oa-open.sides-swapped:not(.api-open) .swap-sides{left:var(--oa-w,50vw)}
  .oa-viewer.is-secondary .oa-resizer{display:none}
  body.sides-swapped.oa-open:not(.api-open) .oa-viewer.is-secondary{left:var(--oa-w,50vw);right:0;width:auto;border-right:0;border-left:1px solid #ffffff26}
 }
+/* sessões do Claude nos cards: conversa em visual de terminal (visualizador lateral e janela de importar).
+   Quase sem cor: texto cinza-claro em fundo preto; realce só na resposta escolhida (verde), skill e ponto marcado (amarelo) e erro (vermelho). */
+.ss-list{--ss-fg:#d0d0d0;--ss-dim:#7d7d7d;--ss-line:#3a3a3a;--ss-ok:#5fbf8f;--ss-bad:#e06c6c;--ss-hi:#e5c07b;flex:1;min-height:0;overflow:auto;padding:.9rem 1rem 2rem;display:flex;flex-direction:column;gap:.7rem;font-family:Consolas,'Cascadia Mono','SF Mono',Menlo,monospace;font-size:.8rem;line-height:1.5;color:var(--ss-fg);background:#0c0c0c;outline:none}
+.ss-item{position:relative;scroll-margin-top:12px}
+.ss-line{display:flex;gap:.6rem;align-items:flex-start}
+.ss-mark{flex:none;width:1ch;color:var(--ss-fg);user-select:none}
+.ss-mark.is-ok{color:var(--ss-ok)}.ss-mark.is-bad{color:var(--ss-bad)}.ss-mark.is-dim{color:var(--ss-dim)}
+.ss-body{flex:1;min-width:0}
+.ss-text{white-space:pre-wrap;overflow-wrap:anywhere}
+.ss-text code{color:#fff}
+.ss-text strong,.ss-h{color:#fff;font-weight:700}
+.ss-h{display:block}
+.ss-text a{color:inherit;text-decoration:underline}
+.ss-code,.ss-pre{margin:.3rem 0 0;padding:.45rem .6rem;border-left:2px solid var(--ss-line);background:#141414;font-family:Consolas,'Cascadia Mono','SF Mono',Menlo,monospace;font-size:.76rem;line-height:1.45;color:#bdbdbd;white-space:pre-wrap;overflow-wrap:anywhere;max-height:22rem;overflow:auto}
+.ss-code code{color:inherit}
+/* a pessoa: linha de prompt, em branco, com uma faixa discreta */
+.ss-user,.ss-cmd{padding:.3rem .5rem;margin:0 -.5rem;background:#191919;color:#fff}
+.ss-user .ss-mark,.ss-cmd .ss-mark{color:var(--ss-dim)}
+.ss-note{color:var(--ss-dim)}
+/* ferramentas: ● Nome(resumo) e ⎿ primeira linha do resultado */
+.ss-tool summary,.ss-think summary,.ss-sum summary{display:flex;gap:0;cursor:pointer;list-style:none;min-width:0}
+.ss-tool summary::-webkit-details-marker,.ss-think summary::-webkit-details-marker,.ss-sum summary::-webkit-details-marker{display:none}
+.ss-tool summary:hover .ss-tool-name,.ss-think summary:hover,.ss-sum summary:hover{text-decoration:underline}
+.ss-tool-name{font-weight:700;color:#fff;white-space:nowrap}
+.ss-tool-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ss-tool-err{margin-left:.6rem;color:var(--ss-bad)}
+.ss-out{color:var(--ss-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-left:.2rem}
+.ss-tool details[open]~.ss-out{display:none}
+.ss-tool.is-skill .ss-tool-name,.ss-tool.is-skill .ss-tool-title{color:var(--ss-hi)}
+.ss-tool.is-skill .ss-mark{color:var(--ss-hi)}
+.ss-think{display:none}.ss-list.show-think .ss-think{display:block}
+.ss-think summary,.ss-sum summary{color:var(--ss-dim);font-style:italic}
+/* perguntas feitas à pessoa (AskUserQuestion) e a caixa de próximo passo: caixa de terminal, resposta escolhida em verde */
+.ss-q{margin-top:.5rem;padding:.55rem .75rem;border:1px solid var(--ss-line);border-radius:4px}
+.ss-q:first-child{margin-top:0}
+.ss-q-head{display:flex;flex-wrap:wrap;gap:.6rem;align-items:baseline}
+.ss-q-chip{color:var(--ss-dim)}.ss-q-chip::before{content:"["}.ss-q-chip::after{content:"]"}
+.ss-q-title{color:#fff;font-weight:700}
+.ss-q-options{list-style:none;margin:.4rem 0 0;padding:0}
+.ss-q-options li{display:flex;gap:.6rem;color:var(--ss-dim)}
+.ss-q-options li b{font-weight:400;color:var(--ss-fg)}
+.ss-q-options li small{display:block;font-size:inherit;color:var(--ss-dim)}
+.ss-q-mark{flex:none;width:3ch;text-align:left;white-space:pre}
+.ss-q-num{flex:none}
+.ss-q-options li.is-picked,.ss-q-options li.is-picked b{color:var(--ss-ok)}
+.ss-q-options li.is-picked b{font-weight:700}
+.ss-q-answer{margin:.4rem 0 0;color:var(--ss-ok)}.ss-q-answer span{color:var(--ss-dim)}.ss-q-answer.is-none{color:var(--ss-dim);font-style:italic}
+.ss-recap{margin:0 0 .3rem}
+.ss-actions{display:flex;flex-wrap:wrap;gap:.2rem 1rem;margin-top:.35rem;color:var(--ss-dim)}
+.ss-plan-list{list-style:none;margin:0;padding:0}
+.ss-plan-list li{display:flex;gap:.6rem;color:var(--ss-fg)}.ss-plan-list li span{flex:none;color:var(--ss-dim)}
+.ss-plan-list li.is-completed{color:var(--ss-dim);text-decoration:line-through}.ss-plan-list li.is-completed span{text-decoration:none}
+.ss-plan-list li.is-in_progress{color:#fff;font-weight:700}
+/* ponto marcado e seleção */
+.ss-item.is-anchor{box-shadow:-3px 0 0 0 var(--ss-hi);padding-left:.5rem;margin-left:-.5rem}
+.ss-user.is-anchor,.ss-cmd.is-anchor{margin-left:-.5rem}
+.ss-item.is-flash{animation:ss-flash 1.2s ease-out}
+@keyframes ss-flash{from{background:#e5c07b33}}
+@media (prefers-reduced-motion:reduce){.ss-item.is-flash{animation:none}}
+.ss-viewer .dw-toggle{margin-left:auto}.ss-viewer .dw-gear{margin-left:0}
+.ss-viewer .dw-gear[aria-pressed=true]{background:#2a2a2a;border-color:#888}
+/* janela de importar */
+.ss-modal .oa-inputs{overflow:hidden}
+.ss-search,.ss-title{width:100%;padding:.4rem .55rem;border-radius:8px;border:1px solid #ffffff2e;background:#0f0f0f;color:#eee}
+.ss-sessions{flex:1;min-height:6rem;overflow:auto;display:flex;flex-direction:column;gap:.3rem;padding-right:.2rem}
+.oa-modal button.ss-session{display:flex;flex-direction:column;gap:.1rem;text-align:left;padding:.45rem .6rem;background:#1b1b1b;border-color:#ffffff1f}
+.ss-session strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.ss-session small{color:#ffffff80;font-size:.72rem}
+.ss-session span{color:#ffffffa6;font-size:.76rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.ss-session[aria-selected=true]{border-color:#4f9d7a;background:#173326}
+.ss-preview{display:flex;flex-direction:column;min-height:0;min-width:0}
+.ss-bar{display:flex;flex-wrap:wrap;align-items:center;gap:.35rem;padding:.5rem .7rem;border-bottom:1px solid #ffffff1a;background:#1a1a1a}
+.ss-bar-hint{color:#ffffff80;font-size:.74rem}
+.ss-pick .ss-item{cursor:pointer}
+.ss-pick .ss-item.is-out{opacity:.3}
+.ss-pick .ss-item.is-cursor{outline:1px dashed #fff;outline-offset:3px}
+.ss-info{margin:0 auto 0 0;font-size:.78rem;color:#ffffffb3}
+.ss-mask{display:inline-flex;align-items:center;gap:.35rem;margin-right:.6rem;font-size:.78rem;color:#ffd9a0}
+.ss-mask[hidden]{display:none}
+.image-button.is-session img{background:#0c0c0c}
+/* janela lateral (documentação, desenho, sessão) sem o API client: o mapa ocupa o lado livre, com a barra e o zoom centrados nele */
+@media (min-width:901px){
+ body.oa-open:not(.api-open) #viewport{right:var(--oa-w,50vw)}
+ body.oa-open:not(.api-open) .toolbar{left:calc((100vw - var(--oa-w,50vw))/2);max-width:calc(100vw - var(--oa-w,50vw) - 1.2rem);flex-wrap:wrap;justify-content:center}
+ body.oa-open:not(.api-open) .zoom-controls{right:calc(var(--oa-w,50vw) + 1.4rem)}
+ /* ⇄ com uma janela só: ela vai para a esquerda e o mapa (com o menu, a barra e o zoom) para a direita */
+ body.sides-swapped.oa-open:not(.api-open) #viewport{right:0;left:var(--oa-w,50vw)}
+ body.sides-swapped.oa-open:not(.api-open) .toolbar{left:calc(var(--oa-w,50vw) + (100vw - var(--oa-w,50vw))/2)}
+ body.sides-swapped.oa-open:not(.api-open) .zoom-controls{right:1.4rem}
+ body.sides-swapped.oa-open:not(.api-open) .doc-bar{left:calc(var(--oa-w,50vw) + 1rem)}
+ body.sides-swapped.api-open #viewport{right:0;left:var(--api-w)}
+ body.sides-swapped.api-open .toolbar{left:calc(var(--api-w) + (100vw - var(--api-w))/2)}
+ body.sides-swapped.api-open .zoom-controls{right:1.4rem}
+ body.sides-swapped.api-open .doc-bar{left:calc(var(--api-w) + 1rem)}
+}

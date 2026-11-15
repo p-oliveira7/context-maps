@@ -7,8 +7,10 @@ import {initApiClient,openApiPanel,closeApiPanel,isApiOpen,setAttachTarget,summa
 import {apiDropdown,closeApiDropdown} from './api-dropdown.js?v=1';
 import {isSequenceSource,renderSequence,FONT as SEQ_FONT} from './sequence.js?v=1';
 import {openSequenceEditor} from './sequence-editor.js?v=2';
-import {openApiViewer,mountSwagger,thumbnailSvg,endpointsOf,findEndpoint,closeSecondaryPanel} from './openapi.js?v=8';
-import {openDrawing} from './drawing.js?v=6';
+import {openApiViewer,mountSwagger,thumbnailSvg,endpointsOf,findEndpoint,closeSecondaryPanel} from './openapi.js?v=9';
+import {openSessionViewer,openSessionDialog,loadSessionCard} from './session.js?v=3';
+import {sessionCardSvg} from './session-core.js?v=2';
+import {openDrawing} from './drawing.js?v=7';
 applyStatic();
 const $=s=>document.querySelector(s), viewport=$('#viewport'), world=$('#world');
 $('#doc-version').textContent=`Context Maps v${VERSION}`;
@@ -69,6 +71,7 @@ function openImage(node,index=0){
  const image=imagesOf(node)[index];
  if(image?.kind==='openapi'&&image.source){openApiImage(node,image);return;} // especificação: abre o Swagger UI interativo
  if(image?.kind==='drawing'){openDrawingFor(node,index);return;} // desenho: abre o Excalidraw na janela lateral
+ if(image?.kind==='session'){openSessionImage(node,image);return;} // sessão do Claude: abre a conversa na janela lateral, no ponto marcado
  const d=$('dialog');
  gallery.images=imagesOf(node);gallery.index=index;showGalleryImage();
  // API client ou documentação abertos: a imagem fica ao lado (no lugar do mapa) e eles seguem utilizáveis.
@@ -87,6 +90,7 @@ function imageButton(node,image,index){
  if(image.kind==='diagram')button.classList.add('is-diagram');
  if(image.kind==='openapi')button.classList.add('is-diagram','is-openapi');
  if(image.kind==='drawing')button.classList.add('is-diagram','is-drawing');
+ if(image.kind==='session')button.classList.add('is-diagram','is-session');
  button.onclick=()=>openImage(node,index);return button;
 }
 function imageBadge(node){
@@ -103,6 +107,10 @@ function imageItem(node,image,index){
  if(image.kind==='openapi'){
   const edit=document.createElement('button');edit.type='button';edit.textContent=t('openApiReplaceShort');edit.setAttribute('aria-label',t('openApiReplaceFor',nameOf(node)));
   edit.onclick=()=>openApiDialog(node,index);tools.append(edit);
+ }
+ if(image.kind==='session'){
+  const edit=document.createElement('button');edit.type='button';edit.textContent=t('sessionReplaceShort');edit.setAttribute('aria-label',t('sessionReplaceFor',nameOf(node)));
+  edit.onclick=()=>openSessionDialogFor(node,index);tools.append(edit);
  }
  if(image.kind==='drawing'){
   const edit=document.createElement('button');edit.type='button';edit.textContent=t('edit');edit.setAttribute('aria-label',t('drawingEditFor',nameOf(node)));
@@ -440,7 +448,7 @@ function apiTile(node,ref,index){
 let attachTarget=null;
 /* Ao abrir ou fechar o painel de API (ou arrastar a borda) o mapa NÃO é enquadrado de novo: o zoom fica como está. Se o painel foi aberto
    a partir de um card, esse card continua visível (só se move se o painel o cobrisse); senão o centro do mapa acompanha a nova largura. */
-let lastVW=viewport.clientWidth,glideTimer=0,apiFocusId=null;
+let lastVW=viewport.clientWidth,glideTimer=0,apiFocusId=null,panelFocusId=null; // panelFocusId: card que abriu a janela lateral (fica à vista no espaço do mapa)
 function glide(){world.classList.add('is-glide');clearTimeout(glideTimer);glideTimer=setTimeout(()=>world.classList.remove('is-glide'),520);}
 function ensureVisible(id){
  const el=document.querySelector(`[data-id="${id}"]`);if(!el)return;
@@ -583,6 +591,7 @@ function radialItems(node,depth,picker,anchor){
   {icon:'◇',label:t('diagram'),aria:t('addDiagram'),run:()=>openDiagramEditor(node,null)},
   {icon:'⧉',label:'OpenAPI',aria:t('openApiAddFor',nameOf(node)),run:()=>openApiDialog(node,null)},
   {icon:'✐',label:t('drawing'),aria:t('drawingAddFor',nameOf(node)),run:()=>openDrawingFor(node,null,{edit:true})},
+  {icon:'❯',label:t('session'),aria:t('sessionAddFor',nameOf(node)),run:()=>openSessionDialogFor(node,null)},
   {icon:'{ }',label:t('apiButton'),aria:t('apiAttach'),run:()=>startAttach(node)},
   {icon:'↗',label:t('link'),aria:t('addLink'),run:()=>addLink(node)});
  items.push({icon:'⇄',label:t('relate'),aria:t('relateIdea'),run:()=>startRelate(node)},{icon:'⧉',label:t('duplicate'),aria:t('duplicateIdea'),run:()=>duplicateNode(node)},{icon:'⎘',label:t('copy'),aria:t('copyIdea'),run:()=>copyNode(node)});
@@ -723,12 +732,39 @@ function openApiDialog(node,index=null){
 // especificação em JSON vai compacta para o arquivo da apresentação (YAML fica como está)
 function compactSpec(text){if(!/^\s*[{[]/.test(text))return text;try{return JSON.stringify(JSON.parse(text));}catch{return text;}}
 function openApiImage(node,image){
+ panelFocusId=node.id; // ao abrir, o mapa se ajusta ao lado livre mantendo este card à vista
  openApiViewer({source:image.source||'',title:image.focus?`${image.title||nameOf(node)} · ${image.focus.method.toUpperCase()} ${image.focus.path}`:image.title||nameOf(node),t,focus:image.focus||null});
+}
+
+/* Sessões do Claude Code: a transcrição (compacta) vai dentro do SVG da miniatura — um arquivo só, como qualquer imagem */
+async function openSessionDialogFor(node,index=null){
+ const existing=index===null?null:imagesOf(node)[index];
+ let current=null;
+ if(existing){
+  const card=await loadSessionCard(existing.src);if(!card)return showToast(t('sessionOpenError'));
+  current={session:card.session,anchor:existing.anchor??card.anchor,title:existing.title};
+ }
+ openSessionDialog({t,lang,current,onPick:async({session,anchor,title})=>{
+  try{
+   const svg=sessionCardSvg(session,anchor,{title,you:t('sessionYou')});
+   const src=await store.upload(doc.id,new File([svg],'session.svg',{type:'image/svg+xml'}));
+   const entry={src,alt:t('sessionAlt',title,nameOf(node)),kind:'session',title,anchor};
+   if(existing)node.images[index]=entry;else(node.images||=[]).push(entry);
+   commit();render();showToast(t(existing?'sessionUpdated':'sessionAdded',title),true);
+  }catch{showToast(t('sessionSaveError'));}
+ }});
+}
+async function openSessionImage(node,image){
+ const card=await loadSessionCard(image.src);
+ if(!card)return showToast(t('sessionOpenError'));
+ panelFocusId=node.id;
+ openSessionViewer({session:card.session,anchor:image.anchor??card.anchor,title:image.title||nameOf(node),t});
 }
 
 /* Desenhos livres (Excalidraw sob demanda): a cena fica no card, a miniatura é um SVG; abre na janela lateral */
 function openDrawingFor(node,index=null,{edit=false}={}){
  let entry=index===null?null:imagesOf(node)[index]||null;
+ panelFocusId=node.id;
  const uploadThumb=async svg=>store.upload(doc.id,new File([svg],'drawing.svg',{type:'image/svg+xml'}));
  let pendingHighlight=null; // configurações escolhidas antes do primeiro traço de um desenho novo
  openDrawing({scene:entry?.scene||{elements:[],files:{}},title:entry?.title||nameOf(node)||t('drawing'),t,lang,editable:edit||!entry,highlight:entry?.highlight,
@@ -1529,13 +1565,21 @@ $('dialog').addEventListener('close',()=>{const d=$('dialog');if(d.open)return;l
  let swapOn=false;try{swapOn=localStorage.getItem('cm-swap-sides')==='1';}catch{}
  const syncSwap=()=>{
   const b=document.body.classList,api=b.contains('api-open'),docs=b.contains('oa-open'),img=d.open&&d.classList.contains('is-beside');
-  const pair=window.innerWidth>900&&((api&&(docs||img))||(docs&&img)||b.contains('oa-two'));
-  swapBtn.hidden=!pair;swapBtn.setAttribute('aria-pressed',String(pair&&swapOn));b.toggle('sides-swapped',pair&&swapOn);
+  const wide=window.innerWidth>900,pair=wide&&((api&&(docs||img))||(docs&&img)||b.contains('oa-two')),any=wide&&(api||docs);
+  swapBtn.hidden=!any;swapBtn.setAttribute('aria-pressed',String(any&&swapOn));b.toggle('sides-swapped',any&&swapOn);
+  const label=t(pair?'swapSides':'moveSide');swapBtn.setAttribute('aria-label',label);swapBtn.title=label;
  };
  swapBtn.addEventListener('click',()=>{swapOn=!swapOn;try{localStorage.setItem('cm-swap-sides',swapOn?'1':'0');}catch{}syncSwap();});
  new MutationObserver(syncSwap).observe(document.body,{attributes:true,attributeFilter:['class']});
  new MutationObserver(syncSwap).observe(d,{attributes:true,attributeFilter:['open','class']});
  window.addEventListener('resize',syncSwap);
+ // a área do mapa mudou (janela lateral abriu, fechou, trocou de lado ou de largura): a câmera acompanha, como com o API client
+ const sideLayout=()=>requestAnimationFrame(()=>{
+  if(viewport.clientWidth!==lastVW)onApiLayout(); // mantém o mapa centrado no espaço que sobrou
+  if(panelFocusId&&document.body.classList.contains('oa-open')){const id=panelFocusId;panelFocusId=null;if(!reading){glide();ensureVisible(id);}} // e o card que abriu a janela à vista (uma vez, com a janela já aberta)
+ });
+ new MutationObserver(sideLayout).observe(document.body,{attributes:true,attributeFilter:['class']});
+ window.addEventListener('cm-side-layout',sideLayout);
 }
 $('#lightbox-prev').onclick=e=>{e.stopPropagation();stepGallery(-1);};
 $('#lightbox-next').onclick=e=>{e.stopPropagation();stepGallery(1);};

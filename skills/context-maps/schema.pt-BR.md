@@ -38,6 +38,7 @@
 - `links`: lista opcional de `{url, label?}` (apenas http/https), exibida como selo "N link(s)" abaixo do card.
 - `kind: "diagram"` e `source` (mermaid) são opcionais; diagramas aparecem sem corte no cartão.
 - `kind: "drawing"`: um desenho do Excalidraw (`scene: {elements, files}`; `src` é a miniatura SVG; `source` guarda o texto `.flow` quando veio da skill). Abre ao lado do card, editável, com destaque de caminho. Crie com `[flow:arquivo.flow]` (abaixo), não à mão.
+- `kind: "session"`: uma sessão do Claude Code (`src` é uma miniatura SVG que leva a transcrição compacta dentro; `anchor` é o item em que o card abre). Crie com `[session:arquivo.jsonl|texto]` (abaixo) ou no app.
 - Prefira criar pelo outline (`rm.mjs create`); o servidor valida a estrutura (ids únicos, profundidade ≤ 40).
 
 ## Como estruturar
@@ -79,6 +80,13 @@ auth -> ok: sim
 - Um fluxo por arquivo; algo entre ~3 e 15 quadros. Decisões como `[diamond]` com `sim`/`não` nas setas; resultados (códigos de status, erros) como fins `[ellipse]`, coloridos (verde sucesso, vermelho/laranja erro) e marcados com `{end}`.
 - Voltas ("tentar de novo") podem: a seta volta e o layout a ignora.
 - `validate` mostra os avisos do fluxo (linhas não entendidas, formas); `create`/`update` guardam em `images[]` com `kind: "drawing"`, a `scene` do Excalidraw e o texto em `source` (`update` só adiciona quando o texto mudou).
+
+## Sessões do Claude (`.jsonl`)
+`[session:arquivo.jsonl|texto do ponto de abertura]` coloca uma **sessão do Claude Code** no card — útil para apresentar o uso de uma skill. O card mostra uma miniatura estática da conversa no ponto de abertura; ao clicar, a sessão inteira abre ao lado do card, já rolada até ali, e o usuário sobe e desce por tudo: mensagens, chamadas de ferramenta (recolhidas; clique para ver entrada e resultado), chamadas de skill (em destaque), listas de tarefas e as **perguntas que o Claude fez ao usuário** (AskUserQuestion), com as opções e as respostas escolhidas.
+- As sessões ficam em `~/.claude/projects/<projeto>/<id-da-sessão>.jsonl` (uma pasta por diretório de trabalho). Copie o arquivo para o lado do outline ou aponte pelo caminho.
+- O texto depois do `|` é opcional: o card abre na primeira mensagem do usuário que o contém (qualquer item, se nenhuma mensagem do usuário bater); sem ele, na primeira mensagem. Um texto não encontrado aparece em `skipped` e o card abre na primeira mensagem.
+- A transcrição é guardada compacta dentro do SVG da miniatura (`images[]` com `kind: "session"`, `anchor` = índice do item de abertura, `source` = `arquivo|texto`): entradas/resultados longos de ferramenta são cortados (começo e fim mantidos), registros internos do app saem e o que parece segredo (tokens, chaves, senhas) vira `•••`. Mesmo assim, **leia a sessão antes de publicar** — ela pode ter caminhos, código e dados que o público não deve ver; na dúvida, pergunte ao usuário que parte mostrar e use o app (**Sessão** no menu do card), que deixa guardar só um trecho.
+- Vários cards podem apontar para momentos diferentes da mesma sessão: repita o marcador com outro texto.
 
 ## Mermaid
 Requer `mmdc` (`npm i -g @mermaid-js/mermaid-cli`) no PATH ou `MMDC=caminho`; use `MMDC_BROWSER=caminho/do/chrome` para reaproveitar um Chrome instalado (instale com `PUPPETEER_SKIP_DOWNLOAD=1`). O diagrama é renderizado em SVG
