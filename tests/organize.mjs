@@ -36,7 +36,10 @@ try{
  await page.locator('#api-btn').click();await page.locator('#api-panel').waitFor({state:'visible'});
  const row=name=>page.locator('.api-row',{has:page.locator('.api-row-name',{hasText:new RegExp(`^(📁 )?${name}$`)})});
  const menu=async(name,label)=>{await row(name).first().click({button:'right'});await page.locator('.api-ctx').getByRole('menuitem',{name:label,exact:true}).click();};
- const until=async(fn,want,msg)=>{let got;for(let i=0;i<60;i++){got=await fn();if(JSON.stringify(got)===JSON.stringify(want))return;await new Promise(r=>setTimeout(r,100));}assert.deepEqual(got,want,msg);};
+ const until=async(fn,want,msg)=>{let got;for(let i=0;i<60;i++){got=await fn();if(JSON.stringify(got)===JSON.stringify(want))return;await new Promise(r=>setTimeout(r,100));}assert.deepEqual(got,want,typeof msg==='function'?await msg():msg);};
+ // eventos de arrastar vistos pela página (entram na mensagem quando um arrasto não tem efeito)
+ await page.addInitScript(()=>{window.__drag=[];for(const t of ['dragstart','dragenter','dragover','dragleave','drop','dragend'])document.addEventListener(t,e=>{const el=e.target.closest?.('[data-path],.api-collection-row'),k=`${t}>${el?(el.dataset.path??'collection'):e.target.tagName}`;if(window.__drag.at(-1)!==k)window.__drag.push(k);},true);});
+ const dragLog=async()=>`drag events: ${JSON.stringify(await page.evaluate(()=>window.__drag.splice(0)))}`;
  await row('Health').waitFor();
 
  // ORG-01: o botão ⋯ da linha abre o mesmo menu do botão direito; duplicar vale para request e para pasta (com o que há dentro)
@@ -107,16 +110,17 @@ try{
  await row('Health').locator('.api-row-main').click();await page.locator('.api-tab.is-active',{hasText:'Health'}).waitFor();
  const inbox=await row('Inbox').boundingBox();
  await row('Health').locator('.api-row-main').dragTo(row('Inbox'),{targetPosition:{x:40,y:inbox.height/2}});
- await until(()=>treeOf('other'),[{Inbox:[{Archive:['List','Create']},'List','Health']}]);
+ await until(()=>treeOf('other'),[{Inbox:[{Archive:['List','Create']},'List','Health']}],dragLog);
  await page.locator('.api-row.is-active[data-path="inbox/health.bru"]').waitFor();
  await page.locator('.api-tab.is-active',{hasText:'Health'}).waitFor();
- await row('Health').locator('.api-row-main').dragTo(page.locator('.api-collection-row'));
- await until(()=>treeOf('other'),[{Inbox:[{Archive:['List','Create']},'List']},'Health']);
+ await page.evaluate(()=>{window.__drag.length=0;});
+ await row('Health').locator('.api-row-main').dragTo(page.locator('.api-collection-row .api-collection-name'));
+ await until(()=>treeOf('other'),[{Inbox:[{Archive:['List','Create']},'List']},'Health'],dragLog);
  await page.locator('.api-row[data-path="health.bru"]').waitFor();
  // soltar na borda de um item de outra pasta leva para aquela posição
  const first=row('Archive');
  await row('Health').locator('.api-row-main').dragTo(first,{targetPosition:{x:40,y:2}});
- await until(()=>treeOf('other'),[{Inbox:['Health',{Archive:['List','Create']},'List']}]);
+ await until(()=>treeOf('other'),[{Inbox:['Health',{Archive:['List','Create']},'List']}],dragLog);
  await page.locator('.api-row[data-path="inbox/health.bru"]').waitFor();
 
  // ORG-08: abrir uma pasta do Bruno pelo caminho cria a coleção vinculada (com o selo) e o que muda na pasta aparece ao voltar para a janela

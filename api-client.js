@@ -391,7 +391,7 @@ function treeRows(items,depth,q){
     h('button',{type:'button',class:'api-icon-btn danger',title:t('apiDelete'),'aria-label':`${t('apiDelete')}: ${it.name}`,onClick:()=>deleteItem(it)},'✕')));
   row.addEventListener('dragstart',e=>{dragged=it;dragData({path:it.path,name:it.name,type:it.type})(e);});
   row.addEventListener('contextmenu',e=>openCtx(e,itemMenu(it)));
-  row.addEventListener('dragend',()=>{dragged=null;clearDropMarks();});
+  row.addEventListener('dragend',()=>{if(dragged===it)dragged=null;clearDropMarks();}); // o fim de um arrasto antigo (a linha já foi redesenhada) não cancela o arrasto em curso
   // onde soltar: no meio de uma pasta = dentro dela; nas bordas = antes/depois do item (na pasta dele)
   const dropSpot=e=>{
    if(!dragged||dragged.path===it.path||(dragged.type==='folder'&&it.path.startsWith(`${dragged.path}/`)))return null;
