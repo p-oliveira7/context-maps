@@ -91,6 +91,9 @@ try{
  await page.waitForFunction(()=>{const l=document.querySelector('.ss-viewer .ss-list'),a=l.querySelector('.is-anchor');const r=a.getBoundingClientRect(),lr=l.getBoundingClientRect();return r.top>=lr.top-2&&r.top<lr.bottom-20;}); // o ponto marcado está à vista (no topo, quando há o que rolar)
  // fica ao lado do mapa como as outras janelas laterais; Esc fecha
  assert.ok((await viewer.boundingBox()).x>=740);
+ // o mapa ocupa o lado livre e o card que abriu a sessão continua à vista
+ const mapBox=await page.locator('#viewport').boundingBox(),cardBox=await page.locator('[data-id="c1"]').boundingBox();
+ assert.ok(Math.abs(mapBox.x+mapBox.width-(await viewer.boundingBox()).x)<=1&&cardBox.x>=0&&cardBox.x+cardBox.width<=mapBox.width+1,JSON.stringify({mapBox,cardBox}));
  await viewer.locator('.oa-close').focus();await page.keyboard.press('Escape');await viewer.waitFor({state:'detached'});
 
  // SESS-05: "Change" no modo de edição reabre a sessão guardada para trocar o ponto de abertura (sem importar de novo)

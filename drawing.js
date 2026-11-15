@@ -1,5 +1,5 @@
 // Desenhos livres nos cards (Excalidraw carregado sob demanda) e destaque do caminho até um quadro clicado.
-import {sidePanel} from './openapi.js?v=8';
+import {sidePanel} from './openapi.js?v=9';
 import {lightSvgFonts} from './svg-fonts.js?v=1';
 
 const BASE='vendor/excalidraw/';

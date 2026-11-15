@@ -113,7 +113,7 @@ try{
  await page.locator('.oa-close').click();await viewer.waitFor({state:'detached'});
  await page.locator('.image-button.is-openapi').click();await viewer.locator('.opblock').first().waitFor();
  vb=await vbox();assert.ok(Math.abs(vb.left-500)<6,'a largura é lembrada');
- await page.locator('.oa-resizer').dblclick();vb=await vbox();assert.ok(Math.abs(vb.width-750)<4,'duplo clique: metade da tela');
+ await page.locator('.oa-resizer').dblclick({position:{x:4,y:120}});vb=await vbox();assert.ok(Math.abs(vb.width-750)<4,'duplo clique: metade da tela');
  await page.locator('.oa-close').click();await viewer.waitFor({state:'detached'});
 
  // OA-07: no modo de edição dá para trocar a especificação (a janela abre com o texto atual)
@@ -209,13 +209,13 @@ try{
  const [im2,api]=[await rect('dialog[open]'),await rect('#api-panel')];assert.ok(Math.abs(im2.right-(1500-api.width))<=2,JSON.stringify({im2,api})); // ao lado do painel (que ainda pode estar deslizando)
  await page.locator('#close-dialog').focus();await page.keyboard.press('Escape');await lightbox.waitFor({state:'detached'});
 
- // OA-13: com duas janelas lado a lado, o botão ⇄ na divisa troca os lados (e a escolha é lembrada); com uma só, ele some
+ // OA-13: com duas janelas lado a lado, o botão ⇄ na divisa troca os lados (e a escolha é lembrada); sem nenhuma janela lateral, ele some
  const swap=page.locator('.swap-sides');
- assert.equal(await swap.isVisible(),false);
+ assert.equal(await swap.isVisible(),true); // só o API client: o ⇄ move ele de lado (OA-14)
  await page.evaluate(()=>document.querySelector('#api-btn').click());await page.locator('#api-panel').waitFor({state:'hidden'});
  assert.equal(await swap.isVisible(),false);
- await page.locator('[data-id="c1"] .image-button.is-openapi').click();await viewer.locator('.opblock').first().waitFor();
- assert.equal(await swap.isVisible(),false);
+ await page.evaluate(()=>document.querySelector('[data-id="c1"] .image-button.is-openapi').click());await viewer.locator('.opblock').first().waitFor();
+ assert.equal(await swap.isVisible(),true);
  await page.evaluate(()=>document.querySelector('[data-id="c3"] .image-button').click());await lightbox.waitFor();
  await swap.waitFor();await swap.click();
  let [s1,s2]=[await rect('.oa-viewer'),await rect('dialog[open]')];
@@ -225,7 +225,6 @@ try{
  assert.ok(s2.left<=1&&Math.abs(s2.right-s1.left)<=2,'de volta: imagem à esquerda');
  await swap.click(); // fica trocado e vale para o próximo par
  await page.locator('#close-dialog').focus();await page.keyboard.press('Escape');await lightbox.waitFor({state:'detached'});
- assert.equal(await swap.isVisible(),false);
  await page.evaluate(()=>document.querySelector('#api-btn').click());await page.locator('#api-panel').waitFor({state:'visible'});
  await page.waitForFunction(()=>{const r=document.querySelector('#api-panel').getBoundingClientRect();return r.left<=1;});
  [s1,s2]=[await rect('#api-panel'),await rect('.oa-viewer')];
@@ -235,6 +234,39 @@ try{
  await page.locator('.oa-close').click();await viewer.waitFor({state:'detached'});
  await page.evaluate(()=>document.querySelector('#api-btn').click());await page.locator('#api-panel').waitFor({state:'hidden'});
 
+ // OA-14: uma janela lateral sozinha — o mapa passa a ocupar o lado livre (com a barra e o zoom), o card que abriu fica à vista,
+ // e o ⇄ move a janela para o outro lado (o mapa vai para o lado oposto); vale também para o API client sozinho
+ const box=sel=>page.evaluate(q=>{const r=document.querySelector(q).getBoundingClientRect();return {left:Math.round(r.left),right:Math.round(r.right),top:Math.round(r.top),bottom:Math.round(r.bottom)};},sel);
+ const inside=(a,b)=>a.left>=b.left-1&&a.right<=b.right+1&&a.top>=b.top-1&&a.bottom<=b.bottom+1;
+ await page.locator('#fit').click();await page.waitForTimeout(500);
+ await page.locator('[data-id="c2"] .image-button.is-openapi').click();await viewer.locator('.opblock').first().waitFor();
+ await page.waitForFunction(()=>Math.round(document.querySelector('#viewport').getBoundingClientRect().right)===750);await page.waitForTimeout(500); // a câmera desliza até o lugar
+ let [vp,docs2]=[await box('#viewport'),await box('.oa-viewer')];
+ assert.deepEqual([vp.left,vp.right,docs2.left,docs2.right],[0,750,750,1500]);
+ assert.ok(inside(await box('[data-id="c2"]'),vp),'o card que abriu a documentação fica à vista no espaço do mapa');
+ assert.ok(inside(await box('.toolbar'),{...vp,top:0,bottom:900})&&inside(await box('.zoom-controls'),{...vp,top:0,bottom:900}),'barra e zoom sobre o mapa');
+ assert.equal(await swap.getAttribute('aria-label'),'Move to the other side');
+ await swap.click();await page.waitForFunction(()=>Math.round(document.querySelector('#viewport').getBoundingClientRect().left)===750);await page.waitForTimeout(500);
+ [vp,docs2]=[await box('#viewport'),await box('.oa-viewer')];
+ assert.deepEqual([docs2.left,docs2.right,vp.left,vp.right],[0,750,750,1500]);
+ assert.ok(inside(await box('[data-id="c2"]'),vp),'depois de mover, o card continua à vista');
+ assert.ok((await box('.doc-bar')).left>=750&&(await box('.toolbar')).left>=750&&(await box('.zoom-controls')).left>=750,'menu, barra e zoom acompanham o mapa');
+ // a escolha é lembrada: fechar e abrir de novo mantém a janela à esquerda
+ await page.locator('.oa-close').click();await viewer.waitFor({state:'detached'});
+ await page.waitForFunction(()=>{const r=document.querySelector('#viewport').getBoundingClientRect();return Math.round(r.left)===0&&Math.round(r.right)===1500;});
+ assert.equal(await swap.isVisible(),false);
+ await page.locator('[data-id="c2"] .image-button.is-openapi').click();await viewer.locator('.opblock').first().waitFor();
+ assert.equal((await box('.oa-viewer')).left,0);
+ await page.locator('.oa-close').click();await viewer.waitFor({state:'detached'});
+ // API client sozinho, ainda do lado esquerdo; ⇄ devolve para a direita
+ await page.evaluate(()=>document.querySelector('#api-btn').click());await page.locator('#api-panel').waitFor({state:'visible'});
+ await page.waitForFunction(()=>document.querySelector('#api-panel').getBoundingClientRect().left<=1);
+ const apiBox=await box('#api-panel');vp=await box('#viewport');
+ assert.ok(Math.abs(vp.left-apiBox.right)<=1&&vp.right===1500,`API client à esquerda, mapa à direita (${JSON.stringify({apiBox,vp})})`);
+ await swap.click();await page.waitForFunction(()=>document.querySelector('#api-panel').getBoundingClientRect().right>=1499);
+ vp=await box('#viewport');assert.equal(vp.left,0);assert.ok(Math.abs(vp.right-(await box('#api-panel')).left)<=1);
+ await page.evaluate(()=>document.querySelector('#api-btn').click());await page.locator('#api-panel').waitFor({state:'hidden'});
+
  assert.deepEqual(errors,[]);
- console.log('PASS OA-01..13 OpenAPI/Swagger cards: add, thumbnail, interactive docs beside the API client, Try it out via proxy');
+ console.log('PASS OA-01..14 OpenAPI/Swagger cards: add, thumbnail, interactive docs beside the API client, Try it out via proxy');
 }finally{await browser.close();server.kill();target.close();await rm(work,{recursive:true,force:true});}

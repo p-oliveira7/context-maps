@@ -187,10 +187,11 @@ export function sidePanel({title,t,className='',labels={},onClose,escSkip=''}){
  grip.addEventListener('pointerdown',e=>{e.preventDefault();grip.setPointerCapture(e.pointerId);document.body.classList.add('oa-resizing');});
  const swapped=()=>document.body.classList.contains('sides-swapped'); // à esquerda (lados trocados): a borda que ajusta é a direita
  grip.addEventListener('pointermove',e=>{if(grip.hasPointerCapture(e.pointerId))setWidth(swapped()?e.clientX:window.innerWidth-e.clientX);});
- const endGrip=e=>{if(grip.hasPointerCapture?.(e.pointerId))grip.releasePointerCapture(e.pointerId);document.body.classList.remove('oa-resizing');};
+ const relayout=()=>window.dispatchEvent(new Event('cm-side-layout')); // a largura mudou: o mapa ao lado se reajusta
+ const endGrip=e=>{if(grip.hasPointerCapture?.(e.pointerId))grip.releasePointerCapture(e.pointerId);document.body.classList.remove('oa-resizing');relayout();};
  grip.addEventListener('pointerup',endGrip);grip.addEventListener('pointercancel',endGrip);
- grip.addEventListener('dblclick',()=>{document.documentElement.style.removeProperty('--oa-w');try{localStorage.removeItem('cm-oa-width');}catch{}});
- grip.addEventListener('keydown',e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();setWidth(win.offsetWidth+((e.key==='ArrowLeft')!==swapped()?40:-40));}});
+ grip.addEventListener('dblclick',()=>{document.documentElement.style.removeProperty('--oa-w');try{localStorage.removeItem('cm-oa-width');}catch{}relayout();});
+ grip.addEventListener('keydown',e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();setWidth(win.offsetWidth+((e.key==='ArrowLeft')!==swapped()?40:-40));relayout();}});
  try{const saved=Number(localStorage.getItem('cm-oa-width'));if(saved)setWidth(saved);}catch{}
  win.append(grip,head);
  // o Esc fecha a janela, a não ser que o foco esteja no API client, na imagem ao lado ou num campo dela (escSkip)

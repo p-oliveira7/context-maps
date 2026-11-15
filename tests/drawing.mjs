@@ -71,6 +71,9 @@ try{
  assert.equal(await panel.evaluate(e=>e.classList.contains('is-editing')),false);
  await page.waitForFunction(()=>document.querySelector('.dw-viewer')?.drawingApi?.()?.getSceneElements().length>0);
  await page.waitForTimeout(300); // o desenho é enquadrado logo depois de abrir
+ // o mapa ocupa o lado livre e o card que abriu o desenho continua à vista
+ const mapBox=await page.locator('#viewport').boundingBox(),cardBox=await page.locator('[data-id="c2"]').boundingBox();
+ assert.ok(Math.abs(mapBox.x+mapBox.width-(await panel.boundingBox()).x)<=1&&cardBox.x>=0&&cardBox.x+cardBox.width<=mapBox.width+1,JSON.stringify({mapBox,cardBox}));
  const at=flowId=>page.evaluate(id=>{const api=document.querySelector('.dw-viewer').drawingApi(),st=api.getAppState(),e=api.getSceneElements().find(x=>x.customData?.flowId===id);const z=st.zoom.value;return {x:(e.x+e.width/2+st.scrollX)*z+st.offsetLeft,y:(e.y+e.height/2+st.scrollY)*z+st.offsetTop};},flowId);
  const p412=await at('e412');await page.mouse.click(p412.x,p412.y);
  await page.waitForFunction(()=>document.querySelectorAll('.dw-layer .dw-hl-node').length===4,null,{timeout:5000});

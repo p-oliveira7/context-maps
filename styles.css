@@ -1072,3 +1072,18 @@ body.oa-open.sides-swapped:not(.api-open) .swap-sides{left:var(--oa-w,50vw)}
 .ss-mask{display:inline-flex;align-items:center;gap:.35rem;margin-right:.6rem;font-size:.78rem;color:#ffd9a0}
 .ss-mask[hidden]{display:none}
 .image-button.is-session img{background:#0c0c0c}
+/* janela lateral (documentação, desenho, sessão) sem o API client: o mapa ocupa o lado livre, com a barra e o zoom centrados nele */
+@media (min-width:901px){
+ body.oa-open:not(.api-open) #viewport{right:var(--oa-w,50vw)}
+ body.oa-open:not(.api-open) .toolbar{left:calc((100vw - var(--oa-w,50vw))/2);max-width:calc(100vw - var(--oa-w,50vw) - 1.2rem);flex-wrap:wrap;justify-content:center}
+ body.oa-open:not(.api-open) .zoom-controls{right:calc(var(--oa-w,50vw) + 1.4rem)}
+ /* ⇄ com uma janela só: ela vai para a esquerda e o mapa (com o menu, a barra e o zoom) para a direita */
+ body.sides-swapped.oa-open:not(.api-open) #viewport{right:0;left:var(--oa-w,50vw)}
+ body.sides-swapped.oa-open:not(.api-open) .toolbar{left:calc(var(--oa-w,50vw) + (100vw - var(--oa-w,50vw))/2)}
+ body.sides-swapped.oa-open:not(.api-open) .zoom-controls{right:1.4rem}
+ body.sides-swapped.oa-open:not(.api-open) .doc-bar{left:calc(var(--oa-w,50vw) + 1rem)}
+ body.sides-swapped.api-open #viewport{right:0;left:var(--api-w)}
+ body.sides-swapped.api-open .toolbar{left:calc(var(--api-w) + (100vw - var(--api-w))/2)}
+ body.sides-swapped.api-open .zoom-controls{right:1.4rem}
+ body.sides-swapped.api-open .doc-bar{left:calc(var(--api-w) + 1rem)}
+}

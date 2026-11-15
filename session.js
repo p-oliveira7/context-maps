@@ -1,5 +1,5 @@
 // Sessões do Claude Code nos cards: desenho da conversa, visualizador lateral e janela de importar.
-import {sidePanel} from './openapi.js?v=8';
+import {sidePanel} from './openapi.js?v=9';
 import {parseSession,sliceSession,sessionStats,secretHits,maskSecrets,itemText,sessionFromSvg} from './session-core.js?v=2';
 
 const el=(tag,props={},...kids)=>{const e=document.createElement(tag);for(const [k,v] of Object.entries(props)){if(k==='class')e.className=v;else if(k.startsWith('on'))e.addEventListener(k.slice(2),v);else if(v!==null&&v!==undefined&&v!==false)e.setAttribute(k,v===true?'':v);}e.append(...kids.filter(x=>x!==null&&x!==undefined&&x!==false));return e;};
