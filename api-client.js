@@ -370,11 +370,13 @@ function parentOf(path){return path.includes('/')?path.slice(0,path.lastIndexOf(
 function findItem(items,path){for(const it of items){if(it.path===path)return it;if(it.children){const f=findItem(it.children,path);if(f)return f;}}return null;}
 function matches(item,q){return !q||item.name.toLowerCase().includes(q)||(item.url||'').toLowerCase().includes(q)||(item.children||[]).some(c=>matches(c,q));}
 let dragged=null;
+const copyKey=e=>e.ctrlKey||e.altKey; // Ctrl (ou Alt) ao soltar: copia em vez de mover
+const clearDropMarks=()=>els.tree.querySelectorAll('.drop-before,.drop-after,.drop-into').forEach(x=>x.classList.remove('drop-before','drop-after','drop-into'));
 function dragData(extra){return e=>{e.dataTransfer.setData(API_TYPE,JSON.stringify({collection:state.coll.id,collectionName:state.coll.name,...extra}));e.dataTransfer.setData('text/plain',extra.name||state.coll.name);e.dataTransfer.effectAllowed='copyMove';};}
 function treeRows(items,depth,q){
  return items.filter(it=>matches(it,q)).flatMap(it=>{
   const isFolder=it.type==='folder',open=q?true:state.expanded.has(it.path);
-  const row=h('li',{role:'treeitem','aria-level':String(depth+1),'aria-expanded':isFolder?String(open):null,'aria-selected':String(!isFolder&&it.path===state.reqPath),class:`api-row${!isFolder&&it.path===state.reqPath?' is-active':''}`,style:`--depth:${depth}`,draggable:'true',dataset:{path:it.path}},
+  const row=h('li',{role:'treeitem','aria-level':String(depth+1),'aria-expanded':isFolder?String(open):null,'aria-selected':String(!isFolder&&it.path===state.reqPath),class:`api-row${!isFolder&&it.path===state.reqPath?' is-active':''}${isCut(it)?' is-cut':''}`,style:`--depth:${depth}`,draggable:'true',dataset:{path:it.path}},
    h('button',{type:'button',class:'api-row-main',draggable:'true',onClick:()=>{if(isFolder){state.expanded.has(it.path)?state.expanded.delete(it.path):state.expanded.add(it.path);renderTree();}else openRequest(it.path);}},
     isFolder?h('span',{class:'api-caret','aria-hidden':'true'},open?'▾':'▸'):methodBadge(it.method),
     h('span',{class:'api-row-name'},isFolder?`📁 ${it.name}`:it.name),mockPill(it)),
@@ -384,22 +386,35 @@ function treeRows(items,depth,q){
     isFolder?h('button',{type:'button',class:'api-icon-btn',title:t('apiNewRequest'),'aria-label':`${t('apiNewRequest')}: ${it.name}`,onClick:()=>newItem('request',it.path)},'+'):null,
     isFolder?h('button',{type:'button',class:'api-icon-btn',title:t('apiNewFolder'),'aria-label':`${t('apiNewFolder')}: ${it.name}`,onClick:()=>newItem('folder',it.path)},'▤'):null,
     hooks.attach?h('button',{type:'button',class:'api-icon-btn api-attach',title:t('apiAttach'),'aria-label':`${t('apiAttach')}: ${it.name}`,onClick:()=>attachTo({path:it.path,name:it.name,type:it.type})},'⤓'):null,
+    h('button',{type:'button',class:'api-icon-btn api-more-btn','aria-haspopup':'menu',title:t('apiMore'),'aria-label':`${t('apiMore')}: ${it.name}`,onClick:e=>openCtx(e,itemMenu(it))},'⋯'),
     h('button',{type:'button',class:'api-icon-btn',title:t('apiRename'),'aria-label':`${t('apiRename')}: ${it.name}`,onClick:()=>renameItem(it)},'✎'),
     h('button',{type:'button',class:'api-icon-btn danger',title:t('apiDelete'),'aria-label':`${t('apiDelete')}: ${it.name}`,onClick:()=>deleteItem(it)},'✕')));
   row.addEventListener('dragstart',e=>{dragged=it;dragData({path:it.path,name:it.name,type:it.type})(e);});
   row.addEventListener('contextmenu',e=>openCtx(e,itemMenu(it)));
-  row.addEventListener('dragend',()=>{dragged=null;els.tree.querySelectorAll('.drop-before,.drop-after').forEach(x=>x.classList.remove('drop-before','drop-after'));});
+  row.addEventListener('dragend',()=>{if(dragged===it)dragged=null;clearDropMarks();}); // o fim de um arrasto antigo (a linha já foi redesenhada) não cancela o arrasto em curso
+  // onde soltar: no meio de uma pasta = dentro dela; nas bordas = antes/depois do item (na pasta dele)
+  const dropSpot=e=>{
+   if(!dragged||dragged.path===it.path||(dragged.type==='folder'&&it.path.startsWith(`${dragged.path}/`)))return null;
+   const r=row.getBoundingClientRect(),y=(e.clientY-r.top)/r.height;
+   if(isFolder&&y>.25&&y<.75)return parentOf(dragged.path)===it.path&&!copyKey(e)?null:'into';
+   return y>.5?'after':'before';
+  };
   row.addEventListener('dragover',e=>{
-   if(!dragged||dragged===it||parentOf(dragged.path)!==parentOf(it.path))return;
-   e.preventDefault();const r=row.getBoundingClientRect(),after=e.clientY>r.top+r.height/2;row.classList.toggle('drop-after',after);row.classList.toggle('drop-before',!after);
+   const spot=dropSpot(e);row.classList.toggle('drop-into',spot==='into');row.classList.toggle('drop-after',spot==='after');row.classList.toggle('drop-before',spot==='before');
+   if(!spot)return;
+   e.preventDefault();e.dataTransfer.dropEffect=copyKey(e)?'copy':'move';
   });
-  row.addEventListener('dragleave',()=>row.classList.remove('drop-before','drop-after'));
+  row.addEventListener('dragleave',()=>row.classList.remove('drop-before','drop-after','drop-into'));
   row.addEventListener('drop',async e=>{
-   if(!dragged||dragged===it||parentOf(dragged.path)!==parentOf(it.path))return;
-   e.preventDefault();const after=row.classList.contains('drop-after');row.classList.remove('drop-before','drop-after');
-   const parent=parentOf(it.path),siblings=(parent?findItem(state.coll.tree,parent).children:state.coll.tree).map(s=>s.path).filter(p=>p!==dragged.path);
-   siblings.splice(siblings.indexOf(it.path)+(after?1:0),0,dragged.path);
-   try{await api('POST',`/collections/${state.coll.id}/reorder`,{parent,order:siblings});await reloadTree();}catch{}
+   const spot=dropSpot(e),item=dragged,mode=copyKey(e)?'copy':'move';if(!spot||!item)return;
+   e.preventDefault();clearDropMarks();
+   const src=srcOf(item),here=state.coll.id;
+   if(spot==='into'){await transferItem(src,{collection:here,parent:it.path},mode);return;}
+   const parent=parentOf(it.path);let path=item.path;
+   if(mode==='copy'||parentOf(item.path)!==parent){const made=await transferItem(src,{collection:here,parent},mode,{quiet:true});if(!made)return;path=made.path;}
+   const siblings=(parent?findItem(state.coll.tree,parent).children:state.coll.tree).map(s=>s.path).filter(p=>p!==path);
+   siblings.splice(siblings.indexOf(it.path)+(spot==='after'?1:0),0,path);
+   try{await api('POST',`/collections/${here}/reorder`,{parent,order:siblings});await reloadTree();flashRow(path);}catch{}
   });
   return [row,...(isFolder&&open?treeRows(it.children,depth+1,q):[])];
  });
@@ -420,12 +435,16 @@ function renderTree(){
  if(!state.coll){els.tree.replaceChildren();return;}
  const head=h('li',{role:'presentation',class:'api-collection-row',draggable:'true'},
   h('span',{class:'api-collection-name'},`🗂 ${state.coll.name}`),
-  mockToggle(),
+  mockToggle(),linkBadge(),
   state.coll.settings?.verifyTls===false?h('button',{type:'button',class:'api-tls-badge',title:t('apiTlsOffTitle'),'aria-label':t('apiTlsOffTitle'),onClick:()=>setVerifyTls(true)},t('apiTlsOffBadge')):null,
   h('button',{type:'button',class:'api-icon-btn api-run-btn',title:t('apiRunCollection'),'aria-label':`${t('apiRunCollection')}: ${state.coll.name}`,onClick:()=>startRun({path:'',recursive:true})},'▶▶'),
   hooks.attach?h('button',{type:'button',class:'api-icon-btn api-attach',title:t('apiAttach'),'aria-label':`${t('apiAttach')}: ${state.coll.name}`,onClick:()=>attachTo({path:'',name:state.coll.name,type:'collection'})},'⤓'):null);
  head.addEventListener('dragstart',dragData({path:'',name:state.coll.name,type:'collection'}));
  head.addEventListener('contextmenu',e=>openCtx(e,collectionMenu()));
+ const toRoot=e=>dragged&&(copyKey(e)||parentOf(dragged.path)!=='');
+ head.addEventListener('dragover',e=>{head.classList.toggle('drop-into',!!toRoot(e));if(!toRoot(e))return;e.preventDefault();e.dataTransfer.dropEffect=copyKey(e)?'copy':'move';});
+ head.addEventListener('dragleave',()=>head.classList.remove('drop-into'));
+ head.addEventListener('drop',e=>{if(!toRoot(e))return;e.preventDefault();const item=dragged;clearDropMarks();transferItem(srcOf(item),{collection:state.coll.id,parent:''},copyKey(e)?'copy':'move');});
  els.tree.replaceChildren(head,...treeRows(state.coll.tree,0,q));
  if(!state.coll.tree.length)els.tree.append(h('li',{class:'api-empty-small',role:'presentation'},t('apiEmptyCollection')));
 }
@@ -462,7 +481,7 @@ function renderMain(){
  const m=state.request;
  if(!m){
   main.replaceChildren(h('div',{class:'api-empty'},h('p',{},state.coll?t('apiPickRequest'):t('apiNoCollections')),
-   !state.coll?h('div',{class:'api-empty-actions'},h('button',{type:'button',class:'api-btn',onClick:createCollection},t('apiNewCollection')),h('button',{type:'button',class:'api-btn',onClick:()=>els.importInput.click()},t('apiImport')),h('button',{type:'button',class:'api-btn',onClick:()=>els.folderInput.click()},t('apiImportFolder'))):null));
+   !state.coll?h('div',{class:'api-empty-actions'},h('button',{type:'button',class:'api-btn',onClick:createCollection},t('apiNewCollection')),h('button',{type:'button',class:'api-btn',onClick:()=>els.importInput.click()},t('apiImport')),h('button',{type:'button',class:'api-btn',onClick:()=>els.folderInput.click()},t('apiImportFolder')),h('button',{type:'button',class:'api-btn',onClick:()=>openLinkDialog(false)},t('apiOpenFolder'))):null));
   return;
  }
  const urlInput=h('input',{type:'text',class:'api-url',value:m.url||'',placeholder:'https://…  {{host}}/path','aria-label':'URL',spellcheck:'false',onInput:e=>{m.url=e.target.value;syncParamsFromUrl(m);markDirty();if(state.tab==='params')renderTab();}});
@@ -735,6 +754,97 @@ async function importFolder(files){
  }catch(e){toast(e.message&&!/^\d+$/.test(e.message)?e.message:t('importError'));}
 }
 
+/* ---------- pasta de referência: a coleção acompanha uma pasta do Bruno ----------
+   O app guarda a cópia dele; o servidor traz o que mudou na pasta a cada leitura da coleção. Aqui ficam o vínculo, o selo e o recarregar da tela. */
+let linkBusy=false,linkAt=0;
+const linkMenu=()=>!state.coll?[]:state.coll.link?[[t('apiSyncNow'),()=>syncLink(false)],[t('apiUnlink'),unlinkFolder]]:[[t('apiLinkFolder'),()=>openLinkDialog(true)]];
+function linkBadge(){
+ const link=state.coll?.link;if(!link)return null;
+ const label=link.available?t('apiLinkTitle',link.source):t('apiLinkMissing',link.source);
+ return h('button',{type:'button',class:`api-link-badge${link.available?'':' is-missing'}`,title:label,'aria-label':label,onClick:()=>syncLink(false)},link.available?'🔗':`⚠ ${t('apiLinkBadgeMissing')}`);
+}
+async function refreshFromLink(){ // a cópia mudou: recarrega a árvore e as abas sem edições pendentes
+ const id=state.coll.id,open=new Set(state.expanded);stashActive();
+ for(const e of [...state.tabs]){
+  if(e.dirty||e.sending)continue;
+  try{e.request=reconcileParams(await api('GET',`/collections/${id}/request?path=${encodeURIComponent(e.path)}`));}catch{dropTabs(e.path);}
+ }
+ const active=tabEntry(state.reqPath);if(active)loadEntry(active);
+ await loadCollections();await reloadTree();
+ for(const p of open)if(p&&findItem(state.coll.tree,p))state.expanded.add(p);
+ renderAll();
+}
+async function syncLink(quiet){
+ const coll=state.coll;if(!coll?.link||linkBusy)return;
+ linkBusy=true;linkAt=Date.now();
+ try{
+  const before=coll.link,r=await api('POST',`/collections/${coll.id}/sync`);
+  if(state.coll?.id!==coll.id)return;
+  if(!r.linked){state.coll.link=null;renderAll(false);return;}
+  const stale=r.rev!==before.rev;
+  state.coll.link={linked:true,source:r.source,available:r.available,syncedAt:r.syncedAt,rev:r.rev};
+  if(stale)await refreshFromLink();else if(r.available!==before.available)renderTree();
+  const note=!r.available?(before.available||!quiet?t('apiLinkMissing',r.source):null):stale?t('apiLinkUpdated'):quiet?null:t('apiLinkUpToDate');
+  if(note)toast(note);
+ }catch(e){if(!quiet)toast(e.message);}
+ finally{linkBusy=false;}
+}
+// ao voltar para a janela (por exemplo depois de editar no Bruno), confere a pasta
+function autoSync(){if(state.open&&state.coll?.link&&Date.now()-linkAt>2000&&!panel?.querySelector('.api-modal'))syncLink(true);}
+async function unlinkFolder(){
+ const coll=state.coll;if(!coll?.link||!confirm(t('apiUnlinkConfirm',coll.name)))return;
+ try{await api('DELETE',`/collections/${coll.id}/link`);coll.link=null;await loadCollections();renderAll(false);}catch(e){toast(e.message);}
+}
+function openLinkDialog(forCurrent){
+ if(panel.querySelector('.api-modal')||(forCurrent&&!state.coll))return;
+ const back=document.activeElement,coll=forCurrent?state.coll:null;
+ const overlay=h('div',{class:'api-modal api-link',role:'dialog','aria-modal':'true','aria-labelledby':'api-link-title'});
+ const input=h('input',{type:'text',id:'api-link-path',class:'api-url',spellcheck:'false',autocomplete:'off',placeholder:t('apiLinkPathPh'),'aria-describedby':'api-link-error'});
+ const error=h('p',{class:'api-newreq-error',id:'api-link-error',role:'alert'});
+ const ok=h('button',{type:'button',class:'api-btn primary',onClick:()=>submit()},t(coll?'apiLinkConfirm':'apiOpenFolderConfirm'));
+ const browse=h('button',{type:'button',class:'api-btn',onClick:async()=>{
+  browse.disabled=true;
+  try{const r=await api('POST','/pick-folder');if(r.path){input.value=r.path;error.textContent='';}}catch(e){error.textContent=e.message;}
+  finally{browse.disabled=false;input.focus();}
+ }},t('apiLinkBrowse'));
+ const close=(restore=true)=>{overlay.remove();document.removeEventListener('keydown',onKey,true);if(restore&&back?.isConnected)back.focus({preventScroll:true});};
+ async function submit(){
+  const value=input.value.trim();if(!value){error.textContent=t('apiLinkPathRequired');input.focus();return;}
+  ok.disabled=true;
+  try{
+   await flushSave();
+   if(coll){
+    const r=await api('PUT',`/collections/${coll.id}/link`,{path:value});close(false);
+    if(state.coll?.id===coll.id){state.coll.link=r;await refreshFromLink();}
+    toast(t('apiLinked',coll.name));
+   }else{
+    const made=await api('POST','/collections/open-folder',{path:value});close(false);
+    await loadCollections();await selectCollection(made.id);
+    toast(t(made.reused?'apiOpenFolderReused':'apiOpenFolderDone',made.name));
+   }
+  }catch(e){error.textContent=e.message;ok.disabled=false;}
+ }
+ function onKey(e){
+  if(!overlay.isConnected)return;
+  if(e.key==='Escape'){e.preventDefault();e.stopPropagation();close();return;}
+  if(e.key==='Enter'&&e.target===input){e.preventDefault();submit();return;}
+  if(e.key==='Tab'){
+   const items=[...overlay.querySelectorAll('input,button')].filter(x=>!x.disabled),first=items[0],last=items.at(-1);
+   if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
+   else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+  }
+ }
+ document.addEventListener('keydown',onKey,true);
+ overlay.addEventListener('pointerdown',e=>{if(e.target===overlay)close();});
+ overlay.append(h('div',{class:'api-modal-card'},
+  h('header',{},h('h3',{id:'api-link-title'},coll?t('apiLinkTitleFor',coll.name):t('apiLinkTitleOpen')),h('button',{type:'button',class:'api-icon-btn','aria-label':t('close'),onClick:()=>close()},'×')),
+  h('label',{class:'api-field'},h('span',{},t('apiLinkPath')),h('span',{class:'api-link-row'},input,browse)),
+  error,
+  h('p',{class:'api-hint'},t('apiLinkHint')),coll?h('p',{class:'api-hint'},t('apiLinkHintFor')):null,
+  h('footer',{},h('button',{type:'button',class:'api-btn',onClick:()=>close()},t('close')),ok)));
+ panel.append(overlay);input.focus();
+}
+
 /* ---------- executar pasta (run e run recursivo) com relatório ---------- */
 const BODY_KEEP=20000;
 const runPrefs=()=>{try{return {stopOnFail:false,delayMs:0,...JSON.parse(store.get('cm-api-run')||'{}')};}catch{return {stopOnFail:false,delayMs:0};}};
@@ -823,7 +933,7 @@ function renderHeader(){
  const collSel=h('select',{class:'api-select','aria-label':t('apiCollection'),onChange:async e=>{if((await selectCollection(e.target.value))===false)renderHeader();}},...(state.collections.length?state.collections.map(c=>h('option',{value:c.id,selected:c.id===state.coll?.id},c.name)):[h('option',{value:''},t('apiNoCollectionsShort'))]));
  const envSel=h('select',{class:'api-select','aria-label':t('apiEnvironment'),disabled:state.coll?null:true,onChange:async e=>{state.env=e.target.value||null;store.set(`cm-api-env:${state.coll.id}`,state.env||'');await loadEnv();if(state.tab==='vars')renderTab();}},h('option',{value:''},t('apiNoEnv')),...(state.coll?.environments||[]).map(n=>h('option',{value:n,selected:n===state.env},n)));
  const menu=h('div',{class:'api-menu',role:'menu',hidden:true},
-  ...[[t('apiNewCollection'),createCollection],[t('apiRunCollection'),()=>startRun({path:'',recursive:true})],[t('apiImport'),()=>els.importInput.click()],[t('apiImportFolder'),()=>els.folderInput.click()],[t('apiExport'),()=>{if(state.coll)location.href=`api/collections/${state.coll.id}/export`;}],...(state.coll?[[state.coll.settings?.verifyTls===false?t('apiTlsMenuOn'):t('apiTlsMenuOff'),()=>setVerifyTls(state.coll.settings?.verifyTls===false)]]:[]),[t('apiDeleteCollection'),deleteCollection,true]].map(([label,fn,danger])=>h('button',{type:'button',role:'menuitem',class:danger?'danger':'',onClick:()=>{menu.hidden=true;fn();}},label)));
+  ...[[t('apiNewCollection'),createCollection],[t('apiRunCollection'),()=>startRun({path:'',recursive:true})],[t('apiImport'),()=>els.importInput.click()],[t('apiImportFolder'),()=>els.folderInput.click()],[t('apiOpenFolder'),()=>openLinkDialog(false)],...linkMenu(),[t('apiExport'),()=>{if(state.coll)location.href=`api/collections/${state.coll.id}/export`;}],...(state.coll?[[state.coll.settings?.verifyTls===false?t('apiTlsMenuOn'):t('apiTlsMenuOff'),()=>setVerifyTls(state.coll.settings?.verifyTls===false)]]:[]),[t('apiDeleteCollection'),deleteCollection,true]].map(([label,fn,danger])=>h('button',{type:'button',role:'menuitem',class:danger?'danger':'',onClick:()=>{menu.hidden=true;fn();}},label)));
  els.menu=menu;
  els.head.replaceChildren(treeToggle(),h('strong',{class:'api-title'},t('apiTitle')),collSel,envSel,
   h('button',{type:'button',class:'api-icon-btn',title:t('apiEditEnv'),'aria-label':t('apiEditEnv'),disabled:state.coll?null:true,onClick:openEnvEditor},'⚙'),
@@ -905,15 +1015,94 @@ function copyAsMenu(){
  const menu=h('div',{class:'api-menu',role:'menu',hidden:true},...Object.keys(COPY_AS).map(kind=>h('button',{type:'button',role:'menuitem',onClick:()=>{menu.hidden=true;copyAs(kind,state.request);}},t(COPY_AS[kind].label))));
  return h('div',{class:'api-menu-wrap api-copyas'},h('button',{type:'button',class:'api-btn','aria-haspopup':'menu',onClick:()=>{menu.hidden=!menu.hidden;}},t('apiCopyAsButton')),menu);
 }
-async function duplicateItem(item){
+/* ---------- duplicar, copiar, recortar, colar e mover (requests e pastas, entre pastas e coleções) ---------- */
+let clip=null; // {collection,collectionName,path,name,type,mode}: continua valendo ao trocar de coleção
+const srcOf=it=>({collection:state.coll.id,collectionName:state.coll.name,path:it.path,name:it.name,type:it.type});
+const isCut=it=>clip?.mode==='move'&&clip.collection===state.coll?.id&&clip.path===it.path;
+const focusRow=path=>els.tree.querySelector(`.api-row[data-path="${CSS.escape(path)}"] .api-row-main`)?.focus({preventScroll:true});
+// src: item de qualquer coleção; dest: {collection,parent}. Devolve o novo caminho ou null (cancelado, sem efeito ou erro).
+async function transferItem(src,dest,mode,{quiet=false}={}){
+ const here=state.coll.id,local=src.collection===here,toHere=dest.collection===here,same=src.collection===dest.collection;
+ if(same&&src.type==='folder'&&(dest.parent===src.path||dest.parent.startsWith(`${src.path}/`))){toast(t('apiMoveInside'));return null;}
+ if(mode==='move'&&same&&parentOf(src.path)===dest.parent)return null;
+ if(mode==='move'&&local){const affected=dirtyTabs(src.path);if(affected.length&&!(await guardUnsaved(affected)))return null;}
+ await flushSave();
+ const active=state.reqPath,open=mode==='copy'&&local&&src.type==='request'?tabEntry(src.path):null,draft=open?.dirty?modelOf(open):null;
  try{
-  const id=state.coll.id,open=tabEntry(item.path),model=open?modelOf(open):await api('GET',`/collections/${id}/request?path=${encodeURIComponent(item.path)}`);
-  const name=`${item.name} ${t('apiCopySuffix')}`;
-  const made=await api('POST',`/collections/${id}/items`,{type:'request',parent:parentOf(item.path),name,method:model.method,url:model.url});
-  const {path:_path,...rest}=model;
-  await api('PUT',`/collections/${id}/request?path=${encodeURIComponent(made.path)}`,{...rest,name});
-  await reloadTree();await openRequest(made.path);
- }catch(e){toast(e.message);}
+  const made=await api('POST',`/collections/${src.collection}/transfer`,{path:src.path,mode,to:dest,...(mode==='copy'&&same&&parentOf(src.path)===dest.parent?{name:`${src.name} ${t('apiCopySuffix')}`}:{})});
+  if(draft){ // a cópia leva o que está na aba, mesmo sem salvar
+   const route=`/collections/${dest.collection}/request?path=${encodeURIComponent(made.path)}`,copy=await api('GET',route),{path:_path,...rest}=draft;
+   await api('PUT',route,{...rest,name:copy.name,seq:copy.seq});
+  }
+  if(mode==='move'&&local)dropTabs(src.path);
+  if(!same)await loadCollections();
+  if(toHere){if(dest.parent)state.expanded.add(dest.parent);if(src.type==='folder')state.expanded.add(made.path);}
+  await reloadTree();
+  const follow=mode==='move'&&local&&toHere&&active&&(active===src.path||active.startsWith(`${src.path}/`))?made.path+active.slice(src.path.length):null;
+  const reopen=follow||(mode==='copy'&&toHere&&src.type==='request'&&!quiet?made.path:null);
+  if(reopen)await openRequest(reopen);else renderMain();
+  if(toHere)flashRow(made.path);
+  else toast(t(mode==='move'?'apiMovedTo':'apiCopiedTo',src.name,state.collections.find(c=>c.id===dest.collection)?.name||dest.collection));
+  return made;
+ }catch(e){toast(e.message);return null;}
+}
+const duplicateItem=it=>transferItem(srcOf(it),{collection:state.coll.id,parent:parentOf(it.path)},'copy');
+function setClip(it,mode){clip={...srcOf(it),mode};renderTree();focusRow(it.path);toast(t(mode==='move'?'apiClipCut':'apiClipCopied',it.name));}
+async function pasteInto(parent){
+ if(!clip||!state.coll)return;
+ const src=clip,made=await transferItem(src,{collection:state.coll.id,parent},src.mode);
+ if(made&&src.mode==='move'){clip=null;renderTree();}
+}
+// atalhos com o foco numa linha da árvore
+function treeKeys(e){
+ const row=e.target.closest?.('.api-row'),it=row&&state.coll&&findItem(state.coll.tree,row.dataset.path);
+ if(!it||e.target.closest('.api-row-actions'))return;
+ const mod=e.ctrlKey||e.metaKey,k=e.key.toLowerCase(),run=fn=>{e.preventDefault();e.stopPropagation();fn();};
+ if(mod&&k==='c')run(()=>setClip(it,'copy'));
+ else if(mod&&k==='x')run(()=>setClip(it,'move'));
+ else if(mod&&k==='v'){if(clip)run(()=>pasteInto(it.type==='folder'?it.path:parentOf(it.path)));}
+ else if(mod&&k==='d')run(()=>duplicateItem(it));
+ else if(e.key==='F2')run(()=>renameItem(it));
+ else if(e.key==='Delete')run(()=>deleteItem(it));
+}
+// "Mover ou copiar para…": escolhe uma pasta desta coleção ou de outra
+async function openMoveDialog(it){
+ if(!state.coll||panel.querySelector('.api-modal'))return;
+ const back=document.activeElement,here=state.coll.id,src=srcOf(it);
+ let others;try{others=await Promise.all(state.collections.filter(c=>c.id!==here).map(c=>api('GET',`/collections/${c.id}`)));}catch(e){toast(e.message);return;}
+ const value=(collection,parent)=>JSON.stringify({collection,parent}),current=value(here,parentOf(it.path));
+ const options=(coll,items,depth,out=[])=>{
+  for(const f of items){
+   if(f.type!=='folder'||(coll.id===here&&it.type==='folder'&&f.path===it.path))continue; // a própria pasta (e o que está dentro dela) fica de fora
+   out.push(h('option',{value:value(coll.id,f.path)},`${'\u00a0\u00a0'.repeat(depth)}📁 ${f.name}`));options(coll,f.children||[],depth+1,out);
+  }
+  return out;
+ };
+ const list=h('select',{class:'api-move-list',size:'10',id:'api-move-dest'},...[state.coll,...others].map(coll=>h('optgroup',{label:`🗂 ${coll.name}`},h('option',{value:value(coll.id,'')},t('apiMoveRoot')),...options(coll,coll.tree,1))));
+ const overlay=h('div',{class:'api-modal api-move',role:'dialog','aria-modal':'true','aria-labelledby':'api-move-title'});
+ const close=(restore=true)=>{overlay.remove();document.removeEventListener('keydown',onKey,true);if(restore&&back?.isConnected)back.focus({preventScroll:true});};
+ const go=async mode=>{const dest=JSON.parse(list.value);close(false);await transferItem(src,dest,mode);};
+ const moveBtn=h('button',{type:'button',class:'api-btn primary',onClick:()=>go('move')},t('apiMoveHere')),copyBtn=h('button',{type:'button',class:'api-btn',onClick:()=>go('copy')},t('apiCopyHere'));
+ const sync=()=>{moveBtn.disabled=!list.value||list.value===current;copyBtn.disabled=!list.value;};
+ list.addEventListener('change',sync);list.addEventListener('dblclick',()=>{if(!moveBtn.disabled)go('move');});
+ function onKey(e){
+  if(!overlay.isConnected)return;
+  if(e.key==='Escape'){e.preventDefault();e.stopPropagation();close();return;}
+  if(e.key==='Enter'&&e.target===list&&!moveBtn.disabled){e.preventDefault();go('move');return;}
+  if(e.key==='Tab'){
+   const items=[...overlay.querySelectorAll('select,button')].filter(x=>!x.disabled),first=items[0],last=items.at(-1);
+   if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
+   else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+  }
+ }
+ document.addEventListener('keydown',onKey,true);
+ overlay.addEventListener('pointerdown',e=>{if(e.target===overlay)close();});
+ overlay.append(h('div',{class:'api-modal-card'},
+  h('header',{},h('h3',{id:'api-move-title'},t('apiMoveTitle',it.name)),h('button',{type:'button',class:'api-icon-btn','aria-label':t('close'),onClick:()=>close()},'×')),
+  h('label',{class:'api-field'},h('span',{},t('apiMoveDest')),list),
+  h('p',{class:'api-hint'},t('apiMoveHint')),
+  h('footer',{},h('button',{type:'button',class:'api-btn',onClick:()=>close()},t('close')),h('span',{class:'api-move-actions'},copyBtn,moveBtn))));
+ panel.append(overlay);list.value=current;sync();list.focus();
 }
 
 /* menu de contexto (botão direito, tecla de menu ou toque longo) */
@@ -930,8 +1119,9 @@ function openCtx(e,items){
  const el=h('div',{class:'api-ctx',role:'menu','aria-label':t('apiMore')},...items.filter(Boolean).map(([label,fn,danger])=>h('button',{type:'button',role:'menuitem',class:danger?'danger':'',onClick:()=>{closeCtx();fn();}},label)));
  panel.append(el);
  const box=panel.getBoundingClientRect();
- el.style.left=`${Math.max(4,Math.min(e.clientX-box.left,box.width-el.offsetWidth-4))}px`;
- el.style.top=`${Math.max(4,Math.min(e.clientY-box.top,box.height-el.offsetHeight-4))}px`;
+ const anchor=e.clientX||e.clientY?null:(e.currentTarget||e.target)?.getBoundingClientRect?.(),x=anchor?anchor.left:e.clientX,y=anchor?anchor.bottom:e.clientY;
+ el.style.left=`${Math.max(4,Math.min(x-box.left,box.width-el.offsetWidth-4))}px`;
+ el.style.top=`${Math.max(4,Math.min(y-box.top,box.height-el.offsetHeight-4))}px`;
  ctxMenu={el,back};document.addEventListener('pointerdown',ctxOutside,true);
  el.addEventListener('keydown',ev=>{
   const btns=[...el.querySelectorAll('button')],i=btns.indexOf(document.activeElement);
@@ -941,12 +1131,14 @@ function openCtx(e,items){
  });
  el.querySelector('button')?.focus();
 }
+const pasteEntry=parent=>clip?[t('apiPaste',clip.name),()=>pasteInto(parent)]:null;
+const clipMenu=(it,parent)=>[[t('apiDuplicate'),()=>duplicateItem(it)],[t('apiCopy'),()=>setClip(it,'copy')],[t('apiCut'),()=>setClip(it,'move')],pasteEntry(parent),[t('apiMoveTo'),()=>openMoveDialog(it)]];
 function itemMenu(it){
  const attach=hooks.attach?[t('apiAttach'),()=>attachTo({path:it.path,name:it.name,type:it.type})]:null;
- if(it.type==='folder')return [[t('apiRunFolder'),()=>startRun({path:it.path,recursive:false})],[t('apiRunFolderAll'),()=>startRun({path:it.path,recursive:true})],[t('apiNewRequest'),()=>newItem('request',it.path)],[t('apiNewFolder'),()=>newItem('folder',it.path)],attach,[t('apiRename'),()=>renameItem(it)],[t('apiDelete'),()=>deleteItem(it),true]];
- return [[t('apiCtxOpen'),()=>openRequest(it.path)],[t('apiDuplicate'),()=>duplicateItem(it)],[`${t('apiCopyAs')} ${t('apiCopyCurl')}`,()=>copyRowAs('curl',it)],[`${t('apiCopyAs')} ${t('apiCopyFetch')}`,()=>copyRowAs('fetch',it)],attach,[t('apiRename'),()=>renameItem(it)],[t('apiDelete'),()=>deleteItem(it),true]];
+ if(it.type==='folder')return [[t('apiRunFolder'),()=>startRun({path:it.path,recursive:false})],[t('apiRunFolderAll'),()=>startRun({path:it.path,recursive:true})],[t('apiNewRequest'),()=>newItem('request',it.path)],[t('apiNewFolder'),()=>newItem('folder',it.path)],...clipMenu(it,it.path),attach,[t('apiRename'),()=>renameItem(it)],[t('apiDelete'),()=>deleteItem(it),true]];
+ return [[t('apiCtxOpen'),()=>openRequest(it.path)],...clipMenu(it,parentOf(it.path)),[`${t('apiCopyAs')} ${t('apiCopyCurl')}`,()=>copyRowAs('curl',it)],[`${t('apiCopyAs')} ${t('apiCopyFetch')}`,()=>copyRowAs('fetch',it)],attach,[t('apiRename'),()=>renameItem(it)],[t('apiDelete'),()=>deleteItem(it),true]];
 }
-const collectionMenu=()=>[[t('apiRunCollection'),()=>startRun({path:'',recursive:true})],[t('apiNewRequest'),()=>newItem('request','')],[t('apiNewFolder'),()=>newItem('folder','')],hooks.attach?[t('apiAttach'),()=>attachTo({path:'',name:state.coll.name,type:'collection'})]:null,[t('apiExport'),()=>{location.href=`api/collections/${state.coll.id}/export`;}],[state.coll?.settings?.verifyTls===false?t('apiTlsMenuOn'):t('apiTlsMenuOff'),()=>setVerifyTls(state.coll?.settings?.verifyTls===false)]];
+const collectionMenu=()=>[[t('apiRunCollection'),()=>startRun({path:'',recursive:true})],[t('apiNewRequest'),()=>newItem('request','')],[t('apiNewFolder'),()=>newItem('folder','')],pasteEntry(''),hooks.attach?[t('apiAttach'),()=>attachTo({path:'',name:state.coll.name,type:'collection'})]:null,...linkMenu(),[t('apiExport'),()=>{location.href=`api/collections/${state.coll.id}/export`;}],[state.coll?.settings?.verifyTls===false?t('apiTlsMenuOn'):t('apiTlsMenuOff'),()=>setVerifyTls(state.coll?.settings?.verifyTls===false)]];
 
 /* variáveis de sessão: o que os scripts e as "Vars post-response" guardaram, num lugar só */
 function syncVarsUi(){
@@ -1276,7 +1468,8 @@ function openQuickOpen(){
 function build(){
  els.save=h('span',{class:'api-save',role:'status','aria-live':'polite'});
  els.head=h('header',{class:'api-head'});
- els.tree=h('ul',{class:'api-tree',role:'tree','aria-label':t('apiTitle')});
+ els.tree=h('ul',{class:'api-tree',role:'tree','aria-label':t('apiTitle')});els.tree.addEventListener('keydown',treeKeys);
+ window.addEventListener('focus',autoSync);document.addEventListener('visibilitychange',()=>{if(!document.hidden)autoSync();});
  els.tabbar=h('div',{class:'api-tabbar',role:'tablist','aria-label':t('apiOpenRequests'),hidden:true,onKeydown:onTabbarKey});
  els.content=h('div',{class:'api-content'});
  els.main=h('section',{class:'api-main'},els.tabbar,els.content);

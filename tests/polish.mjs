@@ -128,7 +128,7 @@ try{
  const createRow=page.locator('.api-row',{hasText:'Create'});
  await createRow.click({button:'right'});
  const ctxItems=await page.locator('.api-ctx button').allTextContents();
- assert.deepEqual(ctxItems.slice(0,4),['Open','Duplicate','Copy as cURL','Copy as fetch']);
+ assert.deepEqual(ctxItems.slice(0,7),['Open','Duplicate','Copy','Cut','Move or copy to…','Copy as cURL','Copy as fetch']);
  await page.locator('.api-ctx button',{hasText:'Duplicate'}).click();
  await page.locator('.api-tab.is-active',{hasText:'Create (copy)'}).waitFor();
  const copy=(await call('GET','/collections/polish')).tree.find(i=>i.name==='Users').children.find(i=>i.name==='Create (copy)');

@@ -1,8 +1,10 @@
 // Coleções de requests no formato do Bruno: uma pasta com bruno.json, pastas, arquivos .bru e environments/*.bru.
+// Uma coleção pode ter uma pasta de referência (por exemplo a pasta que o Bruno edita): .links/<id>.json guarda o caminho e o que já foi lido.
 // Segredos de ambiente ficam em <pasta de coleções>/.secrets/<id>.json (fora do Git e fora de exportações).
-import {readFile,writeFile,readdir,mkdir,rm,rename,stat} from 'node:fs/promises';
+import {readFile,writeFile,readdir,mkdir,rm,rename,stat,copyFile} from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 import path from 'node:path';
+import {createHash} from 'node:crypto';
 import {parseBru,stringifyBru,parseBlocks,stringifyBlocks,toModel,fromModel,parseEnv,stringifyEnv,METHODS} from './bru.mjs';
 import {writeZip,readZip} from './zip.mjs';
 import {normalizeMocks,emptyMocks,MAX_FILE} from './mocks.js';
@@ -41,7 +43,7 @@ export function createCollections({dir,writeJson}){
   const out=[];
   for(const e of await readdir(dir,{withFileTypes:true})){
    if(!e.isDirectory()||e.name.startsWith('.')||!existsSync(path.join(dir,e.name,'bruno.json')))continue;
-   out.push({id:e.name,name:await readName(e.name),requests:await countRequests(path.join(dir,e.name))});
+   out.push({id:e.name,name:await readName(e.name),requests:await countRequests(path.join(dir,e.name)),...((await readLink(e.name))?{linked:true}:{})});
   }
   return out.sort((a,b)=>a.name.localeCompare(b.name));
  }
@@ -150,6 +152,50 @@ export function createCollections({dir,writeJson}){
   await rm(file,{recursive:true,force:true});
   await dropMocks(id,parts.join('/'));
  }
+ // Copia ou move um item (request ou pasta) para outra pasta, desta coleção ou de outra. Os mocks do item vão junto.
+ const RESERVED=new Set(['bruno.json','collection.bru','folder.bru','mocks.json']);
+ async function copyTree(from,to){
+  if((await stat(from)).isDirectory()){
+   await mkdir(to);
+   for(const e of await readdir(from,{withFileTypes:true})){
+    if(e.name.startsWith('.'))continue;
+    if(e.isDirectory()||ALLOWED_EXT.has(path.extname(e.name).toLowerCase()))await copyTree(path.join(from,e.name),path.join(to,e.name));
+   }
+  }else await copyFile(from,to);
+ }
+ async function transfer(id,{path:rel,to,mode,name}={}){
+  if(mode!=='copy'&&mode!=='move')throw fail(400,'Estrutura inválida');
+  const src=inside(id,String(rel||''));
+  if(!src.parts.length||RESERVED.has(src.parts.at(-1))||(src.parts.length===1&&src.parts[0]==='environments'))throw fail(400,'Caminho inválido');
+  if(!existsSync(src.file))throw fail(404,'Item inexistente');
+  const isDir=(await stat(src.file)).isDirectory();
+  if(!isDir&&!src.file.endsWith('.bru'))throw fail(400,'Caminho inválido');
+  const destId=to?.collection?String(to.collection):id,dest=inside(destId,String(to?.parent||''));
+  if(!existsSync(path.join(dest.root,'bruno.json'))||!existsSync(dest.file)||!(await stat(dest.file)).isDirectory())throw fail(404,'Pasta inexistente');
+  const srcRel=src.parts.join('/'),destRel=dest.parts.join('/');
+  if(isDir&&destId===id&&(destRel===srcRel||destRel.startsWith(`${srcRel}/`)))throw fail(400,'A pasta não pode ir para dentro dela mesma');
+  if(mode==='move'&&destId===id&&src.parts.slice(0,-1).join('/')===destRel)return {collection:id,path:srcRel};
+  const seq=Math.max(0,...(await tree(destId,destRel)).map(s=>s.seq||0))+1;
+  const last=src.parts.at(-1),fileName=isDir?uniqueName(dest.file,last):uniqueName(dest.file,last.slice(0,-4),'.bru'),target=path.join(dest.file,fileName);
+  if(mode==='move'){
+   try{await rename(src.file,target);}catch{await copyTree(src.file,target);await rm(src.file,{recursive:true,force:true});}
+  }else await copyTree(src.file,target);
+  const meta=isDir?path.join(target,'folder.bru'):target,title=String(name||'').trim().slice(0,100);
+  const model=existsSync(meta)?parseBru(await readText(meta)):{name:last,type:'folder'};
+  model.seq=seq;if(title)model.name=title;
+  await writeFile(meta,isDir?stringifyBlocks(fromModel(model)):stringifyBru(model));
+  const newRel=[...dest.parts,fileName].join('/');
+  await carryMocks(id,srcRel,destId,newRel,mode==='move');
+  return {collection:destId,path:newRel};
+ }
+ async function carryMocks(id,rel,destId,newRel,move){
+  const from=await readMocks(id),keys=Object.keys(from.requests).filter(k=>k===rel||k.startsWith(`${rel}/`));
+  if(!keys.length)return;
+  const into=destId===id?from:await readMocks(destId);
+  for(const k of keys){into.requests[newRel+k.slice(rel.length)]=JSON.parse(JSON.stringify(from.requests[k]));if(move)delete from.requests[k];}
+  if(move&&destId!==id)await writeMocks(id,from);
+  await writeMocks(destId,into);
+ }
  // mocks.json: cenários de resposta simulada por request (fica na coleção, junto do Git; os .bru não mudam)
  const mocksFile=id=>path.join(collDir(id),'mocks.json');
  async function readMocks(id){
@@ -187,7 +233,96 @@ export function createCollections({dir,writeJson}){
  }
  async function removeCollection(id){
   const root=collDir(id);if(!existsSync(path.join(root,'bruno.json')))throw fail(404,'Coleção inexistente');
-  await rm(root,{recursive:true,force:true});await rm(secretsFile(id),{force:true});
+  await rm(root,{recursive:true,force:true});await rm(secretsFile(id),{force:true});await rm(linkFile(id),{force:true});revs.delete(id);due.delete(id);
+ }
+ /* ---------- pasta de referência (coleção vinculada) ----------
+    A coleção continua sendo uma cópia em <coleções>/<id>: é ela que o app lê e grava, e é ela que vale se a pasta de origem sumir.
+    Sincronizar traz da origem só o que mudou lá desde a última leitura (arquivo novo, alterado ou apagado); o que mudou só na cópia fica. */
+ const linkFile=id=>path.join(dir,'.links',`${id}.json`);
+ const readLink=async id=>{try{const l=JSON.parse(await readText(linkFile(id)));return typeof l?.source==='string'?{files:{},...l}:null;}catch{return null;}};
+ const revs=new Map(),due=new Map(); // revs: muda quando uma sincronização alterou a cópia (a tela usa para saber se precisa recarregar)
+ const samePath=(a,b)=>process.platform==='win32'?a.toLowerCase()===b.toLowerCase():a===b;
+ const within=(child,parent)=>{const rel=path.relative(parent,child);return !rel||(!rel.startsWith('..')&&!path.isAbsolute(rel));};
+ const sourceOk=async source=>{try{return (await stat(source)).isDirectory()&&existsSync(path.join(source,'bruno.json'));}catch{return false;}};
+ async function cleanSource(value){
+  const text=String(value||'').trim().replace(/^"(.*)"$/,'$1');
+  if(!text||!path.isAbsolute(text))throw fail(400,'Informe o caminho completo da pasta');
+  const source=path.resolve(text);
+  if(!(await sourceOk(source)))throw fail(400,'Pasta sem bruno.json');
+  if(within(source,path.resolve(dir)))throw fail(400,'Escolha uma pasta fora das coleções do app');
+  return source;
+ }
+ async function scanSource(root){
+  const out=[];
+  const walk=async(abs,rel)=>{
+   for(const e of await readdir(abs,{withFileTypes:true})){
+    if(e.name.startsWith('.')||e.name==='node_modules'||out.length>=3000)continue;
+    const next=path.join(abs,e.name),r=rel?`${rel}/${e.name}`:e.name;
+    if(e.isDirectory())await walk(next,r);
+    else if(e.isFile()&&ALLOWED_EXT.has(path.extname(e.name).toLowerCase())){const info=await stat(next);if(info.size<=2*1024*1024)out.push({rel:r,abs:next,size:info.size,mtime:Math.round(info.mtimeMs)});}
+   }
+  };
+  await walk(root,'');return out;
+ }
+ const linkState=(id,link,available,extra={})=>({linked:true,source:link.source,available,syncedAt:link.syncedAt||null,rev:revs.get(id)||0,...extra});
+ async function linkInfo(id){const link=await readLink(id);return link?linkState(id,link,await sourceOk(link.source)):null;}
+ async function sync(id){
+  const root=collDir(id),link=await readLink(id);
+  if(!link||!existsSync(path.join(root,'bruno.json')))return null;
+  if(!(await sourceOk(link.source)))return linkState(id,link,false,{changed:0,removed:0});
+  const seen=new Set(),files={};let changed=0,removed=0;
+  for(const f of await scanSource(link.source)){
+   seen.add(f.rel);const old=link.files[f.rel];
+   if(old&&old.size===f.size&&old.mtime===f.mtime){files[f.rel]=old;continue;}
+   const data=await readFile(f.abs),hash=createHash('sha1').update(data).digest('hex');
+   files[f.rel]={size:f.size,mtime:f.mtime,hash};
+   if(old?.hash===hash)continue;
+   const target=path.join(root,...f.rel.split('/'));await mkdir(path.dirname(target),{recursive:true});
+   if(f.rel==='bruno.json'){ // as configurações do Context Maps para a coleção ficam na cópia
+    let cfg,mine;try{cfg=JSON.parse(data.toString('utf8'));}catch{continue;}
+    try{mine=JSON.parse(await readText(target)).contextMaps;}catch{}
+    if(mine)cfg.contextMaps=mine;
+    await writeJson(target,cfg);
+   }else await writeFile(target,data);
+   changed++;
+  }
+  for(const rel of Object.keys(link.files)){ // o que a origem tinha na última leitura e não tem mais
+   if(seen.has(rel)||rel==='bruno.json')continue;
+   const target=path.join(root,...rel.split('/'));if(!existsSync(target))continue;
+   await rm(target,{force:true});removed++;
+   if(rel.endsWith('.bru'))await dropMocks(id,rel).catch(()=>{});
+   for(let d=path.dirname(target);d!==root&&within(d,root)&&!(await readdir(d)).length;d=path.dirname(d))await rm(d,{recursive:true,force:true}); // pastas que ficaram vazias
+  }
+  const next={source:link.source,syncedAt:new Date().toISOString(),files};
+  await mkdir(path.dirname(linkFile(id)),{recursive:true});await writeJson(linkFile(id),next);
+  if(changed||removed)revs.set(id,(revs.get(id)||0)+1);
+  return linkState(id,next,true,{changed,removed});
+ }
+ // leituras de uma coleção vinculada passam por aqui: no máximo uma sincronização a cada 1,5 s, e nunca duas ao mesmo tempo
+ function syncIfDue(id){
+  const last=due.get(id);
+  if(last&&(last.pending||Date.now()-last.at<1500))return last.promise;
+  const entry={at:Date.now(),pending:true};
+  entry.promise=sync(id).catch(()=>null).finally(()=>{entry.pending=false;entry.at=Date.now();});
+  due.set(id,entry);return entry.promise;
+ }
+ async function setLink(id,value){
+  if(!existsSync(path.join(collDir(id),'bruno.json')))throw fail(404,'Coleção inexistente');
+  const source=await cleanSource(value);
+  await mkdir(path.dirname(linkFile(id)),{recursive:true});await writeJson(linkFile(id),{source,syncedAt:null,files:{}});
+  return sync(id);
+ }
+ async function removeLink(id){collDir(id);await rm(linkFile(id),{force:true});revs.delete(id);due.delete(id);}
+ // abre uma pasta do Bruno mantendo o vínculo: cria a cópia (ou reusa a coleção que já aponta para a pasta) e sincroniza
+ async function openFolder(value){
+  const source=await cleanSource(value);
+  for(const c of await list()){const link=await readLink(c.id);if(link&&samePath(link.source,source))return {id:c.id,name:await readName(c.id),reused:true,...await sync(c.id)};}
+  let config={};try{config=JSON.parse(await readText(path.join(source,'bruno.json')));}catch{throw fail(400,'Arquivo de importação inválido');}
+  const title=String(config.name||path.basename(source)).trim().slice(0,100)||'Coleção';
+  await mkdir(dir,{recursive:true});
+  const id=uniqueName(dir,slugOf(title)||'colecao');await mkdir(path.join(dir,id));
+  await writeJson(path.join(dir,id,'bruno.json'),{...config,name:title});
+  return {id,name:title,...await setLink(id,source)};
  }
  // pacote ZIP da coleção (sem segredos): <id>/bruno.json, <id>/**/*.bru ...
  async function exportZip(id){
@@ -266,5 +401,5 @@ export function createCollections({dir,writeJson}){
   }
   return {id,name:created?.name||await readName(id),files:count,...(folderPath?{folder:folderPath}:{})};
  }
- return {readSettings,writeSettings,readMocks,writeMocks,list,tree,defaults,environments,readEnv,writeEnv,createCollection,createItem,readRequest,writeRequest,renameItem,removeItem,reorder,removeEnv,removeCollection,exportZip,importZip,importFolder,readName,collDir,secretsOf};
+ return {readSettings,writeSettings,readMocks,writeMocks,list,tree,defaults,environments,readEnv,writeEnv,createCollection,createItem,readRequest,writeRequest,renameItem,removeItem,transfer,openFolder,setLink,removeLink,linkInfo,sync,syncIfDue,reorder,removeEnv,removeCollection,exportZip,importZip,importFolder,readName,collDir,secretsOf};
 }
