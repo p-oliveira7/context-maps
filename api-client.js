@@ -435,7 +435,7 @@ function renderTree(){
  if(!state.coll){els.tree.replaceChildren();return;}
  const head=h('li',{role:'presentation',class:'api-collection-row',draggable:'true'},
   h('span',{class:'api-collection-name'},`🗂 ${state.coll.name}`),
-  mockToggle(),
+  mockToggle(),linkBadge(),
   state.coll.settings?.verifyTls===false?h('button',{type:'button',class:'api-tls-badge',title:t('apiTlsOffTitle'),'aria-label':t('apiTlsOffTitle'),onClick:()=>setVerifyTls(true)},t('apiTlsOffBadge')):null,
   h('button',{type:'button',class:'api-icon-btn api-run-btn',title:t('apiRunCollection'),'aria-label':`${t('apiRunCollection')}: ${state.coll.name}`,onClick:()=>startRun({path:'',recursive:true})},'▶▶'),
   hooks.attach?h('button',{type:'button',class:'api-icon-btn api-attach',title:t('apiAttach'),'aria-label':`${t('apiAttach')}: ${state.coll.name}`,onClick:()=>attachTo({path:'',name:state.coll.name,type:'collection'})},'⤓'):null);
@@ -481,7 +481,7 @@ function renderMain(){
  const m=state.request;
  if(!m){
   main.replaceChildren(h('div',{class:'api-empty'},h('p',{},state.coll?t('apiPickRequest'):t('apiNoCollections')),
-   !state.coll?h('div',{class:'api-empty-actions'},h('button',{type:'button',class:'api-btn',onClick:createCollection},t('apiNewCollection')),h('button',{type:'button',class:'api-btn',onClick:()=>els.importInput.click()},t('apiImport')),h('button',{type:'button',class:'api-btn',onClick:()=>els.folderInput.click()},t('apiImportFolder'))):null));
+   !state.coll?h('div',{class:'api-empty-actions'},h('button',{type:'button',class:'api-btn',onClick:createCollection},t('apiNewCollection')),h('button',{type:'button',class:'api-btn',onClick:()=>els.importInput.click()},t('apiImport')),h('button',{type:'button',class:'api-btn',onClick:()=>els.folderInput.click()},t('apiImportFolder')),h('button',{type:'button',class:'api-btn',onClick:()=>openLinkDialog(false)},t('apiOpenFolder'))):null));
   return;
  }
  const urlInput=h('input',{type:'text',class:'api-url',value:m.url||'',placeholder:'https://…  {{host}}/path','aria-label':'URL',spellcheck:'false',onInput:e=>{m.url=e.target.value;syncParamsFromUrl(m);markDirty();if(state.tab==='params')renderTab();}});
@@ -754,6 +754,97 @@ async function importFolder(files){
  }catch(e){toast(e.message&&!/^\d+$/.test(e.message)?e.message:t('importError'));}
 }
 
+/* ---------- pasta de referência: a coleção acompanha uma pasta do Bruno ----------
+   O app guarda a cópia dele; o servidor traz o que mudou na pasta a cada leitura da coleção. Aqui ficam o vínculo, o selo e o recarregar da tela. */
+let linkBusy=false,linkAt=0;
+const linkMenu=()=>!state.coll?[]:state.coll.link?[[t('apiSyncNow'),()=>syncLink(false)],[t('apiUnlink'),unlinkFolder]]:[[t('apiLinkFolder'),()=>openLinkDialog(true)]];
+function linkBadge(){
+ const link=state.coll?.link;if(!link)return null;
+ const label=link.available?t('apiLinkTitle',link.source):t('apiLinkMissing',link.source);
+ return h('button',{type:'button',class:`api-link-badge${link.available?'':' is-missing'}`,title:label,'aria-label':label,onClick:()=>syncLink(false)},link.available?'🔗':`⚠ ${t('apiLinkBadgeMissing')}`);
+}
+async function refreshFromLink(){ // a cópia mudou: recarrega a árvore e as abas sem edições pendentes
+ const id=state.coll.id,open=new Set(state.expanded);stashActive();
+ for(const e of [...state.tabs]){
+  if(e.dirty||e.sending)continue;
+  try{e.request=reconcileParams(await api('GET',`/collections/${id}/request?path=${encodeURIComponent(e.path)}`));}catch{dropTabs(e.path);}
+ }
+ const active=tabEntry(state.reqPath);if(active)loadEntry(active);
+ await loadCollections();await reloadTree();
+ for(const p of open)if(p&&findItem(state.coll.tree,p))state.expanded.add(p);
+ renderAll();
+}
+async function syncLink(quiet){
+ const coll=state.coll;if(!coll?.link||linkBusy)return;
+ linkBusy=true;linkAt=Date.now();
+ try{
+  const before=coll.link,r=await api('POST',`/collections/${coll.id}/sync`);
+  if(state.coll?.id!==coll.id)return;
+  if(!r.linked){state.coll.link=null;renderAll(false);return;}
+  const stale=r.rev!==before.rev;
+  state.coll.link={linked:true,source:r.source,available:r.available,syncedAt:r.syncedAt,rev:r.rev};
+  if(stale)await refreshFromLink();else if(r.available!==before.available)renderTree();
+  const note=!r.available?(before.available||!quiet?t('apiLinkMissing',r.source):null):stale?t('apiLinkUpdated'):quiet?null:t('apiLinkUpToDate');
+  if(note)toast(note);
+ }catch(e){if(!quiet)toast(e.message);}
+ finally{linkBusy=false;}
+}
+// ao voltar para a janela (por exemplo depois de editar no Bruno), confere a pasta
+function autoSync(){if(state.open&&state.coll?.link&&Date.now()-linkAt>2000&&!panel?.querySelector('.api-modal'))syncLink(true);}
+async function unlinkFolder(){
+ const coll=state.coll;if(!coll?.link||!confirm(t('apiUnlinkConfirm',coll.name)))return;
+ try{await api('DELETE',`/collections/${coll.id}/link`);coll.link=null;await loadCollections();renderAll(false);}catch(e){toast(e.message);}
+}
+function openLinkDialog(forCurrent){
+ if(panel.querySelector('.api-modal')||(forCurrent&&!state.coll))return;
+ const back=document.activeElement,coll=forCurrent?state.coll:null;
+ const overlay=h('div',{class:'api-modal api-link',role:'dialog','aria-modal':'true','aria-labelledby':'api-link-title'});
+ const input=h('input',{type:'text',id:'api-link-path',class:'api-url',spellcheck:'false',autocomplete:'off',placeholder:t('apiLinkPathPh'),'aria-describedby':'api-link-error'});
+ const error=h('p',{class:'api-newreq-error',id:'api-link-error',role:'alert'});
+ const ok=h('button',{type:'button',class:'api-btn primary',onClick:()=>submit()},t(coll?'apiLinkConfirm':'apiOpenFolderConfirm'));
+ const browse=h('button',{type:'button',class:'api-btn',onClick:async()=>{
+  browse.disabled=true;
+  try{const r=await api('POST','/pick-folder');if(r.path){input.value=r.path;error.textContent='';}}catch(e){error.textContent=e.message;}
+  finally{browse.disabled=false;input.focus();}
+ }},t('apiLinkBrowse'));
+ const close=(restore=true)=>{overlay.remove();document.removeEventListener('keydown',onKey,true);if(restore&&back?.isConnected)back.focus({preventScroll:true});};
+ async function submit(){
+  const value=input.value.trim();if(!value){error.textContent=t('apiLinkPathRequired');input.focus();return;}
+  ok.disabled=true;
+  try{
+   await flushSave();
+   if(coll){
+    const r=await api('PUT',`/collections/${coll.id}/link`,{path:value});close(false);
+    if(state.coll?.id===coll.id){state.coll.link=r;await refreshFromLink();}
+    toast(t('apiLinked',coll.name));
+   }else{
+    const made=await api('POST','/collections/open-folder',{path:value});close(false);
+    await loadCollections();await selectCollection(made.id);
+    toast(t(made.reused?'apiOpenFolderReused':'apiOpenFolderDone',made.name));
+   }
+  }catch(e){error.textContent=e.message;ok.disabled=false;}
+ }
+ function onKey(e){
+  if(!overlay.isConnected)return;
+  if(e.key==='Escape'){e.preventDefault();e.stopPropagation();close();return;}
+  if(e.key==='Enter'&&e.target===input){e.preventDefault();submit();return;}
+  if(e.key==='Tab'){
+   const items=[...overlay.querySelectorAll('input,button')].filter(x=>!x.disabled),first=items[0],last=items.at(-1);
+   if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
+   else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+  }
+ }
+ document.addEventListener('keydown',onKey,true);
+ overlay.addEventListener('pointerdown',e=>{if(e.target===overlay)close();});
+ overlay.append(h('div',{class:'api-modal-card'},
+  h('header',{},h('h3',{id:'api-link-title'},coll?t('apiLinkTitleFor',coll.name):t('apiLinkTitleOpen')),h('button',{type:'button',class:'api-icon-btn','aria-label':t('close'),onClick:()=>close()},'×')),
+  h('label',{class:'api-field'},h('span',{},t('apiLinkPath')),h('span',{class:'api-link-row'},input,browse)),
+  error,
+  h('p',{class:'api-hint'},t('apiLinkHint')),coll?h('p',{class:'api-hint'},t('apiLinkHintFor')):null,
+  h('footer',{},h('button',{type:'button',class:'api-btn',onClick:()=>close()},t('close')),ok)));
+ panel.append(overlay);input.focus();
+}
+
 /* ---------- executar pasta (run e run recursivo) com relatório ---------- */
 const BODY_KEEP=20000;
 const runPrefs=()=>{try{return {stopOnFail:false,delayMs:0,...JSON.parse(store.get('cm-api-run')||'{}')};}catch{return {stopOnFail:false,delayMs:0};}};
@@ -842,7 +933,7 @@ function renderHeader(){
  const collSel=h('select',{class:'api-select','aria-label':t('apiCollection'),onChange:async e=>{if((await selectCollection(e.target.value))===false)renderHeader();}},...(state.collections.length?state.collections.map(c=>h('option',{value:c.id,selected:c.id===state.coll?.id},c.name)):[h('option',{value:''},t('apiNoCollectionsShort'))]));
  const envSel=h('select',{class:'api-select','aria-label':t('apiEnvironment'),disabled:state.coll?null:true,onChange:async e=>{state.env=e.target.value||null;store.set(`cm-api-env:${state.coll.id}`,state.env||'');await loadEnv();if(state.tab==='vars')renderTab();}},h('option',{value:''},t('apiNoEnv')),...(state.coll?.environments||[]).map(n=>h('option',{value:n,selected:n===state.env},n)));
  const menu=h('div',{class:'api-menu',role:'menu',hidden:true},
-  ...[[t('apiNewCollection'),createCollection],[t('apiRunCollection'),()=>startRun({path:'',recursive:true})],[t('apiImport'),()=>els.importInput.click()],[t('apiImportFolder'),()=>els.folderInput.click()],[t('apiExport'),()=>{if(state.coll)location.href=`api/collections/${state.coll.id}/export`;}],...(state.coll?[[state.coll.settings?.verifyTls===false?t('apiTlsMenuOn'):t('apiTlsMenuOff'),()=>setVerifyTls(state.coll.settings?.verifyTls===false)]]:[]),[t('apiDeleteCollection'),deleteCollection,true]].map(([label,fn,danger])=>h('button',{type:'button',role:'menuitem',class:danger?'danger':'',onClick:()=>{menu.hidden=true;fn();}},label)));
+  ...[[t('apiNewCollection'),createCollection],[t('apiRunCollection'),()=>startRun({path:'',recursive:true})],[t('apiImport'),()=>els.importInput.click()],[t('apiImportFolder'),()=>els.folderInput.click()],[t('apiOpenFolder'),()=>openLinkDialog(false)],...linkMenu(),[t('apiExport'),()=>{if(state.coll)location.href=`api/collections/${state.coll.id}/export`;}],...(state.coll?[[state.coll.settings?.verifyTls===false?t('apiTlsMenuOn'):t('apiTlsMenuOff'),()=>setVerifyTls(state.coll.settings?.verifyTls===false)]]:[]),[t('apiDeleteCollection'),deleteCollection,true]].map(([label,fn,danger])=>h('button',{type:'button',role:'menuitem',class:danger?'danger':'',onClick:()=>{menu.hidden=true;fn();}},label)));
  els.menu=menu;
  els.head.replaceChildren(treeToggle(),h('strong',{class:'api-title'},t('apiTitle')),collSel,envSel,
   h('button',{type:'button',class:'api-icon-btn',title:t('apiEditEnv'),'aria-label':t('apiEditEnv'),disabled:state.coll?null:true,onClick:openEnvEditor},'⚙'),
@@ -1047,7 +1138,7 @@ function itemMenu(it){
  if(it.type==='folder')return [[t('apiRunFolder'),()=>startRun({path:it.path,recursive:false})],[t('apiRunFolderAll'),()=>startRun({path:it.path,recursive:true})],[t('apiNewRequest'),()=>newItem('request',it.path)],[t('apiNewFolder'),()=>newItem('folder',it.path)],...clipMenu(it,it.path),attach,[t('apiRename'),()=>renameItem(it)],[t('apiDelete'),()=>deleteItem(it),true]];
  return [[t('apiCtxOpen'),()=>openRequest(it.path)],...clipMenu(it,parentOf(it.path)),[`${t('apiCopyAs')} ${t('apiCopyCurl')}`,()=>copyRowAs('curl',it)],[`${t('apiCopyAs')} ${t('apiCopyFetch')}`,()=>copyRowAs('fetch',it)],attach,[t('apiRename'),()=>renameItem(it)],[t('apiDelete'),()=>deleteItem(it),true]];
 }
-const collectionMenu=()=>[[t('apiRunCollection'),()=>startRun({path:'',recursive:true})],[t('apiNewRequest'),()=>newItem('request','')],[t('apiNewFolder'),()=>newItem('folder','')],pasteEntry(''),hooks.attach?[t('apiAttach'),()=>attachTo({path:'',name:state.coll.name,type:'collection'})]:null,[t('apiExport'),()=>{location.href=`api/collections/${state.coll.id}/export`;}],[state.coll?.settings?.verifyTls===false?t('apiTlsMenuOn'):t('apiTlsMenuOff'),()=>setVerifyTls(state.coll?.settings?.verifyTls===false)]];
+const collectionMenu=()=>[[t('apiRunCollection'),()=>startRun({path:'',recursive:true})],[t('apiNewRequest'),()=>newItem('request','')],[t('apiNewFolder'),()=>newItem('folder','')],pasteEntry(''),hooks.attach?[t('apiAttach'),()=>attachTo({path:'',name:state.coll.name,type:'collection'})]:null,...linkMenu(),[t('apiExport'),()=>{location.href=`api/collections/${state.coll.id}/export`;}],[state.coll?.settings?.verifyTls===false?t('apiTlsMenuOn'):t('apiTlsMenuOff'),()=>setVerifyTls(state.coll?.settings?.verifyTls===false)]];
 
 /* variáveis de sessão: o que os scripts e as "Vars post-response" guardaram, num lugar só */
 function syncVarsUi(){
@@ -1378,6 +1469,7 @@ function build(){
  els.save=h('span',{class:'api-save',role:'status','aria-live':'polite'});
  els.head=h('header',{class:'api-head'});
  els.tree=h('ul',{class:'api-tree',role:'tree','aria-label':t('apiTitle')});els.tree.addEventListener('keydown',treeKeys);
+ window.addEventListener('focus',autoSync);document.addEventListener('visibilitychange',()=>{if(!document.hidden)autoSync();});
  els.tabbar=h('div',{class:'api-tabbar',role:'tablist','aria-label':t('apiOpenRequests'),hidden:true,onKeydown:onTabbarKey});
  els.content=h('div',{class:'api-content'});
  els.main=h('section',{class:'api-main'},els.tabbar,els.content);

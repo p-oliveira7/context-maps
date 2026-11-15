@@ -1,7 +1,8 @@
 // Organizar a árvore do cliente de API: duplicar, copiar, recortar, colar, mover entre pastas e coleções, arrastar.
+// E a coleção vinculada a uma pasta do Bruno: abrir pelo caminho, atualizar ao voltar para a janela, cópia de garantia.
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
-import {mkdtemp,rm} from 'node:fs/promises';
+import {mkdtemp,rm,mkdir,writeFile,rename} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -69,6 +70,7 @@ try{
  assert.equal(await row('Create').evaluate(e=>e.classList.contains('is-cut')),true);
  await row('Archive').locator('.api-row-main').focus();await page.keyboard.press('Control+v');
  await until(()=>treeOf('org'),['Health',{Users:['List']},{Archive:['List','Create']}]);
+ await page.locator('.api-row[data-path="archive/create.bru"]').waitFor(); // a tela já refletiu a mudança
  await row('Archive').click({button:'right'});
  assert.equal(await page.locator('.api-ctx button',{hasText:'Paste'}).count(),0);await page.keyboard.press('Escape');
  assert.equal(await page.locator('.api-row.is-cut').count(),0);
@@ -116,10 +118,54 @@ try{
  await row('Health').locator('.api-row-main').dragTo(first,{targetPosition:{x:40,y:2}});
  await until(()=>treeOf('other'),[{Inbox:['Health',{Archive:['List','Create']},'List']}]);
  await page.locator('.api-row[data-path="inbox/health.bru"]').waitFor();
- // uma pasta não entra nela mesma nem numa pasta filha
+
+ // ORG-08: abrir uma pasta do Bruno pelo caminho cria a coleção vinculada (com o selo) e o que muda na pasta aparece ao voltar para a janela
+ const src=path.join(work,'bruno-src'),bru=(name,url)=>`meta {\n  name: ${name}\n  type: http\n  seq: 1\n}\n\nget {\n  url: ${url}\n  body: none\n  auth: none\n}\n`;
+ await mkdir(src);await writeFile(path.join(src,'bruno.json'),JSON.stringify({version:'1',name:'Linked',type:'collection'}));
+ await writeFile(path.join(src,'ping.bru'),bru('Ping','https://example.test/ping'));
+ const headMenu=async label=>{await page.getByRole('button',{name:'More',exact:true}).click();await page.locator('.api-menu:not([hidden])').getByRole('menuitem',{name:label,exact:true}).click();};
+ await headMenu('Open Bruno folder (keeps in sync)…');
+ const link=page.locator('.api-modal.api-link');await link.waitFor();
+ await link.getByRole('button',{name:'Open',exact:true}).click();
+ assert.equal(await link.locator('#api-link-error').textContent(),'Enter the folder path');
+ await link.locator('#api-link-path').fill(path.join(work,'missing'));await page.keyboard.press('Enter');
+ await link.locator('#api-link-error',{hasText:'Folder without bruno.json'}).waitFor();
+ await link.locator('#api-link-path').fill(src);await page.keyboard.press('Enter');await link.waitFor({state:'detached'});
+ await row('Ping').waitFor();
+ assert.equal(await page.locator('.api-select').first().evaluate(s=>s.selectedOptions[0].textContent),'Linked');
+ const badge=page.locator('.api-link-badge');
+ assert.match(await badge.getAttribute('title'),/Follows the folder .*bruno-src/);assert.equal(await badge.evaluate(e=>e.classList.contains('is-missing')),false);
+ await row('Ping').locator('.api-row-main').click();await page.locator('.api-tab.is-active',{hasText:'Ping'}).waitFor();
+ assert.equal(await page.locator('.api-url').inputValue(),'https://example.test/ping');
+ await writeFile(path.join(src,'ping.bru'),bru('Ping v2','https://example.test/ping/v2'));
+ await writeFile(path.join(src,'status.bru'),bru('Status','https://example.test/status').replace('seq: 1','seq: 2'));
+ await page.evaluate(()=>window.dispatchEvent(new Event('focus'))); // como ao voltar do Bruno para o navegador
+ await row('Status').waitFor();await row('Ping v2').waitFor();
+ await page.locator('.api-tab.is-active',{hasText:'Ping v2'}).waitFor();
+ assert.equal(await page.locator('.api-url').inputValue(),'https://example.test/ping/v2'); // a aba aberta mostra o que veio da pasta
+ await page.locator('#toast-text',{hasText:'Updated from the Bruno folder'}).waitFor();
+ // ORG-09: edição pendente no app não é atropelada; sem a pasta vale a cópia; desvincular tira o selo
+ await page.locator('.api-url').fill('https://example.test/ping/mine');
+ await writeFile(path.join(src,'ping.bru'),bru('Ping v3','https://example.test/ping/v3-from-bruno'));
+ await badge.click();await row('Ping v3').waitFor();
+ assert.equal(await page.locator('.api-url').inputValue(),'https://example.test/ping/mine');
+ await rename(src,`${src}-away`);
+ await badge.click();await page.locator('.api-link-badge.is-missing').waitFor();
+ await page.locator('#toast-text',{hasText:'Folder not available'}).waitFor();
+ assert.deepEqual(await treeOf('linked'),['Ping v3','Status']);await row('Status').waitFor();
+ await rename(`${src}-away`,src);await badge.click();await page.locator('.api-link-badge:not(.is-missing)').waitFor();
+ page.once('dialog',d=>d.accept());
+ await headMenu('Unlink from the folder');await badge.waitFor({state:'detached'});
+ assert.equal((await call('GET','/collections/linked')).link,null);assert.deepEqual(await treeOf('linked'),['Ping v3','Status']);
+
+ // por último (um arrasto recusado deixa o mouse do navegador de teste preso): uma pasta não entra nela mesma nem numa pasta filha
+ await page.locator('.api-url').focus();await page.keyboard.press('Control+s'); // grava a edição pendente (a cópia aceita edições do app)
+ await until(async()=>(await call('GET','/collections/linked/request?path=ping.bru')).url,'https://example.test/ping/mine');
+ await page.locator('.api-tab-dirty').waitFor({state:'detached'});
+ await page.locator('.api-select').first().selectOption('other');await row('Inbox').waitFor();
  await row('Inbox').locator('.api-row-main').dragTo(row('Archive'),{targetPosition:{x:40,y:(await row('Archive').boundingBox()).height/2}});
  assert.deepEqual(await treeOf('other'),[{Inbox:['Health',{Archive:['List','Create']},'List']}]);
 
  assert.deepEqual(errors,[]);
- console.log('PASS ORG-01..07 organize the request tree: duplicate, copy, cut, paste, move across folders and collections, drag');
+ console.log('PASS ORG-01..09 organize the request tree (duplicate, copy, cut, paste, move, drag) and collections linked to a Bruno folder');
 }finally{await browser.close();server.kill();await rm(work,{recursive:true,force:true});}

@@ -95,7 +95,7 @@ Open <http://127.0.0.1:4173>. On first run the server creates the demo presentat
 | `PORT` | `4173` | Server port |
 | `PRESENTATIONS_DIR` | `./presentations` | Main library folder |
 | `CONTEXT_MAPS_CONFIG` | `./.context-maps.json` | Where the extra folders are remembered |
-| `COLLECTIONS_DIR` | `./collections` | API client collections (Bruno format); secrets go to `.secrets/` inside it |
+| `COLLECTIONS_DIR` | `./collections` | API client collections (Bruno format); secrets go to `.secrets/` inside it, linked-folder paths to `.links/` |
 
 > Without the server (for example `python -m http.server`) the app opens in **view mode only**, with the
 > built-in demo map. Do not open `index.html` through `file://` (it uses ES modules).
@@ -249,6 +249,12 @@ The **API** button in the bottom bar splits the screen: the map stays on the lef
 - **Editor and response layout.** Show the response below the editor or beside it (◫ / ⬒), drag the divider or press the arrow keys on it, and use ⤢ to focus on the response. The choice is remembered.
 - **Quick open.** **Ctrl+K** inside the panel opens a request by typing part of its name, URL, method or folder (↑ ↓ Enter); **Ctrl+S** saves the request of the active tab, **Ctrl+Enter** sends.
 - **Run a folder.** Hover a folder (or the collection) and use **▶** to run its requests, or **▶▶** to run it with all subfolders, in tree order. Session variables flow from one request to the next (log in once, then call the protected requests). The interactive report has a progress bar with one segment per request (click one to jump to it), passed/failed/error counts, assertions and tests, total time, filters, search, and an expandable detail per request with the sent URL, checks, body, headers and script console. You can **stop** the run, **stop at the first failure**, set a **delay** between requests, **run only the failed** requests or a single one again, open a request from the report, **copy a summary** or **export a JSON report** (it carries no bodies or headers).
+- **Open a Bruno folder and keep it in sync.** *Open Bruno folder (keeps in sync)…* in the ⋯ menu asks for the path of the folder that has `bruno.json` (type it or use **Browse…**) and remembers it, so you can edit in Bruno and present here.
+  - The app still keeps its own copy in `collections/<id>`. That copy is what it reads and writes, and what it uses when the folder is not available (the collection then shows **⚠ copy**).
+  - The copy is updated from the folder whenever the collection is opened and when you come back to the window; the **🔗** badge on the collection updates on click.
+  - What changed in the folder comes in: new, changed and deleted files. What you changed only in the app stays, until the same file changes in the folder. Open tabs reload, except the ones with unsaved edits.
+  - The folder itself is never changed. Mocks, the SSL setting and secret values stay in the app copy.
+  - An existing collection can be linked later (*Link to a Bruno folder…*) or unlinked (*Unlink from the folder*). The path is stored in `collections/.links/`, outside Git and exports.
 - **Import Bruno folders.** *Import Bruno folder…* in the ⋯ menu (or dropping a folder on the panel) reads a folder in the Bruno format. A folder with `bruno.json` becomes a new collection, environments included; a plain folder of `.bru` files is added to the open collection (or becomes a new one). Hidden folders, `node_modules` and files that are not Bruno files are skipped, and secret values never come from the files.
 
 <p align="center">
@@ -410,9 +416,9 @@ node tests/edit.mjs                     # or run a single suite
 | `cards` CARD-01..06 | titles, root, keyboard, images |
 | `motion` MOT-01..05 | animations and reduced motion |
 | `sandbox` SBX-01..05 · `scripting` SCR-01..07 | script sandbox (no network, timeouts), expect, asserts, request pipeline |
-| `collections` COLL-01..11 · `bru` BRU-01..05 | Bruno format, collections API, secrets, ZIP |
+| `collections` COLL-01..12 · `bru` BRU-01..05 | Bruno format, collections API, secrets, ZIP |
 | `api` API-01..13 | split-view client, environments, sending, attaching to cards |
-| `organize` ORG-01..07 | duplicate, copy, cut, paste and move requests and folders across folders and collections, drag into folders |
+| `organize` ORG-01..09 | duplicate, copy, cut, paste and move requests and folders across folders and collections, drag into folders; collections linked to a Bruno folder |
 | `polish` POL-01..07 · `curl` | cURL import/export, unresolved variables, context menu, session variables, narrow screens |
 | `response` RESP-01..10 | response body: JSON tree, path copy and filter, search, XML/HTML colours, preview |
 | `tabs` TAB-01..12 | request tabs, editor/response layout and divider, quick open |

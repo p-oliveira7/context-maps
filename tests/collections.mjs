@@ -1,7 +1,7 @@
 // API de coleções (formato Bruno): CRUD, ambientes e segredos, exportar/importar ZIP, caminhos maliciosos.
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
-import {mkdtemp,readFile,readdir,rm} from 'node:fs/promises';
+import {mkdtemp,readFile,readdir,rm,mkdir,writeFile,rename} from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
@@ -202,10 +202,76 @@ try{
  other=await json('GET','/minha-api-2');
  assert.deepEqual(Object.keys(other.mocks.requests).sort(),['usuarios-2/arquivo/criar-usuario-2.bru','usuarios-2/criar-usuario.bru']);
  assert.deepEqual(Object.keys((await json('GET','/minha-api/mocks')).requests),['usuarios/criar-usuario.bru']);
+ // COLL-12: abrir uma pasta do Bruno pelo caminho mantém o vínculo: o que muda na pasta chega à cópia; sem a pasta, vale a cópia
+ const src=path.join(work,'bruno-src');
+ await mkdir(path.join(src,'pets'),{recursive:true});await mkdir(path.join(src,'.git'));await mkdir(path.join(src,'environments'));
+ await writeFile(path.join(src,'bruno.json'),JSON.stringify({version:'1',name:'Loja',type:'collection'}));
+ await writeFile(path.join(src,'ping.bru'),bru('Ping',1,'{{host}}/ping'));
+ await writeFile(path.join(src,'pets','folder.bru'),'meta {\n  name: Pets\n  seq: 2\n}\n');
+ await writeFile(path.join(src,'pets','list.bru'),bru('List pets',1,'{{host}}/pets'));
+ await writeFile(path.join(src,'pets','get.bru'),bru('Get pet',2,'{{host}}/pets/1'));
+ await writeFile(path.join(src,'environments','dev.bru'),'vars {\n  host: http://localhost:3000\n}\n');
+ await writeFile(path.join(src,'.git','config'),'x');await writeFile(path.join(src,'notes.txt'),'fora');
+ for(const [body,status] of [[{path:'bruno-src'},400],[{path:path.join(work,'nao-existe')},400],[{path:work},400],[{path:path.join(collections,'minha-api')},400],[{},400]])
+  assert.equal((await call('POST','/open-folder',body)).status,status,JSON.stringify(body));
+ const opened=await (await call('POST','/open-folder',{path:src})).json();
+ assert.deepEqual([opened.id,opened.name,opened.linked,opened.available,opened.changed],['loja','Loja',true,true,6]);
+ const outline=t=>t.map(i=>i.type==='folder'?{[i.name]:outline(i.children)}:i.name);
+ let loja=await json('GET','/loja');
+ assert.deepEqual(outline(loja.tree),['Ping',{Pets:['List pets','Get pet']}]);assert.deepEqual(loja.environments,['dev']);
+ assert.deepEqual([loja.link.source,loja.link.available],[src,true]);
+ assert.equal(existsSync(path.join(collections,'loja','notes.txt')),false);assert.equal(existsSync(path.join(collections,'loja','.git')),false);
+ assert.equal((await json('GET','')).find(c=>c.id==='loja').linked,true);
+ assert.deepEqual(await (await call('POST','/open-folder',{path:src})).json().then(r=>[r.id,r.reused,r.changed]),['loja',true,0]); // a mesma pasta não vira outra coleção
+ // edição só na cópia (o app) e configuração do Context Maps ficam; o que muda na origem vence
+ const local=await json('GET','/loja/request?path=ping.bru');local.url='{{host}}/ping?app=1';
+ assert.equal((await call('PUT','/loja/request?path=ping.bru',local)).status,200);
+ await json('POST','/loja/items',{type:'request',name:'Só no app',method:'get',url:'{{host}}/local'});
+ await json('PUT','/loja/settings',{verifyTls:false});
+ await json('PUT','/loja/mocks',{version:1,requests:{'pets/get.bru':{mode:'on',active:'s1',scenarios:[{id:'s1',name:'Ok',kind:'response',status:200,headers:[],body:'{}',delay:0}]}}});
+ await writeFile(path.join(src,'pets','list.bru'),bru('List all pets',1,'{{host}}/pets?page=1'));
+ await writeFile(path.join(src,'pets','create.bru'),bru('Create pet',3,'{{host}}/pets'));
+ await rm(path.join(src,'pets','get.bru'));
+ await writeFile(path.join(src,'bruno.json'),JSON.stringify({version:'1',name:'Loja v2',type:'collection'}));
+ const synced=await json('POST','/loja/sync');
+ assert.deepEqual([synced.available,synced.changed,synced.removed],[true,3,1]);
+ loja=await json('GET','/loja');
+ assert.equal(loja.name,'Loja v2');assert.deepEqual(loja.settings,{verifyTls:false});
+ assert.deepEqual(outline(loja.tree),['Ping',{Pets:['List all pets','Create pet']},'Só no app']);
+ assert.equal((await json('GET','/loja/request?path=ping.bru')).url,'{{host}}/ping?app=1');
+ assert.equal((await json('GET','/loja/request?path=pets/list.bru')).url,'{{host}}/pets?page=1');
+ assert.deepEqual(Object.keys(loja.mocks.requests),[]); // a request apagada na origem leva os mocks dela
+ assert.ok(loja.link.rev>=1);
+ assert.deepEqual(await json('POST','/loja/sync').then(r=>[r.changed,r.removed]),[0,0]);
+ await writeFile(path.join(src,'ping.bru'),bru('Ping v2',1,'{{host}}/ping/v2')); // agora a origem mudou esse arquivo: ela vence
+ await json('POST','/loja/sync');
+ assert.equal((await json('GET','/loja/request?path=ping.bru')).url,'{{host}}/ping/v2');
+ // uma pasta inteira some na origem: some na cópia (a pasta vazia também)
+ await rm(path.join(src,'pets'),{recursive:true});
+ assert.deepEqual(await json('POST','/loja/sync').then(r=>r.removed),3);
+ assert.deepEqual(outline((await json('GET','/loja')).tree),['Ping v2','Só no app']);assert.equal(existsSync(path.join(collections,'loja','pets')),false);
+ // a leitura da coleção já sincroniza sozinha (no máximo uma vez a cada 1,5 s)
+ await writeFile(path.join(src,'health.bru'),bru('Health',5,'{{host}}/health'));
+ await new Promise(r=>setTimeout(r,1600));
+ assert.deepEqual(outline((await json('GET','/loja')).tree),['Ping v2','Só no app','Health']);
+ // origem indisponível: a cópia continua valendo; quando volta, sincroniza de novo
+ await rename(src,`${src}-fora`);
+ assert.deepEqual(await json('POST','/loja/sync').then(r=>[r.linked,r.available]),[true,false]);
+ loja=await json('GET','/loja');assert.equal(loja.link.available,false);assert.deepEqual(outline(loja.tree),['Ping v2','Só no app','Health']);
+ await rename(`${src}-fora`,src);assert.equal((await json('POST','/loja/sync')).available,true);
+ // desvincular, vincular uma coleção que já existe e apagar (o vínculo sai junto)
+ assert.equal((await call('DELETE','/loja/link')).status,200);
+ assert.equal((await json('GET','/loja')).link,null);assert.deepEqual(await json('POST','/loja/sync'),{linked:false});
+ assert.equal((await call('PUT','/loja/link',{path:'relativo'})).status,400);
+ const relinked=await json('PUT','/loja/link',{path:src});assert.deepEqual([relinked.linked,relinked.available],[true,true]);
+ assert.deepEqual(outline((await json('GET','/loja')).tree),['Ping v2','Só no app','Health']);
+ assert.equal(existsSync(path.join(collections,'.links','loja.json')),true);
+ assert.equal((await call('DELETE','/loja')).status,200);assert.equal(existsSync(path.join(collections,'.links','loja.json')),false);
+ assert.equal(existsSync(path.join(src,'ping.bru')),true); // a pasta de origem nunca é alterada
  // excluir
  assert.equal((await call('DELETE','/minha-api/items?path=usuarios')).status,200);
  assert.equal((await json('GET','/minha-api')).tree.length,1);
  for(const id of ['minha-api','minha-api-2',evilRes.id])assert.equal((await call('DELETE',`/${id}`)).status,200);
  assert.deepEqual(await json('GET',''),[]);assert.equal(existsSync(path.join(collections,'.secrets','minha-api.json')),false);
- console.log('PASS COLL-01..11 collections API');
+ console.log('PASS COLL-01..12 collections API');
 }finally{server.kill();await rm(work,{recursive:true,force:true});}

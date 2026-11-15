@@ -95,7 +95,7 @@ Abra <http://127.0.0.1:4173>. Na primeira execução o servidor cria a apresenta
 | `PORT` | `4173` | Porta do servidor |
 | `PRESENTATIONS_DIR` | `./presentations` | Pasta da biblioteca principal |
 | `CONTEXT_MAPS_CONFIG` | `./.context-maps.json` | Onde as pastas extras ficam registradas |
-| `COLLECTIONS_DIR` | `./collections` | Coleções do cliente de API (formato Bruno); os segredos vão para `.secrets/` dentro dela |
+| `COLLECTIONS_DIR` | `./collections` | Coleções do cliente de API (formato Bruno); os segredos vão para `.secrets/` dentro dela, os caminhos das pastas vinculadas para `.links/` |
 
 > Sem o servidor (por exemplo `python -m http.server`), o app abre **somente em exibição**, com o mapa
 > de demonstração embutido. Não abra o `index.html` por `file://` (usa módulos ES).
@@ -248,6 +248,12 @@ O botão **API** na barra inferior divide a tela: o mapa fica à esquerda e abre
 - **Abrir request rápido.** **Ctrl+K** dentro do painel abre uma request digitando parte do nome, da URL, do método ou da pasta (↑ ↓ Enter); **Ctrl+S** salva a request da aba ativa e **Ctrl+Enter** envia.
 - **Mocks.** A aba **Mock** dá a uma request respostas simuladas (modelos como 200, 401, 404, 500, timeout e erro de rede, ou uma capturada de uma resposta real) com status, headers, corpo e atraso, para mostrar um fluxo antes de o backend existir. A linha da coleção tem o botão **Modo mock** com o número de requests que vão responder com mock; requests, pastas e abas ganham o selo MOCK, e a resposta e o relatório do run indicam quando um mock respondeu. Os mocks são salvos junto com a request (Ctrl+S) em `mocks.json`, dentro da coleção.
 - **Execute uma pasta.** Passe o mouse numa pasta (ou na coleção) e use **▶** para rodar as requests dela, ou **▶▶** para rodar com todas as subpastas, na ordem da árvore. As variáveis de sessão passam de uma request para a seguinte (faça o login uma vez e chame as requests protegidas). O relatório interativo tem uma barra de progresso com um trecho por request (clique para ir até ela), contagem de passou/falhou/erro, asserts e testes, tempo total, filtros, busca e um detalhe expansível de cada request com a URL enviada, as verificações, o corpo, os cabeçalhos e o console dos scripts. Dá para **parar** a execução, **parar na primeira falha**, definir um **intervalo** entre as requests, **executar de novo só as que falharam** ou uma só, abrir a request pelo relatório, **copiar um resumo** ou **exportar um relatório JSON** (sem corpos nem cabeçalhos).
+- **Abra uma pasta do Bruno e mantenha atualizada.** *Abrir pasta do Bruno (mantém atualizada)…* no menu ⋯ pede o caminho da pasta que tem o `bruno.json` (digite ou use **Procurar…**) e guarda esse caminho, para você editar no Bruno e apresentar aqui.
+  - O app continua guardando a cópia dele em `collections/<id>`. É essa cópia que ele lê e grava, e é ela que vale quando a pasta não está disponível (a coleção mostra **⚠ cópia**).
+  - A cópia é atualizada a partir da pasta sempre que a coleção é aberta e quando você volta para a janela; o selo **🔗** na coleção atualiza ao clicar.
+  - O que mudou na pasta entra: arquivos novos, alterados e apagados. O que você mudou só no app fica, até o mesmo arquivo mudar na pasta. As abas abertas recarregam, menos as que têm edição não salva.
+  - A pasta em si nunca é alterada. Mocks, a configuração de SSL e os valores secretos ficam na cópia do app.
+  - Uma coleção que já existe pode ser vinculada depois (*Vincular a uma pasta do Bruno…*) ou desvinculada (*Desvincular da pasta*). O caminho fica em `collections/.links/`, fora do Git e das exportações.
 - **Importe pastas do Bruno.** *Importar pasta do Bruno…* no menu ⋯ (ou soltar uma pasta no painel) lê uma pasta no formato do Bruno. Com `bruno.json` ela vira uma coleção nova, com os ambientes; uma pasta solta de arquivos `.bru` entra na coleção aberta (ou vira uma coleção nova). Pastas ocultas, `node_modules` e arquivos que não são do Bruno são ignorados, e valores secretos nunca vêm dos arquivos.
 
 <p align="center">
@@ -409,9 +415,9 @@ node tests/edit.mjs                     # ou rode uma suíte só
 | `cards` CARD-01..06 | títulos, raiz, teclado, imagens |
 | `motion` MOT-01..05 | animações e movimento reduzido |
 | `sandbox` SBX-01..05 · `scripting` SCR-01..07 | sandbox dos scripts (sem rede, tempo limite), expect, asserts, pipeline da request |
-| `collections` COLL-01..11 · `bru` BRU-01..05 | formato Bruno, API de coleções, segredos, ZIP |
+| `collections` COLL-01..12 · `bru` BRU-01..05 | formato Bruno, API de coleções, segredos, ZIP |
 | `api` API-01..13 | cliente em tela dividida, ambientes, envio, anexar a cards |
-| `organize` ORG-01..07 | duplicar, copiar, recortar, colar e mover requests e pastas entre pastas e coleções, arrastar para dentro de pastas |
+| `organize` ORG-01..09 | duplicar, copiar, recortar, colar e mover requests e pastas entre pastas e coleções, arrastar para dentro de pastas; coleções vinculadas a uma pasta do Bruno |
 | `polish` POL-01..07 · `curl` | importar/copiar cURL, variáveis sem valor, menu de contexto, variáveis de sessão, telas estreitas |
 | `response` RESP-01..10 | corpo da resposta: árvore JSON, copiar e filtrar por caminho, busca, cores XML/HTML, preview |
 | `tabs` TAB-01..12 | abas de requests, disposição editor/resposta e divisor, abrir request rápido |
