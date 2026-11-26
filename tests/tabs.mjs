@@ -235,7 +235,7 @@ try{
  await open('Gamma');await page.locator('.api-url').fill('{{host}}/slow?v=2');
  const put=()=>page.waitForResponse(r=>r.request().method()==='PUT'&&r.url().includes('gamma.bru'));
  let wait=put();await page.locator('.api-save-btn').click();assert.equal((await wait).status(),200);
- assert.equal(await gammaUrl(),'{{host}}/slow?v=2');assert.equal(await dirtyDot('Gamma').count(),0);
+ assert.equal(await gammaUrl(),'{{host}}/slow?v=2');await dirtyDot('Gamma').waitFor({state:'detached'}); // a resposta chega antes de a página tratá-la (lento no macOS)
  await page.waitForFunction(()=>/^\s*Saved/i.test(document.querySelector('.api-save').textContent));assert.equal(await page.locator('.api-save-btn').isDisabled(),true);
  await page.locator('.api-url').fill('{{host}}/slow?v=3');wait=put();
  await page.locator('.api-tab',{hasText:'Gamma'}).locator('.api-tab-main').focus();await page.keyboard.press('Control+s'); // o Ctrl+S vale com o foco em qualquer lugar do painel
