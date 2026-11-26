@@ -84,7 +84,7 @@ try{
  await copyDlg.waitFor();assert.equal(await copyDlg.getAttribute('role'),'dialog');
  assert.match(await copyDlg.locator('h3').textContent(),/Copy as — Create/);
  const curl=await shown();
- assert.match(curl,new RegExp(`^curl -X POST '${hostRe}/users'`));assert.match(curl,/-H 'X-Trace: t1'/);assert.match(curl,/-H 'Content-Type: application\/json'/);assert.match(curl,/--data-raw '\{"name":"Ana"\}'/);
+ assert.match(curl,new RegExp(`^curl -X POST '${hostRe}/users'`));assert.match(curl,/-H 'X-Trace: t1'/);assert.match(curl,/-H 'Content-Type: application\/json'/);assert.match(curl,/--data-raw '\{\n  "name": "Ana"\n\}'/); // o corpo JSON abre formatado e o cURL leva o que está no editor
  assert.equal((await clip()).startsWith('curl -X POST'),false); // ainda não copiou nada
  assert.equal(await page.evaluate(()=>document.activeElement.textContent),'Copy'); // o foco vai para Copiar
  await copyDlg.getByRole('button',{name:'Copy',exact:true}).click();

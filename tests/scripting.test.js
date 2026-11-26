@@ -64,7 +64,7 @@ test('SCR-05: post-response variable expressions',()=>{
  assert.equal(evalValueExpression('literal {{k}}',scope,x=>x.replace('{{k}}','v')),'literal v');
 });
 
-import {buildRaw,resolveRaw,buildRequest,toScriptReq,applyScriptReq,makeScope,parseResponseBody,resolveVars} from '../pipeline.js';
+import {buildRaw,resolveRaw,buildRequest,toScriptReq,applyScriptReq,makeScope,parseResponseBody,resolveVars,prettyJson,formatLoadedBody} from '../pipeline.js';
 test('SCR-06: raw request keeps {{variables}} until resolved; scripts can change it first',()=>{
  const model={method:'post',url:'{{host}}/users/:id?x=1',bodyMode:'formUrlEncoded',formUrlEncoded:[{name:'q',value:'{{term}} é',enabled:true},{name:'off',value:'1',enabled:false}],
   pathParams:[{name:'id',value:'{{uid}}',enabled:true}],headers:[{name:'X-A',value:'{{a}}',enabled:true},{name:'X-Off',value:'no',enabled:false}],authMode:'bearer',bearer:{token:'{{tok}}'}};
@@ -90,4 +90,14 @@ test('SCR-07: response scope for asserts and post-response variables',()=>{
  const scope=makeScope({status:200,statusText:'OK',headers:[['Content-Type','application/json'],['X-Id','7']],bodyText:'{"user":{"id":7}}',contentType:'application/json',timeMs:15,url:'http://h/u'},{method:'GET',url:'http://h/u',headers:[{name:'A',value:'b'}],body:undefined});
  assert.deepEqual([getPath(scope,'res.status'),getPath(scope,'res.body.user.id'),getPath(scope,'res.headers.x-id'),getPath(scope,'res.responseTime'),getPath(scope,'req.headers.A')],[200,7,'7',15,'b']);
  assert.equal(parseResponseBody({bodyText:'plain',contentType:'text/plain'}),'plain');assert.equal(parseResponseBody({binary:true}),'');assert.deepEqual(parseResponseBody({bodyText:'[1]',contentType:'text/html'}),[1]);
+});
+
+test('SCR-08: JSON bodies read from disk come formatted; invalid JSON and big numbers stay as they are',()=>{
+ assert.equal(prettyJson('{"a":1,"b":[1,2,{"c":"x, y: {z}"}],"e":{},"f":[]}'),'{\n  "a": 1,\n  "b": [\n    1,\n    2,\n    {\n      "c": "x, y: {z}"\n    }\n  ],\n  "e": {},\n  "f": []\n}');
+ assert.equal(prettyJson('{"id":12345678901234567890,"p":1.50,"s":"a\\"b"}'),'{\n  "id": 12345678901234567890,\n  "p": 1.50,\n  "s": "a\\"b"\n}');
+ assert.equal(prettyJson('{"t":"{{token}}","n":"á 😀"}'),'{\n  "t": "{{token}}",\n  "n": "á 😀"\n}');
+ assert.equal(prettyJson('{"id": {{id}} }'),null);assert.equal(prettyJson(''),null);assert.equal(prettyJson('{"a":'),null);
+ const ok=formatLoadedBody({body:{json:'[ 1 , 2 ]'}});assert.equal(ok.body.json,'[\n  1,\n  2\n]');
+ const bad=formatLoadedBody({body:{json:'{"a": {{x}}}'}});assert.equal(bad.body.json,'{"a": {{x}}}');
+ assert.deepEqual(formatLoadedBody({method:'GET'}),{method:'GET'});
 });
