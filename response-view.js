@@ -1,6 +1,6 @@
 /* Corpo da resposta do cliente de API: árvore JSON recolhível, XML/HTML com cores, texto bruto, preview (imagem, SVG, HTML isolado),
    busca dentro do corpo (Ctrl+F) e filtro por caminho (items[0].id). Só constrói nós DOM com textContent: nada do corpo vira HTML. */
-import {parseResponseBody} from './pipeline.js?v=1';
+import {parseResponseBody} from './pipeline.js?v=2';
 import {getPath} from './assertions.js?v=1';
 import {jwtButton} from './jwt.js?v=3';
 import {lang} from './i18n.js?v=1';

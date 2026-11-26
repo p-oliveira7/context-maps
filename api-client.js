@@ -1,13 +1,13 @@
 /* Cliente de API (estilo Postman/Bruno): painel à direita, coleções no formato Bruno, variáveis de ambiente e envio pelo servidor local. */
 import {t,lang} from './i18n.js?v=1';
 import {jwtButton} from './jwt.js?v=3';
-import {activeEntries,resolveVars,buildRaw,resolveRaw,buildRequest,toScriptReq,applyScriptReq,makeScope} from './pipeline.js?v=1';
+import {activeEntries,resolveVars,buildRaw,resolveRaw,buildRequest,toScriptReq,applyScriptReq,makeScope,prettyJson,formatLoadedBody} from './pipeline.js?v=2';
 import {runAssertions,evalValueExpression} from './assertions.js?v=1';
 import {runScript,sandboxSupported} from './sandbox.js?v=1';
 import {createVarFields} from './var-field.js?v=1';
 import {collectRequests,runSequence,reportJson,reportText} from './runner.js?v=1';
 import {createRunReport} from './run-report.js?v=1';
-import {createBodyView} from './response-view.js?v=5';
+import {createBodyView} from './response-view.js?v=6';
 import {parseCurl,toCurl,toFetch} from './curl.js?v=1';
 import {normalizeMocks,emptyMocks,effectiveMock,mockBadge,mockCounts,scenarioResponse,scenarioFromPreset,newScenarioId,statusText,PRESETS} from './mocks.js?v=1';
 export {resolveVars,buildRequest};
@@ -119,7 +119,7 @@ async function loadEnv(){
 /* ---------- abas de requests ----------
    state.request/reqPath/response/tab/respTab são os da aba ativa; cada aba guarda os seus em state.tabs. */
 const tabEntry=path=>state.tabs.find(x=>x.path===path);
-const newEntry=(path,request)=>({path,request:reconcileParams(request),dirty:false,response:state.coll?runResponses.get(runKey(state.coll.id,path))||null:null,tab:'body',respTab:'body',sending:false,abort:null});
+const newEntry=(path,request)=>({path,request:formatLoadedBody(reconcileParams(request)),dirty:false,response:state.coll?runResponses.get(runKey(state.coll.id,path))||null:null,tab:'body',respTab:'body',sending:false,abort:null});
 function stashActive(){const e=tabEntry(state.reqPath);if(e){e.request=state.request;e.response=state.response;e.tab=state.tab;e.respTab=state.respTab;}}
 function loadEntry(e){state.request=e.request;state.reqPath=e.path;state.response=e.response;state.tab=e.tab;state.respTab=e.respTab;state.sending=!!e.sending;state.abort=e.abort||null;}
 function clearActive(){state.request=null;state.reqPath='';state.response=null;state.sending=false;state.abort=null;}
@@ -570,7 +570,7 @@ function renderTab(){
   const mode=m.bodyMode||'none';
   box.replaceChildren(h('div',{class:'api-field-row'},sel));
   if(mode==='json'||mode==='text'||mode==='xml'){m.body||={};box.append(vf.varField(textArea(m.body[mode],v=>{m.body[mode]=v;changed();},mode==='json'?'{ "key": "value" }':'',{rows:12,grow:true})));
-   if(mode==='json')box.append(h('button',{type:'button',class:'api-btn',onClick:()=>{try{m.body.json=JSON.stringify(JSON.parse(resolveVars(m.body.json||'',new Map())),null,2);changed();renderTab();}catch{toast(t('apiInvalidJson'));}}},t('apiPrettify')));}
+   if(mode==='json')box.append(h('button',{type:'button',class:'api-btn',onClick:()=>{try{m.body.json=prettyJson(m.body.json)??JSON.stringify(JSON.parse(resolveVars(m.body.json||'',new Map())),null,2);changed();renderTab();}catch{toast(t('apiInvalidJson'));}}},t('apiPrettify')));}
   else if(mode==='formUrlEncoded'){m.formUrlEncoded||=[];box.append(kvTable(m.formUrlEncoded,{onChange:changed}));}
   else if(mode==='multipartForm')box.append(h('p',{class:'api-hint'},t('apiMultipartNote')));
  }else if(state.tab==='auth'){
@@ -767,7 +767,7 @@ async function refreshFromLink(){ // a cópia mudou: recarrega a árvore e as ab
  const id=state.coll.id,open=new Set(state.expanded);stashActive();
  for(const e of [...state.tabs]){
   if(e.dirty||e.sending)continue;
-  try{e.request=reconcileParams(await api('GET',`/collections/${id}/request?path=${encodeURIComponent(e.path)}`));}catch{dropTabs(e.path);}
+  try{e.request=formatLoadedBody(reconcileParams(await api('GET',`/collections/${id}/request?path=${encodeURIComponent(e.path)}`)));}catch{dropTabs(e.path);}
  }
  const active=tabEntry(state.reqPath);if(active)loadEntry(active);
  await loadCollections();await reloadTree();

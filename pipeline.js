@@ -12,6 +12,31 @@ export function resolveVars(text,vars){
   return vars.has(key)?vars.get(key):whole;
  });
 }
+/** JSON válido reindentado com 2 espaços, como no Postman e no Bruno; null quando não é JSON válido (ex.: {{var}} fora de aspas).
+    Reescreve só os espaços: números e textos ficam como estão (JSON.parse arredondaria inteiros grandes). */
+export function prettyJson(src){
+ const text=String(src??'');if(!text.trim())return null;
+ try{JSON.parse(text);}catch{return null;}
+ let out='',depth=0,inStr=false,esc=false;const nl=()=>'\n'+'  '.repeat(depth);
+ for(let i=0;i<text.length;i++){
+  const c=text[i];
+  if(inStr){out+=c;if(esc)esc=false;else if(c==='\\')esc=true;else if(c==='"')inStr=false;continue;}
+  if(c===' '||c==='\t'||c==='\n'||c==='\r')continue;
+  if(c==='"'){inStr=true;out+=c;continue;}
+  if(c==='{'||c==='['){let j=i+1;while(/\s/.test(text[j]||''))j++;if(text[j]===(c==='{'?'}':']')){out+=c+text[j];i=j;continue;}depth++;out+=c+nl();continue;}
+  if(c==='}'||c===']'){depth--;out+=nl()+c;continue;}
+  if(c===','){out+=','+nl();continue;}
+  if(c===':'){out+=': ';continue;}
+  out+=c;
+ }
+ return out;
+}
+/** request lida do disco: corpo JSON válido já aparece formatado (sem marcar a aba como alterada) */
+export function formatLoadedBody(model){
+ const body=model?.body;if(body?.json==null)return model;
+ const pretty=prettyJson(body.json);if(pretty!==null)body.json=pretty;
+ return model;
+}
 const escapeRe=s=>String(s).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
 const BODY_TYPES={json:'application/json',text:'text/plain',xml:'application/xml',formUrlEncoded:'application/x-www-form-urlencoded'};
 
