@@ -100,16 +100,22 @@ const refreshVars=()=>vf.refresh();
 async function loadCollections(){state.collections=await api('GET','/collections');}
 async function loadCollection(id){
  if(!id){state.coll=null;state.tabs=[];clearActive();return;}
- const detail=await api('GET',`/collections/${id}`);
- if(state.coll?.id!==id)state.runtime=new Map(); // variáveis de execução valem por coleção
+ const detail=await api('GET',`/collections/${id}`),same=state.coll?.id===id;
+ if(!same)state.runtime=new Map(); // variáveis de execução valem por coleção
  state.coll=detail;store.set('cm-api-coll',id);
  state.mocks=normalizeMocks(detail.mocks);state.mockMode=store.get(`cm-api-mockmode:${id}`)==='1';state.mocksDirty=false;state.mockSel={};
  const saved=store.get(`cm-api-env:${id}`);
  state.env=detail.environments.includes(saved)?saved:detail.environments[0]||null;
  state.envVars=new Map();
  if(state.env)await loadEnv();
- state.expanded=new Set([''].concat(detail.tree.filter(i=>i.type==='folder').map(i=>i.path)));
+ // pastas abertas: ao recarregar a mesma coleção (duplicar, renomear, mover...) ficam como estavam; ao abrir, voltam como foram deixadas
+ if(!same){
+  let open=null;try{open=JSON.parse(store.get(`cm-api-open:${id}`)||'null');}catch{}
+  state.expanded=Array.isArray(open)?new Set(['',...open]):topFolders(detail.tree);
+ }
 }
+const topFolders=tree=>new Set([''].concat(tree.filter(i=>i.type==='folder').map(i=>i.path)));
+function persistOpenFolders(){if(state.coll)store.set(`cm-api-open:${state.coll.id}`,JSON.stringify([...state.expanded].filter(p=>p&&findItem(state.coll.tree,p)?.type==='folder')));}
 async function loadEnv(){
  state.envVars=new Map();state.envMeta=new Map();
  if(!state.env){refreshVars();return;}
@@ -445,7 +451,7 @@ function renderTree(){
  head.addEventListener('dragover',e=>{head.classList.toggle('drop-into',!!toRoot(e));if(!toRoot(e))return;e.preventDefault();e.dataTransfer.dropEffect=copyKey(e)?'copy':'move';});
  head.addEventListener('dragleave',()=>head.classList.remove('drop-into'));
  head.addEventListener('drop',e=>{if(!toRoot(e))return;e.preventDefault();const item=dragged;clearDropMarks();transferItem(srcOf(item),{collection:state.coll.id,parent:''},copyKey(e)?'copy':'move');});
- els.tree.replaceChildren(head,...treeRows(state.coll.tree,0,q));
+ els.tree.replaceChildren(head,...treeRows(state.coll.tree,0,q));persistOpenFolders();
  if(!state.coll.tree.length)els.tree.append(h('li',{class:'api-empty-small',role:'presentation'},t('apiEmptyCollection')));
 }
 async function newItem(type,parent=''){
@@ -1575,7 +1581,7 @@ export async function openApiPanel({collection,path,focus=false}={}){
   if(focus&&path&&state.coll){
    item=findItem(state.coll.tree,path);
    if(item){state.expanded=new Set(['']);let p=parentOf(path);while(p){state.expanded.add(p);p=parentOf(p);}if(item.type==='folder')state.expanded.add(path);}
-  }
+  }else if(focus&&!path&&state.coll)state.expanded=topFolders(state.coll.tree); // card da coleção inteira: as pastas do primeiro nível
   renderAll();
   if(focus&&item?.type==='request')await openRequest(path);
   if(focus&&state.coll&&(item||!path))flashRow(path||'');
