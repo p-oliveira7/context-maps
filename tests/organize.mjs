@@ -191,6 +191,9 @@ try{
  assert.deepEqual(await openState(),want);
  await menu('Flags by id','Copy');await menu('Nested','Paste “Flags by id”');
  await until(()=>treeOf('big'),[{Flags:['Flags get',{Nested:['Flags by id']},'Flags by id']},{Orders:['Orders get']},{People:['People get']}]);
+ // o colar termina na página (árvore redesenhada e a cópia aberta numa aba) antes de trocar de coleção
+ await until(()=>row('Flags by id').count(),2);await page.locator('.api-tab.is-active',{hasText:'Flags by id'}).waitFor();
+ await page.locator('.api-tab-dirty').waitFor({state:'detached'});
  assert.deepEqual(await openState(),want);
  // trocar de coleção e voltar, ou recarregar a página: continua como estava
  await page.locator('.api-select').first().selectOption('other');await row('Inbox').waitFor();
