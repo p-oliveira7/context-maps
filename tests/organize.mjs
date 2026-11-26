@@ -173,10 +173,39 @@ try{
  await page.locator('.api-url').focus();await page.keyboard.press('Control+s'); // grava a edição pendente (a cópia aceita edições do app)
  await until(async()=>(await call('GET','/collections/linked/request?path=ping.bru')).url,'https://example.test/ping/mine');
  await page.locator('.api-tab-dirty').waitFor({state:'detached'});
+
+ // ORG-10: duplicar, renomear, copiar e colar não reabrem nem fecham pastas; as pastas abertas voltam como estavam ao reabrir a coleção
+ await call('POST','/collections',{name:'Big'});
+ for(const f of ['Flags','Orders','People']){const made=await item('big','folder','',f);await item('big','request',made.path,`${f} get`,'https://example.test/x');}
+ await item('big','folder','flags','Nested');
+ const openState=()=>page.$$eval('.api-row[aria-expanded]',els=>Object.fromEntries(els.map(e=>[e.dataset.path,e.getAttribute('aria-expanded')])));
+ await page.reload();await page.locator('#api-btn').click();await page.locator('.api-collection-row').waitFor(); // a lista de coleções passa a ter a nova
+ await page.locator('.api-select').first().selectOption('big');await row('Orders').waitFor();
+ assert.deepEqual(await openState(),{flags:'true','flags/nested':'false',orders:'true',people:'true'}); // primeira vez: as do primeiro nível abertas
+ await row('Orders').locator('.api-row-main').click();await row('People').locator('.api-row-main').click();await row('Nested').locator('.api-row-main').click();
+ const want={flags:'true','flags/nested':'true',orders:'false',people:'false'};
+ assert.deepEqual(await openState(),want);
+ await menu('Flags get','Duplicate');await row('Flags get \\(copy\\)').waitFor();
+ assert.deepEqual(await openState(),want);
+ page.once('dialog',d=>d.accept('Flags by id'));await menu('Flags get \\(copy\\)','Rename');await row('Flags by id').waitFor();
+ assert.deepEqual(await openState(),want);
+ await menu('Flags by id','Copy');await menu('Nested','Paste “Flags by id”');
+ await until(()=>treeOf('big'),[{Flags:['Flags get',{Nested:['Flags by id']},'Flags by id']},{Orders:['Orders get']},{People:['People get']}]);
+ // o colar termina na página (árvore redesenhada e a cópia aberta numa aba) antes de trocar de coleção
+ await until(()=>row('Flags by id').count(),2);await page.locator('.api-tab.is-active',{hasText:'Flags by id'}).waitFor();
+ await page.locator('.api-tab-dirty').waitFor({state:'detached'});
+ assert.deepEqual(await openState(),want);
+ // trocar de coleção e voltar, ou recarregar a página: continua como estava
+ await page.locator('.api-select').first().selectOption('other');await row('Inbox').waitFor();
+ await page.locator('.api-select').first().selectOption('big');await row('Orders').waitFor();
+ assert.deepEqual(await openState(),want);
+ await page.reload();await page.locator('#api-btn').click();await page.locator('.api-select').first().selectOption('big');await row('Orders').waitFor();
+ assert.deepEqual(await openState(),want);
+
  await page.locator('.api-select').first().selectOption('other');await row('Inbox').waitFor();
  await drag(row('Inbox').locator('.api-row-main'),row('Archive'),{x:40,y:(await row('Archive').boundingBox()).height/2});
  assert.deepEqual(await treeOf('other'),[{Inbox:['Health',{Archive:['List','Create']},'List']}]);
 
  assert.deepEqual(errors,[]);
- console.log('PASS ORG-01..09 organize the request tree (duplicate, copy, cut, paste, move, drag) and collections linked to a Bruno folder');
+ console.log('PASS ORG-01..10 organize the request tree (duplicate, copy, cut, paste, move, drag, open folders kept) and collections linked to a Bruno folder');
 }finally{await browser.close();server.kill();await rm(work,{recursive:true,force:true});}
